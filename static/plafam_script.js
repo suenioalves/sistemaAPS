@@ -1,8 +1,8 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const teamTabsContainer = document.getElementById('team-tabs-container');
     const tabelaPacientesBody = document.getElementById('tabela-pacientes-body');
     const paginationContainer = document.getElementById('pagination-container');
-    
+
     // Botões de rolagem
     const scrollLeftBtn = document.getElementById('scroll-left-btn');
     const scrollRightBtn = document.getElementById('scroll-right-btn');
@@ -30,9 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.scrollBy({ left: 200, behavior: 'smooth' });
             });
             container.addEventListener('scroll', checkScrollButtons);
-            // Verifica o estado inicial
             checkScrollButtons();
-            // Verifica novamente após um pequeno atraso para garantir que o layout foi renderizado
             setTimeout(checkScrollButtons, 500);
         }
     }
@@ -63,10 +61,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     });
 
-                    // Configura os botões de rolagem após as abas serem criadas
                     setupScrollButtons();
                 } else {
-                     console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
+                    console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
                 }
             })
             .catch(error => console.error('Erro de rede ao buscar equipes:', error));
@@ -86,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function fetchPacientes(equipe, page) {
         tabelaPacientesBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>';
-        
+
         fetch(`/api/pacientes_plafam?equipe=${equipe}&page=${page}`)
             .then(response => response.json())
             .then(data => {
@@ -127,6 +124,45 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    function createPaginationLogic(currentPage, totalPages) {
+        let pages = [];
+        const maxPagesToShow = 5; // Total de números de página a exibir (excluindo '...')
+        const halfPages = Math.floor(maxPagesToShow / 2);
+
+        if (totalPages <= maxPagesToShow + 2) { // Mostra todos os números se forem poucos
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            pages.push(1); // Sempre mostra a primeira página
+
+            let startPage = Math.max(2, currentPage - halfPages);
+            let endPage = Math.min(totalPages - 1, currentPage + halfPages);
+
+            if (currentPage - halfPages <= 2) {
+                endPage = maxPagesToShow;
+            }
+            if (currentPage + halfPages >= totalPages - 1) {
+                startPage = totalPages - maxPagesToShow + 1;
+            }
+
+            if (startPage > 2) {
+                pages.push('...');
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                pages.push(i);
+            }
+
+            if (endPage < totalPages - 1) {
+                pages.push('...');
+            }
+
+            pages.push(totalPages); // Sempre mostra a última página
+        }
+        return pages;
+    }
+
     function renderPagination(total, page, limit, pages) {
         if (!total || pages <= 1) {
             paginationContainer.innerHTML = '';
@@ -135,19 +171,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const start = (page - 1) * limit + 1;
         const end = Math.min(page * limit, total);
-        
+
         let paginationHtml = `
             <div class="text-sm text-gray-700">
                 Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${total}</span> resultados
             </div>
             <div class="flex items-center space-x-1">
         `;
-        
+
         paginationHtml += `<button class="pagination-button ${page === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${page === 1 ? 'disabled' : ''} data-page="${page - 1}"><i class="ri-arrow-left-s-line"></i></button>`;
 
-        for (let i = 1; i <= pages; i++) {
-            paginationHtml += `<button class="pagination-button ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
-        }
+        const pagesToShow = createPaginationLogic(page, pages);
+
+        pagesToShow.forEach(p => {
+            if (p === '...') {
+                paginationHtml += `<span class="pagination-button">...</span>`;
+            } else {
+                paginationHtml += `<button class="pagination-button ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`;
+            }
+        });
 
         paginationHtml += `<button class="pagination-button ${page === pages ? 'opacity-50 cursor-not-allowed' : ''}" ${page === pages ? 'disabled' : ''} data-page="${page + 1}"><i class="ri-arrow-right-s-line"></i></button>`;
 
@@ -155,19 +197,20 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationContainer.innerHTML = paginationHtml;
 
         document.querySelectorAll('.pagination-button').forEach(button => {
-            button.addEventListener('click', () => {
-                const newPage = parseInt(button.dataset.page);
-                if (newPage && newPage !== currentPage && !button.disabled) {
-                    currentPage = newPage;
-                    fetchPacientes(activeTeam, currentPage);
-                }
-            });
+            if (button.dataset.page) {
+                button.addEventListener('click', () => {
+                    const newPage = parseInt(button.dataset.page);
+                    if (newPage && newPage !== currentPage && !button.disabled) {
+                        currentPage = newPage;
+                        fetchPacientes(activeTeam, currentPage);
+                    }
+                });
+            }
         });
     }
 
     fetchEquipes();
     fetchPacientes(activeTeam, currentPage);
 
-    // Adiciona um listener para redimensionamento da janela, para reavaliar as setas
     window.addEventListener('resize', checkScrollButtons);
 });
