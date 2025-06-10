@@ -47,7 +47,7 @@ def api_pacientes_plafam():
         query_params = {'limit': limit, 'offset': offset}
         count_params = {}
 
-        # Query base com o nome da coluna CORRIGIDO para "microarea"
+        # Query final usando os nomes corretos da sua view atualizada
         base_query = """
         SELECT
             nome_paciente,
@@ -55,7 +55,10 @@ def api_pacientes_plafam():
             idade_calculada,
             microarea,
             metodo,
-            nome_equipe
+            nome_equipe,
+            data_aplicacao,
+            status_gravidez,
+            data_provavel_parto
         FROM
             sistemaaps.mv_plafam
         """
@@ -77,9 +80,38 @@ def api_pacientes_plafam():
         cur.execute(base_query, query_params)
         dados = cur.fetchall()
 
-        # Corrigido aqui também para corresponder ao novo nome da coluna
-        colunas = [desc[0].replace('microarea', 'micro_area') for desc in cur.description]
-        resultados = [dict(zip(colunas, linha)) for linha in dados]
+        # Renomeia 'status_gravidez' para 'gestante' para o frontend
+        # e 'microarea' para 'micro_area'
+        colunas_db = [desc[0] for desc in cur.description]
+        colunas_frontend = []
+        for col in colunas_db:
+            if col == 'microarea':
+                colunas_frontend.append('micro_area')
+            elif col == 'status_gravidez':
+                colunas_frontend.append('gestante')
+            else:
+                colunas_frontend.append(col)
+
+        resultados = []
+        for linha in dados:
+            linha_dict = dict(zip(colunas_frontend, linha))
+            
+            # Formata os objetos 'date' para strings antes de enviar como JSON
+            if linha_dict.get('data_aplicacao') and isinstance(linha_dict['data_aplicacao'], date):
+                # Formato YYYY-MM-DD é o melhor para o construtor 'new Date()' do JavaScript
+                linha_dict['data_aplicacao'] = linha_dict['data_aplicacao'].strftime('%Y-%m-%d')
+            
+            if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
+                # Formato DD/MM/YYYY para exibição direta
+                linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            
+            # Converte a string 'Grávida' para um booleano para o JavaScript
+            if linha_dict.get('gestante') == 'Grávida':
+                linha_dict['gestante'] = True
+            else:
+                linha_dict['gestante'] = False
+
+            resultados.append(linha_dict)
 
         return jsonify({
             'pacientes': resultados,

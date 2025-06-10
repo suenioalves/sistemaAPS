@@ -3,14 +3,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const tabelaPacientesBody = document.getElementById('tabela-pacientes-body');
     const paginationContainer = document.getElementById('pagination-container');
 
-    // Botões de rolagem
     const scrollLeftBtn = document.getElementById('scroll-left-btn');
     const scrollRightBtn = document.getElementById('scroll-right-btn');
 
     let activeTeam = 'Todas';
     let currentPage = 1;
 
-    // Função para controlar a visibilidade das setas de rolagem
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
         if (container) {
@@ -23,12 +21,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function setupScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
         if (container) {
-            scrollLeftBtn.addEventListener('click', () => {
-                container.scrollBy({ left: -200, behavior: 'smooth' });
-            });
-            scrollRightBtn.addEventListener('click', () => {
-                container.scrollBy({ left: 200, behavior: 'smooth' });
-            });
+            scrollLeftBtn.addEventListener('click', () => { container.scrollBy({ left: -200, behavior: 'smooth' }); });
+            scrollRightBtn.addEventListener('click', () => { container.scrollBy({ left: 200, behavior: 'smooth' }); });
             container.addEventListener('scroll', checkScrollButtons);
             checkScrollButtons();
             setTimeout(checkScrollButtons, 500);
@@ -51,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     `;
                     teamTabsContainer.innerHTML = tabsHtml;
                     setActiveTab('Todas');
-
                     document.querySelectorAll('.team-tab').forEach(tab => {
                         tab.addEventListener('click', () => {
                             activeTeam = tab.dataset.equipe;
@@ -60,7 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
                             setActiveTab(activeTeam);
                         });
                     });
-
                     setupScrollButtons();
                 } else {
                     console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
@@ -81,6 +73,47 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function getStatusContent(paciente) {
+        if (paciente.gestante) {
+            return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
+        }
+
+        if (!paciente.data_aplicacao) return '';
+
+        const dataAplicacao = new Date(paciente.data_aplicacao);
+        const hoje = new Date();
+        // Adiciona 1 dia para incluir o dia da aplicação no cálculo
+        const diffTime = hoje - dataAplicacao;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let limiteDias = Infinity; // Padrão para métodos de longa duração
+        const metodoLower = (paciente.metodo || '').toLowerCase();
+
+        if (metodoLower.includes('pílula') || metodoLower.includes('aco') || metodoLower.includes('mensal')) {
+            limiteDias = 30;
+        } else if (metodoLower.includes('trimestral')) {
+            limiteDias = 90;
+        }
+
+        const dataFormatada = new Date(dataAplicacao.getTime() + dataAplicacao.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
+
+        if (diffDays <= limiteDias) {
+            return `<div>${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+        } else {
+            return `<div>${dataFormatada}</div><span class="status-badge status-badge-late mt-1">(atrasado)</span>`;
+        }
+    }
+
+    function getMetodoContent(paciente) {
+        if (paciente.gestante) {
+            return `<span class="status-badge status-badge-pregnant">GESTANTE</span>`;
+        }
+        if (!paciente.metodo) {
+            return `<span class="status-badge status-badge-no-method">Nenhum método registrado</span>`;
+        }
+        return `<span class="method-badge">${paciente.metodo}</span>`;
+    }
+
     function fetchPacientes(equipe, page) {
         tabelaPacientesBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>';
 
@@ -91,6 +124,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.pacientes && data.pacientes.length > 0) {
                     data.pacientes.forEach(paciente => {
                         const row = document.createElement('tr');
+                        row.classList.add('table-row', 'border-b', 'border-gray-200');
+
                         row.innerHTML = `
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
@@ -105,9 +140,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="text-sm text-gray-900">${paciente.idade_calculada !== null ? paciente.idade_calculada + ' anos' : ''}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="method-badge">${paciente.metodo || ''}</span>
+                                ${getMetodoContent(paciente)}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap"></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${getStatusContent(paciente)}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap"></td>
                             <td class="px-6 py-4 whitespace-nowrap"></td>
                         `;
@@ -126,15 +163,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function createPaginationLogic(currentPage, totalPages) {
         let pages = [];
-        const maxPagesToShow = 5; // Total de números de página a exibir (excluindo '...')
+        const maxPagesToShow = 5;
         const halfPages = Math.floor(maxPagesToShow / 2);
 
-        if (totalPages <= maxPagesToShow + 2) { // Mostra todos os números se forem poucos
+        if (totalPages <= maxPagesToShow + 2) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
-            pages.push(1); // Sempre mostra a primeira página
+            pages.push(1);
 
             let startPage = Math.max(2, currentPage - halfPages);
             let endPage = Math.min(totalPages - 1, currentPage + halfPages);
@@ -158,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 pages.push('...');
             }
 
-            pages.push(totalPages); // Sempre mostra a última página
+            pages.push(totalPages);
         }
         return pages;
     }
