@@ -1,25 +1,30 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const { jsPDF } = window.jspdf;
 
+    // --- Seletores de Elementos ---
     const teamTabsContainer = document.getElementById('team-tabs-container');
     const tabelaPacientesBody = document.getElementById('tabela-pacientes-body');
     const paginationContainer = document.getElementById('pagination-container');
     const scrollLeftBtn = document.getElementById('scroll-left-btn');
     const scrollRightBtn = document.getElementById('scroll-right-btn');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
-
-    // --- Elementos da Barra de Ferramentas ---
     const searchInput = document.getElementById('search-input');
     const filterBtn = document.getElementById('filter-btn');
-    const sortBtn = document.getElementById('sort-btn');
-    const exportBtn = document.getElementById('export-btn');
     const printInvitesBtn = document.getElementById('print-invites-btn');
     const printInvitesText = document.getElementById('print-invites-text');
 
+    // --- Elementos do Menu de Filtro ---
+    const filterMenuContainer = document.getElementById('filter-menu-container');
+    const filterDropdown = document.getElementById('filter-dropdown');
+    const applyFiltersBtn = document.getElementById('apply-filters-btn');
+    const clearFiltersBtn = document.getElementById('clear-filters-btn');
+
+    // --- Variáveis de Estado ---
     let activeTeam = 'Todas';
     let currentPage = 1;
     let allPacientes = [];
     let currentSearchTerm = '';
+    let activeFilters = {};
 
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
@@ -63,13 +68,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             currentPage = 1;
                             currentSearchTerm = '';
                             searchInput.value = '';
-                            fetchPacientes(activeTeam, currentPage, currentSearchTerm);
+                            clearAllFilters();
+                            fetchPacientes();
                             setActiveTab(activeTeam);
                         });
                     });
                     setupScrollButtons();
                 } else {
-                     console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
+                    console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
                 }
             })
             .catch(error => console.error('Erro de rede ao buscar equipes:', error));
@@ -85,33 +91,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 tab.classList.add('text-gray-500', 'border-transparent', 'hover:border-gray-300');
             }
         });
-        const teamText = equipeName === 'Todas' ? 'Todas' : equipeName;
-        if(printInvitesText) {
-             printInvitesText.textContent = `Imprimir Convites (${teamText})`;
+        const teamText = equipeName === 'Todas' ? 'Todas as Equipes' : equipeName;
+        if (printInvitesText) {
+            printInvitesText.textContent = `Imprimir Convites - ${teamText}`;
         }
     }
-    
+
     function getAcompanhamentoStatus(paciente) {
-        if (paciente.gestante || !paciente.data_aplicacao) return 'na';
+        if (paciente.gestante) return 'gestante';
+        if (!paciente.metodo) return 'sem_metodo';
+        if (!paciente.data_aplicacao) return 'em_dia';
+
         const dataAplicacao = new Date(paciente.data_aplicacao);
         const hoje = new Date();
         const diffTime = hoje - dataAplicacao;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         let limiteDias = Infinity;
-        const metodoLower = (paciente.metodo || '').toLowerCase();
-        if (metodoLower.includes('pílula') || metodoLower.includes('aco') || metodoLower.includes('mensal')) {
+        const metodoLower = paciente.metodo.toLowerCase();
+
+        if (metodoLower.includes('pílula') || metodoLower.includes('mensal')) {
             limiteDias = 30;
         } else if (metodoLower.includes('trimestral')) {
             limiteDias = 90;
         }
         return (diffDays <= limiteDias) ? 'em dia' : 'atrasado';
     }
-    
+
     function getStatusContent(paciente, status) {
         if (paciente.gestante) {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
         }
-        if (status === 'na') return '';
+        if (status === 'na' || status === 'sem_metodo') return '';
         const dataFormatada = new Date(paciente.data_aplicacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
         if (status === 'em dia') {
             return `<div>${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
@@ -125,41 +135,50 @@ document.addEventListener('DOMContentLoaded', function() {
             return `<span class="status-badge status-badge-pregnant">GESTANTE</span>`;
         }
         if (!paciente.metodo) {
-            return `<span class="status-badge status-badge-no-method">Nenhum método registrado</span>`;
+            return `<span class="status-badge status-badge-no-method">Nenhum método</span>`;
         }
         return `<span class="method-badge">${paciente.metodo}</span>`;
     }
-    
+
     function getImprimirCellContent(paciente, status) {
-        const semMetodo = !paciente.metodo;
         const isAtrasado = status === 'atrasado';
+        const semMetodo = status === 'sem_metodo';
         if (!paciente.gestante && (semMetodo || isAtrasado)) {
             return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${paciente.cartao_sus}">`;
         }
         return '';
     }
 
-    function fetchPacientes(equipe, page, search = '') {
+    function fetchPacientes() {
         tabelaPacientesBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando...</td></tr>`;
-        
-        let apiUrl = `/api/pacientes_plafam?equipe=${equipe}&page=${page}`;
-        if (search) {
-            apiUrl += `&search=${encodeURIComponent(search)}`;
+
+        const params = new URLSearchParams({
+            equipe: activeTeam,
+            page: currentPage,
+        });
+
+        if (currentSearchTerm) {
+            params.append('search', currentSearchTerm);
         }
 
-        fetch(apiUrl)
+        for (const key in activeFilters) {
+            activeFilters[key].forEach(value => {
+                params.append(key, value);
+            });
+        }
+
+        fetch(`/api/pacientes_plafam?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
-                if(selectAllCheckbox) { selectAllCheckbox.checked = false; }
+                if (selectAllCheckbox) { selectAllCheckbox.checked = false; }
                 tabelaPacientesBody.innerHTML = '';
                 allPacientes = data.pacientes || [];
 
                 if (allPacientes.length > 0) {
                     allPacientes.forEach(paciente => {
                         const row = document.createElement('tr');
-                        row.classList.add('table-row');
+                        row.classList.add('table-row', 'cursor-pointer');
                         const statusAcompanhamento = getAcompanhamentoStatus(paciente);
-                        // AQUI ESTÁ A MODIFICAÇÃO
                         row.innerHTML = `
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
@@ -170,20 +189,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">${paciente.idade_calculada !== null ? paciente.idade_calculada + ' anos' : ''}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                ${getMetodoContent(paciente)}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                ${getStatusContent(paciente, statusAcompanhamento)}
-                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">${paciente.idade_calculada} anos</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${getMetodoContent(paciente)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${getStatusContent(paciente, statusAcompanhamento)}</td>
                             <td class="px-6 py-4 whitespace-nowrap"></td>
                             <td class="px-6 py-4 whitespace-nowrap"></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center">
-                                ${getImprimirCellContent(paciente, statusAcompanhamento)}
-                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">${getImprimirCellContent(paciente, statusAcompanhamento)}</td>
                         `;
                         tabelaPacientesBody.appendChild(row);
                     });
@@ -200,14 +211,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function createPaginationLogic(currentPage, totalPages) {
         let pages = [];
-        const maxPagesToShow = 5; 
+        const maxPagesToShow = 5;
         const halfPages = Math.floor(maxPagesToShow / 2);
-        if (totalPages <= maxPagesToShow + 2) { 
+        if (totalPages <= maxPagesToShow + 2) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
-            pages.push(1); 
+            pages.push(1);
             let startPage = Math.max(2, currentPage - halfPages);
             let endPage = Math.min(totalPages - 1, currentPage + halfPages);
             if (currentPage - halfPages <= 2) {
@@ -261,14 +272,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     const newPage = parseInt(button.dataset.page);
                     if (newPage && newPage !== currentPage && !button.disabled) {
                         currentPage = newPage;
-                        fetchPacientes(activeTeam, currentPage, currentSearchTerm);
+                        fetchPacientes();
                     }
                 });
             }
         });
     }
-    
+
     function generatePDF(pacientesSelecionados) {
+        console.log("Iniciando geração de PDF para", pacientesSelecionados.length, "paciente(s).");
         const doc = new jsPDF('l', 'mm', 'a4');
         const convitesPorPagina = 3;
         const pageHeight = 210;
@@ -303,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
             doc.setTextColor('#1D70B8');
             const tituloConvite = statusAcompanhamento === 'atrasado' ? "Lembrete Importante" : "Planejamento Familiar - Convite";
             doc.text(tituloConvite, xStart + conviteWidth / 2, currentY, { align: 'center' });
-            
+
             currentY += 10;
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
@@ -323,11 +335,11 @@ document.addEventListener('DOMContentLoaded', function() {
             currentY += 5;
             doc.setDrawColor(220, 220, 220);
             doc.line(xStart + 5, currentY, xStart + conviteWidth - 5, currentY);
-            
+
             currentY += 8;
             doc.setFontSize(10);
             doc.setTextColor('#333333');
-            
+
             if (statusAcompanhamento === 'atrasado') {
                 doc.setFont("helvetica", "normal");
                 let textoAtrasado = "Esperamos que esteja bem. ";
@@ -367,8 +379,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(11);
                     doc.setTextColor('#333333');
-                    doc.text(metodo.title, xStart + 18, currentY); 
-                    
+                    doc.text(metodo.title, xStart + 18, currentY);
+
                     currentY += 5;
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(9);
@@ -392,9 +404,26 @@ document.addEventListener('DOMContentLoaded', function() {
         doc.output('dataurlnewwindow');
     }
 
+    // --- CORREÇÃO 2: Função de limpar filtros ---
+    function clearAllFilters() {
+        document.querySelectorAll('#filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = false);
+        activeFilters = {};
+    }
+
     // --- Event Listeners ---
-    
-    tabelaPacientesBody.addEventListener('change', function(event) {
+
+    tabelaPacientesBody.addEventListener('click', function (event) {
+        const row = event.target.closest('tr');
+        if (!row) return;
+
+        const checkbox = row.querySelector('.print-checkbox');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+    });
+
+    tabelaPacientesBody.addEventListener('change', function (event) {
         if (event.target.classList.contains('print-checkbox')) {
             const row = event.target.closest('tr');
             row.classList.toggle('row-selected', event.target.checked);
@@ -402,12 +431,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function(event) {
+        selectAllCheckbox.addEventListener('change', function (event) {
             const isChecked = event.target.checked;
             document.querySelectorAll('.print-checkbox').forEach(checkbox => {
                 checkbox.checked = isChecked;
-                const row = checkbox.closest('tr');
-                row.classList.toggle('row-selected', isChecked);
+                checkbox.dispatchEvent(new Event('change'));
             });
         });
     }
@@ -417,15 +445,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
             selectedIds.push(checkbox.dataset.cns);
         });
-        
+
         if (selectedIds.length === 0) {
             alert("Por favor, selecione pelo menos um paciente para imprimir o convite.");
             return;
         }
 
         const pacientesParaImprimir = allPacientes.filter(p => selectedIds.includes(p.cartao_sus));
-        
-        generatePDF(pacientesParaImprimir);
+
+        if (pacientesParaImprimir.length > 0) {
+            generatePDF(pacientesParaImprimir);
+        } else {
+            console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
+            alert("Ocorreu um erro ao encontrar os dados dos pacientes selecionados. Tente novamente.");
+        }
     });
 
     searchInput.addEventListener('input', (event) => {
@@ -439,12 +472,44 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.key === 'Enter') {
             currentPage = 1;
             currentSearchTerm = event.target.value;
-            fetchPacientes(activeTeam, currentPage, currentSearchTerm);
+            fetchPacientes();
         }
     });
 
-    fetchEquipes();
-    fetchPacientes(activeTeam, currentPage, currentSearchTerm);
+    filterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterDropdown.classList.toggle('hidden');
+    });
 
-    window.addEventListener('resize', checkScrollButtons);
+    applyFiltersBtn.addEventListener('click', () => {
+        activeFilters = {};
+        document.querySelectorAll('#filter-dropdown input[type="checkbox"]:checked').forEach(cb => {
+            const name = cb.name;
+            const value = cb.value;
+            if (!activeFilters[name]) {
+                activeFilters[name] = [];
+            }
+            activeFilters[name].push(value);
+        });
+        currentPage = 1;
+        fetchPacientes();
+        filterDropdown.classList.add('hidden');
+    });
+
+    clearFiltersBtn.addEventListener('click', () => {
+        clearAllFilters();
+        currentPage = 1;
+        fetchPacientes();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!filterMenuContainer.contains(e.target)) {
+            filterDropdown.classList.add('hidden');
+        }
+    });
+
+    // --- Inicialização ---
+    fetchEquipes();
+    fetchPacientes();
+
 });
