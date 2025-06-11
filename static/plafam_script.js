@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     const { jsPDF } = window.jspdf;
 
     const teamTabsContainer = document.getElementById('team-tabs-container');
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let activeTeam = 'Todas';
     let currentPage = 1;
     let allPacientes = [];
+    let currentSearchTerm = '';
 
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
@@ -60,13 +61,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         tab.addEventListener('click', () => {
                             activeTeam = tab.dataset.equipe;
                             currentPage = 1;
-                            fetchPacientes(activeTeam, currentPage);
+                            currentSearchTerm = '';
+                            searchInput.value = '';
+                            fetchPacientes(activeTeam, currentPage, currentSearchTerm);
                             setActiveTab(activeTeam);
                         });
                     });
                     setupScrollButtons();
                 } else {
-                    console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
+                     console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
                 }
             })
             .catch(error => console.error('Erro de rede ao buscar equipes:', error));
@@ -83,11 +86,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         const teamText = equipeName === 'Todas' ? 'Todas' : equipeName;
-        if (printInvitesText) {
-            printInvitesText.textContent = `Imprimir Convites (${teamText})`;
+        if(printInvitesText) {
+             printInvitesText.textContent = `Imprimir Convites (${teamText})`;
         }
     }
-
+    
     function getAcompanhamentoStatus(paciente) {
         if (paciente.gestante || !paciente.data_aplicacao) return 'na';
         const dataAplicacao = new Date(paciente.data_aplicacao);
@@ -103,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return (diffDays <= limiteDias) ? 'em dia' : 'atrasado';
     }
-
+    
     function getStatusContent(paciente, status) {
         if (paciente.gestante) {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
@@ -126,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return `<span class="method-badge">${paciente.metodo}</span>`;
     }
-
+    
     function getImprimirCellContent(paciente, status) {
         const semMetodo = !paciente.metodo;
         const isAtrasado = status === 'atrasado';
@@ -136,13 +139,18 @@ document.addEventListener('DOMContentLoaded', function () {
         return '';
     }
 
-    function fetchPacientes(equipe, page) {
+    function fetchPacientes(equipe, page, search = '') {
         tabelaPacientesBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando...</td></tr>`;
+        
+        let apiUrl = `/api/pacientes_plafam?equipe=${equipe}&page=${page}`;
+        if (search) {
+            apiUrl += `&search=${encodeURIComponent(search)}`;
+        }
 
-        fetch(`/api/pacientes_plafam?equipe=${equipe}&page=${page}`)
+        fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
-                if (selectAllCheckbox) { selectAllCheckbox.checked = false; }
+                if(selectAllCheckbox) { selectAllCheckbox.checked = false; }
                 tabelaPacientesBody.innerHTML = '';
                 allPacientes = data.pacientes || [];
 
@@ -151,13 +159,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         const row = document.createElement('tr');
                         row.classList.add('table-row');
                         const statusAcompanhamento = getAcompanhamentoStatus(paciente);
+                        // AQUI ESTÁ A MODIFICAÇÃO
                         row.innerHTML = `
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || ''}</div>
                                         <div class="text-xs text-gray-500">Cartão SUS: ${paciente.cartao_sus || ''}</div>
-                                        <div class="text-xs text-gray-500">micro-área: ${paciente.micro_area || ''}</div>
+                                        <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || ''} - Area: ${paciente.micro_area || ''}</div>
                                     </div>
                                 </div>
                             </td>
@@ -179,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         tabelaPacientesBody.appendChild(row);
                     });
                 } else {
-                    tabelaPacientesBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`;
+                    tabelaPacientesBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-gray-500">Nenhum resultado encontrado.</td></tr>`;
                 }
                 renderPagination(data.total, data.page, data.limit, data.pages);
             })
@@ -191,14 +200,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function createPaginationLogic(currentPage, totalPages) {
         let pages = [];
-        const maxPagesToShow = 5;
+        const maxPagesToShow = 5; 
         const halfPages = Math.floor(maxPagesToShow / 2);
-        if (totalPages <= maxPagesToShow + 2) {
+        if (totalPages <= maxPagesToShow + 2) { 
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
-            pages.push(1);
+            pages.push(1); 
             let startPage = Math.max(2, currentPage - halfPages);
             let endPage = Math.min(totalPages - 1, currentPage + halfPages);
             if (currentPage - halfPages <= 2) {
@@ -252,16 +261,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     const newPage = parseInt(button.dataset.page);
                     if (newPage && newPage !== currentPage && !button.disabled) {
                         currentPage = newPage;
-                        fetchPacientes(activeTeam, currentPage);
+                        fetchPacientes(activeTeam, currentPage, currentSearchTerm);
                     }
                 });
             }
         });
     }
-
-    /**
-     * Gera o PDF com os convites dos pacientes selecionados.
-     */
+    
     function generatePDF(pacientesSelecionados) {
         const doc = new jsPDF('l', 'mm', 'a4');
         const convitesPorPagina = 3;
@@ -297,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
             doc.setTextColor('#1D70B8');
             const tituloConvite = statusAcompanhamento === 'atrasado' ? "Lembrete Importante" : "Planejamento Familiar - Convite";
             doc.text(tituloConvite, xStart + conviteWidth / 2, currentY, { align: 'center' });
-
+            
             currentY += 10;
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
@@ -317,14 +323,12 @@ document.addEventListener('DOMContentLoaded', function () {
             currentY += 5;
             doc.setDrawColor(220, 220, 220);
             doc.line(xStart + 5, currentY, xStart + conviteWidth - 5, currentY);
-
+            
             currentY += 8;
             doc.setFontSize(10);
             doc.setTextColor('#333333');
-
-            // --- CONTEÚDO CONDICIONAL DO CONVITE ---
+            
             if (statusAcompanhamento === 'atrasado') {
-                // --- MODELO DE CONVITE PARA MÉTODO ATRASADO ---
                 doc.setFont("helvetica", "normal");
                 let textoAtrasado = "Esperamos que esteja bem. ";
                 doc.text(textoAtrasado, xStart + 10, currentY);
@@ -347,11 +351,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 doc.text(splitTexto, xStart + 10, currentY);
 
             } else {
-                // --- MODELO DE CONVITE PADRÃO (SEM MÉTODO) ---
                 const textoConvite = "É com grande satisfação que convidamos você a participar do nosso programa de Planejamento Familiar na Unidade Básica de Saúde (UBS). Nosso objetivo é fornecer informações essenciais sobre métodos que possa evitar uma gravidez não planejada e promover a saúde reprodutiva das mulheres em nossa comunidade.";
                 const splitTexto = doc.splitTextToSize(textoConvite, conviteWidth - 20);
                 doc.text(splitTexto, xStart + 10, currentY);
-                currentY += (splitTexto.length * 4.5) + 8; // Mais espaço antes da lista
+                currentY += (splitTexto.length * 4.5) + 8;
 
                 metodos.forEach(metodo => {
                     doc.setFillColor('#1D70B8');
@@ -364,8 +367,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(11);
                     doc.setTextColor('#333333');
-                    doc.text(metodo.title, xStart + 18, currentY);
-
+                    doc.text(metodo.title, xStart + 18, currentY); 
+                    
                     currentY += 5;
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(9);
@@ -376,7 +379,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }
 
-            // --- RODAPÉ COMUM ---
             let finalY = pageHeight - margin - 12;
             doc.setFont("helvetica", "bold");
             doc.setFontSize(9);
@@ -391,8 +393,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Event Listeners ---
-
-    tabelaPacientesBody.addEventListener('change', function (event) {
+    
+    tabelaPacientesBody.addEventListener('change', function(event) {
         if (event.target.classList.contains('print-checkbox')) {
             const row = event.target.closest('tr');
             row.classList.toggle('row-selected', event.target.checked);
@@ -400,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function (event) {
+        selectAllCheckbox.addEventListener('change', function(event) {
             const isChecked = event.target.checked;
             document.querySelectorAll('.print-checkbox').forEach(checkbox => {
                 checkbox.checked = isChecked;
@@ -415,19 +417,34 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
             selectedIds.push(checkbox.dataset.cns);
         });
-
+        
         if (selectedIds.length === 0) {
             alert("Por favor, selecione pelo menos um paciente para imprimir o convite.");
             return;
         }
 
         const pacientesParaImprimir = allPacientes.filter(p => selectedIds.includes(p.cartao_sus));
-
+        
         generatePDF(pacientesParaImprimir);
     });
 
+    searchInput.addEventListener('input', (event) => {
+        let value = event.target.value;
+        value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+        value = value.toUpperCase();
+        event.target.value = value;
+    });
+
+    searchInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            currentPage = 1;
+            currentSearchTerm = event.target.value;
+            fetchPacientes(activeTeam, currentPage, currentSearchTerm);
+        }
+    });
+
     fetchEquipes();
-    fetchPacientes(activeTeam, currentPage);
+    fetchPacientes(activeTeam, currentPage, currentSearchTerm);
 
     window.addEventListener('resize', checkScrollButtons);
 });
