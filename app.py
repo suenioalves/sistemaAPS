@@ -106,7 +106,6 @@ def build_filtered_query(args):
     
     return where_clause_str, order_by_clause, query_params
 
-
 # --- Rotas do Aplicativo Flask ---
 @app.route('/')
 def home():
@@ -230,7 +229,6 @@ def api_equipes():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # MODIFICADO: Conta pacientes por equipe e ordena
         cur.execute("""
             SELECT nome_equipe, COUNT(*) as total_pacientes
             FROM sistemaaps.mv_plafam
@@ -238,7 +236,6 @@ def api_equipes():
             GROUP BY nome_equipe
             ORDER BY total_pacientes DESC;
         """)
-        # Retorna apenas o nome da equipe, mantendo a ordem
         equipes = [row[0] for row in cur.fetchall()]
         return jsonify(equipes)
     except Exception as e:
