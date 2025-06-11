@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Inicializa as bibliotecas JS necessárias, se existirem no objeto window
     const { jsPDF } = window.jspdf;
     const { XLSX } = window;
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('search-input');
     const printInvitesBtn = document.getElementById('print-invites-btn');
     const printInvitesText = document.getElementById('print-invites-text');
-    
+
     // --- Elementos do Menu de Filtro ---
     const filterMenuContainer = document.getElementById('filter-menu-container');
     const filterBtn = document.getElementById('filter-btn');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const exportExcelBtn = document.getElementById('export-excel-btn');
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
-    
+
     // --- Elementos do Menu de Ordenação ---
     const sortMenuContainer = document.getElementById('sort-menu-container');
     const sortBtn = document.getElementById('sort-btn');
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     setupScrollButtons();
                 } else {
-                     console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
+                    console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
                 }
             })
             .catch(error => console.error('Erro de rede ao buscar equipes:', error));
@@ -110,23 +110,23 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         const teamText = equipeName === 'Todas' ? 'Todas as Equipes' : equipeName;
-        if(printInvitesText) {
-             printInvitesText.textContent = `Imprimir Convites - ${teamText}`;
+        if (printInvitesText) {
+            printInvitesText.textContent = `Imprimir Convites - ${teamText}`;
         }
     }
-    
+
     function getAcompanhamentoStatus(paciente) {
         if (paciente.gestante) return 'gestante';
         if (!paciente.metodo) return 'sem_metodo';
         if (!paciente.data_aplicacao) return 'em_dia';
-        
+
         const dataAplicacao = new Date(paciente.data_aplicacao);
         const hoje = new Date();
         const diffTime = hoje - dataAplicacao;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         let limiteDias = Infinity;
         const metodoLower = paciente.metodo.toLowerCase();
-        
+
         if (metodoLower.includes('pílula') || metodoLower.includes('mensal')) {
             limiteDias = 30;
         } else if (metodoLower.includes('trimestral')) {
@@ -134,12 +134,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return (diffDays <= limiteDias) ? 'em dia' : 'atrasado';
     }
-    
+
     function getStatusContent(paciente, status) {
         if (paciente.gestante) {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
         }
-        if (status === 'na' || status === 'sem_metodo' ) return '';
+        if (status === 'na' || status === 'sem_metodo') return '';
         const dataFormatada = new Date(paciente.data_aplicacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
         if (status === 'em dia') {
             return `<div>${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return `<span class="method-badge">${paciente.metodo}</span>`;
     }
-    
+
     function getImprimirCellContent(paciente, status) {
         const isAtrasado = status === 'atrasado';
         const semMetodo = status === 'sem_metodo';
@@ -173,17 +173,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!paciente.gestante && (semMetodo || isAtrasado)) {
             return `
                 <div class="relative" data-cns-menu="${paciente.cartao_sus}">
-                    <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                    <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
                         Ações
                         <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
                     </button>
                     <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-30" role="menu">
                         <div class="py-1" role="none">
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="com_agente">Convite com o Agente</a>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="entregue">Convite Entregue</a>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="compareceu">Compareceu na consulta</a>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="nao_encontrado">Não encontrado</a>
                         </div>
                     </div>
+                    <div class="acompanhamento-status-container mt-1"></div>
                 </div>
             `;
         }
@@ -192,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function fetchPacientes() {
         tabelaPacientesBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>`;
-        
+
         const params = new URLSearchParams({
             equipe: activeTeam,
             page: currentPage,
@@ -212,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/api/pacientes_plafam?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
-                if(selectAllCheckbox) { selectAllCheckbox.checked = false; }
+                if (selectAllCheckbox) { selectAllCheckbox.checked = false; }
                 tabelaPacientesBody.innerHTML = '';
                 allPacientes = data.pacientes || [];
 
@@ -234,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td class="px-6 py-4 whitespace-nowrap">${paciente.idade_calculada} anos</td>
                             <td class="px-6 py-4 whitespace-nowrap">${getMetodoContent(paciente)}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${getStatusContent(paciente, statusAcompanhamento)}</td>
-                            <td class="px-6 py-4 whitespace-nowrap relative">${getAcompanhamentoCellContent(paciente, statusAcompanhamento)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">${getAcompanhamentoCellContent(paciente, statusAcompanhamento)}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">${getImprimirCellContent(paciente, statusAcompanhamento)}</td>
                         `;
                         tabelaPacientesBody.appendChild(row);
@@ -287,11 +289,11 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationInfo.innerHTML = `Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${total}</span> resultados`;
 
         let paginationHtml = '';
-        
+
         paginationHtml += `<button class="pagination-button ${page === 1 ? 'disabled' : ''}" ${page === 1 ? 'disabled' : ''} data-page="${page - 1}"><i class="ri-arrow-left-s-line"></i></button>`;
 
         const pagesToShow = createPaginationLogic(page, totalPages);
-        
+
         pagesToShow.forEach(p => {
             if (p === '...') {
                 paginationHtml += `<span class="pagination-button disabled">...</span>`;
@@ -301,9 +303,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         paginationHtml += `<button class="pagination-button ${page === totalPages ? 'disabled' : ''}" ${page === totalPages ? 'disabled' : ''} data-page="${page + 1}"><i class="ri-arrow-right-s-line"></i></button>`;
-        
+
         paginationContainer.innerHTML = paginationHtml;
-        
+
         document.querySelectorAll('.pagination-button').forEach(button => {
             if (button.dataset.page) {
                 button.addEventListener('click', () => {
@@ -316,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     function generateInvitePDF(pacientesSelecionados) {
         const doc = new jsPDF('l', 'mm', 'a4');
         const convitesPorPagina = 3;
@@ -352,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
             doc.setTextColor('#1D70B8');
             const tituloConvite = statusAcompanhamento === 'atrasado' ? "Lembrete Importante" : "Planejamento Familiar - Convite";
             doc.text(tituloConvite, xStart + conviteWidth / 2, currentY, { align: 'center' });
-            
+
             currentY += 10;
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
@@ -372,11 +374,11 @@ document.addEventListener('DOMContentLoaded', function() {
             currentY += 5;
             doc.setDrawColor(220, 220, 220);
             doc.line(xStart + 5, currentY, xStart + conviteWidth - 5, currentY);
-            
+
             currentY += 8;
             doc.setFontSize(10);
             doc.setTextColor('#333333');
-            
+
             if (statusAcompanhamento === 'atrasado') {
                 doc.setFont("helvetica", "normal");
                 doc.text("Esperamos que esteja bem. ", xStart + 10, currentY);
@@ -409,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(11);
                     doc.setTextColor('#333333');
-                    doc.text(metodo.title, xStart + 18, currentY); 
+                    doc.text(metodo.title, xStart + 18, currentY);
                     currentY += 5;
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(9);
@@ -493,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Falha ao exportar os dados.');
             });
     }
-    
+
     function exportPDF(dataToExport) {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.setFontSize(18);
@@ -521,23 +523,60 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Event Listeners ---
-    
-    tabelaPacientesBody.addEventListener('click', function(event) {
+
+    tabelaPacientesBody.addEventListener('click', function (event) {
         const row = event.target.closest('tr');
         if (!row) return;
 
         if (event.target.closest('.acompanhamento-btn')) {
             const menu = event.target.closest('.relative').querySelector('.acompanhamento-dropdown');
+
+            const rect = menu.getBoundingClientRect();
+            if (window.innerHeight < rect.bottom) {
+                menu.classList.add('bottom-full', 'mb-2');
+                menu.classList.remove('top-full', 'mt-2');
+            } else {
+                menu.classList.add('top-full', 'mt-2');
+                menu.classList.remove('bottom-full', 'mb-2');
+            }
+
             document.querySelectorAll('.acompanhamento-dropdown').forEach(m => {
                 if (m !== menu) m.classList.add('hidden');
             });
             menu.classList.toggle('hidden');
             return;
         }
-        
+
         if (event.target.classList.contains('acompanhamento-option')) {
+            event.preventDefault();
             const action = event.target.dataset.action;
             const cns = event.target.closest('[data-cns-menu]').dataset.cnsMenu;
+            const statusContainer = event.target.closest('.relative').querySelector('.acompanhamento-status-container');
+
+            let badgeText = '';
+            let badgeClass = '';
+
+            switch (action) {
+                case 'com_agente':
+                    badgeText = 'Convite com o Agente';
+                    badgeClass = 'status-com-agente';
+                    break;
+                case 'entregue':
+                    badgeText = 'Convite entregue';
+                    badgeClass = 'status-entregue';
+                    break;
+                case 'compareceu':
+                    badgeText = 'Compareceu à consulta';
+                    badgeClass = 'status-compareceu';
+                    break;
+                case 'nao_encontrado':
+                    badgeText = 'Não encontrado';
+                    badgeClass = 'status-nao-encontrado';
+                    break;
+            }
+
+            statusContainer.innerHTML = `<span class="acompanhamento-status-badge ${badgeClass}">${badgeText}</span>`;
+
             console.log(`Ação: ${action}, para o CNS: ${cns}`);
             event.target.closest('.acompanhamento-dropdown').classList.add('hidden');
             return;
@@ -552,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    tabelaPacientesBody.addEventListener('change', function(event) {
+    tabelaPacientesBody.addEventListener('change', function (event) {
         if (event.target.classList.contains('print-checkbox')) {
             const row = event.target.closest('tr');
             row.classList.toggle('row-selected', event.target.checked);
@@ -560,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function(event) {
+        selectAllCheckbox.addEventListener('change', function (event) {
             const isChecked = event.target.checked;
             document.querySelectorAll('.print-checkbox').forEach(checkbox => {
                 checkbox.checked = isChecked;
@@ -601,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetchPacientes();
         }
     });
-    
+
     filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         exportDropdown.classList.add('hidden');
@@ -636,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
         sortDropdown.classList.add('hidden');
         exportDropdown.classList.toggle('hidden');
     });
-    
+
     sortBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         filterDropdown.classList.add('hidden');
@@ -666,7 +705,7 @@ document.addEventListener('DOMContentLoaded', function() {
         exportData('csv');
         exportDropdown.classList.add('hidden');
     });
-    
+
     exportPdfBtn.addEventListener('click', (e) => {
         e.preventDefault();
         exportData('pdf');
