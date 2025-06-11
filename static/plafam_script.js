@@ -7,16 +7,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const teamTabsContainer = document.getElementById('team-tabs-container');
     const tabelaPacientesBody = document.getElementById('tabela-pacientes-body');
     const paginationContainer = document.getElementById('pagination-container');
+    const paginationInfo = document.getElementById('pagination-info');
     const scrollLeftBtn = document.getElementById('scroll-left-btn');
     const scrollRightBtn = document.getElementById('scroll-right-btn');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     const searchInput = document.getElementById('search-input');
-    const filterBtn = document.getElementById('filter-btn');
     const printInvitesBtn = document.getElementById('print-invites-btn');
     const printInvitesText = document.getElementById('print-invites-text');
 
     // --- Elementos do Menu de Filtro ---
     const filterMenuContainer = document.getElementById('filter-menu-container');
+    const filterBtn = document.getElementById('filter-btn');
     const filterDropdown = document.getElementById('filter-dropdown');
     const applyFiltersBtn = document.getElementById('apply-filters-btn');
     const clearFiltersBtn = document.getElementById('clear-filters-btn');
@@ -29,12 +30,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
 
+    // --- Elementos do Menu de Ordenação ---
+    const sortMenuContainer = document.getElementById('sort-menu-container');
+    const sortBtn = document.getElementById('sort-btn');
+    const sortBtnText = document.getElementById('sort-btn-text');
+    const sortDropdown = document.getElementById('sort-dropdown');
+
     // --- Variáveis de Estado ---
     let activeTeam = 'Todas';
     let currentPage = 1;
     let allPacientes = [];
     let currentSearchTerm = '';
     let activeFilters = {};
+    let currentSort = 'nome_asc';
 
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
@@ -165,6 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams({
             equipe: activeTeam,
             page: currentPage,
+            sort_by: currentSort
         });
 
         if (currentSearchTerm) {
@@ -221,29 +230,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function createPaginationLogic(currentPage, totalPages) {
         let pages = [];
-        const maxPagesToShow = 5;
-        const halfPages = Math.floor(maxPagesToShow / 2);
-        if (totalPages <= maxPagesToShow + 2) {
+        if (totalPages <= 7) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
             pages.push(1);
-            let startPage = Math.max(2, currentPage - halfPages);
-            let endPage = Math.min(totalPages - 1, currentPage + halfPages);
-            if (currentPage - halfPages <= 2) {
-                endPage = maxPagesToShow;
-            }
-            if (currentPage + halfPages >= totalPages - 1) {
-                startPage = totalPages - maxPagesToShow + 1;
-            }
-            if (startPage > 2) {
+            if (currentPage > 3) {
                 pages.push('...');
             }
+            let startPage = Math.max(2, currentPage - 1);
+            let endPage = Math.min(totalPages - 1, currentPage + 1);
+
             for (let i = startPage; i <= endPage; i++) {
                 pages.push(i);
             }
-            if (endPage < totalPages - 1) {
+
+            if (currentPage < totalPages - 2) {
                 pages.push('...');
             }
             pages.push(totalPages);
@@ -251,31 +254,34 @@ document.addEventListener('DOMContentLoaded', function () {
         return pages;
     }
 
-    function renderPagination(total, page, limit, pages) {
-        if (!total || pages <= 1) {
+    function renderPagination(total, page, limit, totalPages) {
+        if (!total || totalPages <= 1) {
+            paginationInfo.innerHTML = '';
             paginationContainer.innerHTML = '';
             return;
         }
         const start = (page - 1) * limit + 1;
         const end = Math.min(page * limit, total);
-        let paginationHtml = `
-            <div class="text-sm text-gray-700">
-                Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${total}</span> resultados
-            </div>
-            <div class="flex items-center space-x-1">
-        `;
-        paginationHtml += `<button class="pagination-button ${page === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${page === 1 ? 'disabled' : ''} data-page="${page - 1}"><i class="ri-arrow-left-s-line"></i></button>`;
-        const pagesToShow = createPaginationLogic(page, pages);
+        paginationInfo.innerHTML = `Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${total}</span> resultados`;
+
+        let paginationHtml = '';
+
+        paginationHtml += `<button class="pagination-button ${page === 1 ? 'disabled' : ''}" ${page === 1 ? 'disabled' : ''} data-page="${page - 1}"><i class="ri-arrow-left-s-line"></i></button>`;
+
+        const pagesToShow = createPaginationLogic(page, totalPages);
+
         pagesToShow.forEach(p => {
             if (p === '...') {
-                paginationHtml += `<span class="pagination-button">...</span>`;
+                paginationHtml += `<span class="pagination-button disabled">...</span>`;
             } else {
                 paginationHtml += `<button class="pagination-button ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`;
             }
         });
-        paginationHtml += `<button class="pagination-button ${page === pages ? 'opacity-50 cursor-not-allowed' : ''}" ${page === pages ? 'disabled' : ''} data-page="${page + 1}"><i class="ri-arrow-right-s-line"></i></button>`;
-        paginationHtml += '</div>';
+
+        paginationHtml += `<button class="pagination-button ${page === totalPages ? 'disabled' : ''}" ${page === totalPages ? 'disabled' : ''} data-page="${page + 1}"><i class="ri-arrow-right-s-line"></i></button>`;
+
         paginationContainer.innerHTML = paginationHtml;
+
         document.querySelectorAll('.pagination-button').forEach(button => {
             if (button.dataset.page) {
                 button.addEventListener('click', () => {
@@ -290,7 +296,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function generateInvitePDF(pacientesSelecionados) {
-        console.log("Iniciando geração de PDF para", pacientesSelecionados.length, "paciente(s).");
         const doc = new jsPDF('l', 'mm', 'a4');
         const convitesPorPagina = 3;
         const pageHeight = 210;
@@ -352,32 +357,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (statusAcompanhamento === 'atrasado') {
                 doc.setFont("helvetica", "normal");
-                let textoAtrasado = "Esperamos que esteja bem. ";
-                doc.text(textoAtrasado, xStart + 10, currentY);
-
+                doc.text("Esperamos que esteja bem. ", xStart + 10, currentY);
                 currentY += 5;
                 doc.setFont("helvetica", "bold");
                 const textoNegrito1 = "Notamos que já se passaram mais de 7 dias desde a data prevista para a atualizar o seu anticoncepcional no posto de saúde. Sabemos que, com a correria do dia a dia, pode ser fácil esquecer, mas queremos reforçar a importância da continuidade do seu método contraceptivo para garantir sua saúde e bem-estar.";
                 let splitTexto = doc.splitTextToSize(textoNegrito1, conviteWidth - 20);
                 doc.text(splitTexto, xStart + 10, currentY);
                 currentY += (splitTexto.length * 4.5) + 5;
-
                 const textoNegrito2 = "Pedimos que compareça o quanto antes ao posto de saúde para realizar a atualização.";
                 splitTexto = doc.splitTextToSize(textoNegrito2, conviteWidth - 20);
                 doc.text(splitTexto, xStart + 10, currentY);
                 currentY += (splitTexto.length * 4.5) + 5;
-
                 doc.setFont("helvetica", "normal");
                 const textoFinal = "Nossa equipe está à disposição para atendê-la e esclarecer qualquer dúvida que possa ter sobre o uso do medicamento. Caso tenha apresentado alguma reação ao anticoncepcional ou tenha decidido interromper seu uso, nossa equipe também está disponível para orientá-la sobre outras opções de métodos contraceptivos que possam ser mais adequados para você.";
                 splitTexto = doc.splitTextToSize(textoFinal, conviteWidth - 20);
                 doc.text(splitTexto, xStart + 10, currentY);
-
             } else {
                 const textoConvite = "É com grande satisfação que convidamos você a participar do nosso programa de Planejamento Familiar na Unidade Básica de Saúde (UBS). Nosso objetivo é fornecer informações essenciais sobre métodos que possa evitar uma gravidez não planejada e promover a saúde reprodutiva das mulheres em nossa comunidade.";
                 const splitTexto = doc.splitTextToSize(textoConvite, conviteWidth - 20);
                 doc.text(splitTexto, xStart + 10, currentY);
                 currentY += (splitTexto.length * 4.5) + 8;
-
                 metodos.forEach(metodo => {
                     doc.setFillColor('#1D70B8');
                     doc.circle(xStart + 12, currentY - 1.5, 2.5, 'F');
@@ -385,12 +384,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     doc.setLineWidth(0.6);
                     doc.line(xStart + 11.0, currentY - 1.5, xStart + 11.8, currentY - 0.5);
                     doc.line(xStart + 11.8, currentY - 0.5, xStart + 13.0, currentY - 2.8);
-
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(11);
                     doc.setTextColor('#333333');
                     doc.text(metodo.title, xStart + 18, currentY);
-
                     currentY += 5;
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(9);
@@ -400,7 +397,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     currentY += (splitDesc.length * 4) + 5;
                 });
             }
-
             let finalY = pageHeight - margin - 12;
             doc.setFont("helvetica", "bold");
             doc.setFontSize(9);
@@ -410,7 +406,6 @@ document.addEventListener('DOMContentLoaded', function () {
             doc.setFontSize(8);
             doc.text("Não precisa tirar ficha antes.", xStart + conviteWidth / 2, finalY + 4, { align: 'center' });
         });
-
         doc.output('dataurlnewwindow');
     }
 
@@ -422,8 +417,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function exportData(format) {
         const params = new URLSearchParams({
             equipe: activeTeam,
+            sort_by: currentSort
         });
-
         if (currentSearchTerm) {
             params.append('search', currentSearchTerm);
         }
@@ -432,7 +427,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 params.append(key, value);
             });
         }
-
         fetch(`/api/export_data?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
@@ -440,7 +434,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     alert('Nenhum dado para exportar com os filtros atuais.');
                     return;
                 }
-
                 const dataToExport = data.map(p => ({
                     'Nome da Paciente': p.nome_paciente,
                     'CNS': p.cartao_sus,
@@ -451,9 +444,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Data Aplicação': p.data_aplicacao,
                     'Status Acompanhamento': getAcompanhamentoStatus(p),
                     'Gestante': p.gestante ? 'Sim' : 'Não',
-                    'DPP': p.data_provavel_parto,
+                    'DPP': p.data_provavel_parto || '',
                 }));
-
                 if (format === 'xlsx') {
                     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
                     const workbook = XLSX.utils.book_new();
@@ -461,9 +453,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     XLSX.writeFile(workbook, `Plafam_${activeTeam}.xlsx`);
                 } else if (format === 'csv') {
                     const header = Object.keys(dataToExport[0]).join(';');
-                    const rows = dataToExport.map(row => Object.values(row).map(val => `"${val || ''}"`).join(';'));
+                    const rows = dataToExport.map(row => Object.values(row).map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(';'));
                     const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
-
                     const encodedUri = encodeURI(csvContent);
                     const link = document.createElement("a");
                     link.setAttribute("href", encodedUri);
@@ -483,13 +474,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function exportPDF(dataToExport) {
         const doc = new jsPDF({ orientation: 'landscape' });
-
         doc.setFontSize(18);
         doc.setTextColor(40);
         doc.text("Relatório de Pacientes - Planejamento Familiar", 14, 22);
-
         const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Microárea', 'Método Atual', 'Status', 'Gestante']];
-
         const body = dataToExport.map(p => [
             p['Nome da Paciente'],
             p['CNS'],
@@ -500,7 +488,6 @@ document.addEventListener('DOMContentLoaded', function () {
             p['Status Acompanhamento'],
             p['Gestante']
         ]);
-
         doc.autoTable({
             head: headers,
             body: body,
@@ -508,7 +495,6 @@ document.addEventListener('DOMContentLoaded', function () {
             theme: 'striped',
             headStyles: { fillColor: [29, 112, 184] },
         });
-
         doc.save(`Plafam_Relatorio_${activeTeam}.pdf`);
     }
 
@@ -517,10 +503,8 @@ document.addEventListener('DOMContentLoaded', function () {
     tabelaPacientesBody.addEventListener('click', function (event) {
         const row = event.target.closest('tr');
         if (!row) return;
-
         const checkbox = row.querySelector('.print-checkbox');
         if (checkbox) {
-            // Evita que o clique no checkbox acione o clique na linha duas vezes
             if (event.target !== checkbox) {
                 checkbox.checked = !checkbox.checked;
             }
@@ -550,14 +534,11 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
             selectedIds.push(checkbox.dataset.cns);
         });
-
         if (selectedIds.length === 0) {
             alert("Por favor, selecione pelo menos um paciente para imprimir o convite.");
             return;
         }
-
         const pacientesParaImprimir = allPacientes.filter(p => selectedIds.includes(p.cartao_sus));
-
         if (pacientesParaImprimir.length > 0) {
             generateInvitePDF(pacientesParaImprimir);
         } else {
@@ -584,6 +565,7 @@ document.addEventListener('DOMContentLoaded', function () {
     filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         exportDropdown.classList.add('hidden');
+        sortDropdown.classList.add('hidden');
         filterDropdown.classList.toggle('hidden');
     });
 
@@ -611,7 +593,26 @@ document.addEventListener('DOMContentLoaded', function () {
     exportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         filterDropdown.classList.add('hidden');
+        sortDropdown.classList.add('hidden');
         exportDropdown.classList.toggle('hidden');
+    });
+
+    sortBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterDropdown.classList.add('hidden');
+        exportDropdown.classList.add('hidden');
+        sortDropdown.classList.toggle('hidden');
+    });
+
+    document.querySelectorAll('.sort-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentSort = e.currentTarget.dataset.sort;
+            sortBtnText.textContent = e.currentTarget.dataset.text;
+            currentPage = 1;
+            fetchPacientes();
+            sortDropdown.classList.add('hidden');
+        });
     });
 
     exportExcelBtn.addEventListener('click', (e) => {
@@ -639,10 +640,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!exportMenuContainer.contains(e.target)) {
             exportDropdown.classList.add('hidden');
         }
+        if (!sortMenuContainer.contains(e.target)) {
+            sortDropdown.classList.add('hidden');
+        }
     });
 
     // --- Inicialização ---
     fetchEquipes();
     fetchPacientes();
-
+    sortBtnText.textContent = 'Nome (A-Z)'; // Inicia o texto do botão
 });

@@ -23,12 +23,13 @@ def get_db_connection():
 
 # --- Função Auxiliar para construir a query ---
 def build_filtered_query(args):
-    """Constrói a cláusula WHERE e os parâmetros com base nos filtros da requisição."""
+    """Constrói a cláusula WHERE e ORDER BY com base nos filtros e ordenação da requisição."""
     equipe = args.get('equipe', 'Todas')
     search_term = args.get('search', None)
     metodos = args.getlist('metodo')
     faixas_etarias = args.getlist('faixa_etaria')
     status_list = args.getlist('status')
+    sort_by = args.get('sort_by', 'nome_asc')
 
     query_params = {}
     where_clauses = []
@@ -45,8 +46,8 @@ def build_filtered_query(args):
 
     # Filtro de Métodos Contraceptivos
     if metodos:
-        where_clauses.append("metodo ILIKE ANY(%(metodos)s)")
-        query_params['metodos'] = [f'%{m}%' for m in metodos]
+        where_clauses.append("metodo = ANY(%(metodos)s)")
+        query_params['metodos'] = metodos
         
     # Filtro de Faixa Etária
     if faixas_etarias:
@@ -82,7 +83,28 @@ def build_filtered_query(args):
         if status_conditions:
              where_clauses.append(f"({ ' OR '.join(status_conditions) })")
 
-    return " WHERE " + " AND ".join(where_clauses) if where_clauses else "", query_params
+    # Lógica de Ordenação
+    sort_mapping = {
+        'nome_asc': 'nome_paciente ASC',
+        'nome_desc': 'nome_paciente DESC',
+        'idade_asc': 'idade_calculada ASC',
+        'idade_desc': 'idade_calculada DESC',
+        'metodo_asc': 'metodo ASC NULLS LAST',
+        'status_asc': """
+            CASE
+                WHEN status_gravidez = 'Grávida' THEN 1
+                WHEN ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                     ( metodo ILIKE '%%trimestral%%' AND data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') ) THEN 2
+                WHEN (metodo IS NULL OR metodo = '') THEN 3
+                ELSE 4
+            END ASC, nome_paciente ASC
+        """
+    }
+    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'nome_paciente ASC')
+
+    where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
+    return where_clause_str, order_by_clause, query_params
 
 
 # --- Rotas do Aplicativo Flask ---
@@ -94,7 +116,6 @@ def home():
 def painel_plafam():
     return render_template('Painel-Plafam.html')
 
-# --- API para buscar dados paginados para a tabela ---
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
     conn = None
@@ -107,7 +128,7 @@ def api_pacientes_plafam():
         limit = 20
         offset = (page - 1) * limit
 
-        where_clause, query_params = build_filtered_query(request.args)
+        where_clause, order_by_clause, query_params = build_filtered_query(request.args)
         
         base_query = """
         SELECT
@@ -119,16 +140,14 @@ def api_pacientes_plafam():
         final_query = base_query + where_clause
         count_query = "SELECT COUNT(*) FROM sistemaaps.mv_plafam" + where_clause
 
-        # Parâmetros para contagem (sem limit/offset)
         count_params = query_params.copy()
         
         cur.execute(count_query, count_params)
         total_pacientes = cur.fetchone()[0]
         
-        # Parâmetros para busca (com limit/offset)
         query_params['limit'] = limit
         query_params['offset'] = offset
-        final_query += " ORDER BY nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
+        final_query += order_by_clause + " LIMIT %(limit)s OFFSET %(offset)s"
         
         cur.execute(final_query, query_params)
         dados = cur.fetchall()
@@ -163,7 +182,6 @@ def api_pacientes_plafam():
         if conn:
             conn.close()
 
-# --- NOVA API para buscar TODOS os dados para exportação ---
 @app.route('/api/export_data')
 def api_export_data():
     conn = None
@@ -172,16 +190,11 @@ def api_export_data():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        where_clause, query_params = build_filtered_query(request.args)
+        where_clause, order_by_clause, query_params = build_filtered_query(request.args)
 
-        base_query = """
-        SELECT
-            nome_paciente, cartao_sus, idade_calculada, microarea,
-            metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto
-        FROM sistemaaps.mv_plafam
-        """
+        base_query = "SELECT nome_paciente, cartao_sus, idade_calculada, microarea, metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto FROM sistemaaps.mv_plafam"
         
-        final_query = base_query + where_clause + " ORDER BY nome_paciente"
+        final_query = base_query + where_clause + order_by_clause
         
         cur.execute(final_query, query_params)
         dados = cur.fetchall()
@@ -217,7 +230,15 @@ def api_equipes():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT DISTINCT nome_equipe FROM sistemaaps.mv_plafam WHERE nome_equipe IS NOT NULL ORDER BY nome_equipe")
+        # MODIFICADO: Conta pacientes por equipe e ordena
+        cur.execute("""
+            SELECT nome_equipe, COUNT(*) as total_pacientes
+            FROM sistemaaps.mv_plafam
+            WHERE nome_equipe IS NOT NULL
+            GROUP BY nome_equipe
+            ORDER BY total_pacientes DESC;
+        """)
+        # Retorna apenas o nome da equipe, mantendo a ordem
         equipes = [row[0] for row in cur.fetchall()]
         return jsonify(equipes)
     except Exception as e:
