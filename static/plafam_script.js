@@ -44,6 +44,14 @@ document.addEventListener('DOMContentLoaded', function () {
     let activeFilters = {};
     let currentSort = 'nome_asc';
 
+    const statusMap = {
+        '0': { text: '', class: '' },
+        '1': { text: 'Convite com o Agente', class: 'status-com-agente' },
+        '2': { text: 'Convite entregue', class: 'status-entregue' },
+        '3': { text: 'Compareceu à consulta', class: 'status-compareceu' },
+        '4': { text: 'Não encontrado', class: 'status-nao-encontrado' }
+    };
+
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
         if (container) {
@@ -171,21 +179,30 @@ document.addEventListener('DOMContentLoaded', function () {
         const isAtrasado = status === 'atrasado';
         const semMetodo = status === 'sem_metodo';
         if (!paciente.gestante && (semMetodo || isAtrasado)) {
+            const statusAcomp = paciente.status_acompanhamento;
+            let statusBadge = '';
+            if (statusAcomp && statusMap[statusAcomp]) {
+                const { text, class: badgeClass } = statusMap[statusAcomp];
+                const dataAcomp = paciente.data_acompanhamento ? ` (${paciente.data_acompanhamento})` : '';
+                statusBadge = `<span class="acompanhamento-status-badge ${badgeClass}">${text}${dataAcomp}</span>`;
+            }
             return `
-                <div class="relative" data-cns-menu="${paciente.cartao_sus}">
+                <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
                     <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
                         Ações
                         <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
                     </button>
                     <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-30" role="menu">
                         <div class="py-1" role="none">
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="com_agente">Convite com o Agente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="entregue">Convite Entregue</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="compareceu">Compareceu na consulta</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="nao_encontrado">Não encontrado</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="1">Convite com o Agente</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="2">Convite Entregue</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Compareceu na consulta</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Não encontrado</a>
+                            <div class="border-t my-1"></div>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="0">Nenhuma ação</a>
                         </div>
                     </div>
-                    <div class="acompanhamento-status-container mt-1"></div>
+                    <div class="acompanhamento-status-container mt-1">${statusBadge}</div>
                 </div>
             `;
         }
@@ -549,35 +566,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (event.target.classList.contains('acompanhamento-option')) {
             event.preventDefault();
-            const action = event.target.dataset.action;
-            const cns = event.target.closest('[data-cns-menu]').dataset.cnsMenu;
+            const actionStatus = event.target.dataset.action;
+            const codCidadao = event.target.closest('[data-cod-paciente]').dataset.codPaciente;
             const statusContainer = event.target.closest('.relative').querySelector('.acompanhamento-status-container');
 
-            let badgeText = '';
-            let badgeClass = '';
+            fetch('/api/update_acompanhamento', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    co_cidadao: codCidadao,
+                    status: actionStatus
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.sucesso) {
+                        if (actionStatus === '0') {
+                            statusContainer.innerHTML = '';
+                        } else {
+                            const { text, class: badgeClass } = statusMap[actionStatus];
+                            const dataAtual = new Date().toLocaleDateString('pt-BR');
+                            statusContainer.innerHTML = `<span class="acompanhamento-status-badge ${badgeClass}">${text} (${dataAtual})</span>`;
+                        }
+                    } else {
+                        alert('Falha ao atualizar o status: ' + data.erro);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Ocorreu um erro de comunicação com o servidor.');
+                });
 
-            switch (action) {
-                case 'com_agente':
-                    badgeText = 'Convite com o Agente';
-                    badgeClass = 'status-com-agente';
-                    break;
-                case 'entregue':
-                    badgeText = 'Convite entregue';
-                    badgeClass = 'status-entregue';
-                    break;
-                case 'compareceu':
-                    badgeText = 'Compareceu à consulta';
-                    badgeClass = 'status-compareceu';
-                    break;
-                case 'nao_encontrado':
-                    badgeText = 'Não encontrado';
-                    badgeClass = 'status-nao-encontrado';
-                    break;
-            }
-
-            statusContainer.innerHTML = `<span class="acompanhamento-status-badge ${badgeClass}">${badgeText}</span>`;
-
-            console.log(`Ação: ${action}, para o CNS: ${cns}`);
             event.target.closest('.acompanhamento-dropdown').classList.add('hidden');
             return;
         }

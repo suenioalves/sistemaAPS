@@ -36,17 +36,17 @@ def build_filtered_query(args):
 
     # Filtro de Equipe
     if equipe != 'Todas':
-        where_clauses.append("nome_equipe = %(equipe)s")
+        where_clauses.append("m.nome_equipe = %(equipe)s")
         query_params['equipe'] = equipe
     
     # Filtro de Busca por Nome
     if search_term:
-        where_clauses.append("unaccent(nome_paciente) ILIKE unaccent(%(search)s)")
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)")
         query_params['search'] = f"%{search_term}%"
 
     # Filtro de Métodos Contraceptivos
     if metodos:
-        where_clauses.append("metodo = ANY(%(metodos)s)")
+        where_clauses.append("m.metodo = ANY(%(metodos)s)")
         query_params['metodos'] = metodos
         
     # Filtro de Faixa Etária
@@ -54,7 +54,7 @@ def build_filtered_query(args):
         age_conditions = []
         for faixa in faixas_etarias:
             min_age, max_age = faixa.split('-')
-            age_conditions.append(f"idade_calculada BETWEEN {int(min_age)} AND {int(max_age)}")
+            age_conditions.append(f"m.idade_calculada BETWEEN {int(min_age)} AND {int(max_age)}")
         if age_conditions:
             where_clauses.append(f"({ ' OR '.join(age_conditions) })")
 
@@ -62,45 +62,45 @@ def build_filtered_query(args):
     if status_list:
         status_conditions = []
         if 'sem_metodo' in status_list:
-            status_conditions.append("(metodo IS NULL OR metodo = '')")
+            status_conditions.append("(m.metodo IS NULL OR m.metodo = '')")
         if 'gestante' in status_list:
-            status_conditions.append("status_gravidez = 'Grávida'")
+            status_conditions.append("m.status_gravidez = 'Grávida'")
         if 'atrasado' in status_list:
             status_conditions.append("""
                 (
-                    ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                    ( metodo ILIKE '%%trimestral%%' AND data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') )
+                    ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                    ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') )
                 )
             """)
         if 'em_dia' in status_list:
             status_conditions.append("""
                 (
-                    ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days') ) OR
-                    ( metodo ILIKE '%%trimestral%%' AND data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days') ) OR
-                    ( metodo ILIKE '%%diu%%' OR metodo ILIKE '%%implante%%' OR metodo ILIKE '%%laqueadura%%' )
-                ) AND (status_gravidez IS NULL OR status_gravidez != 'Grávida')
+                    ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days') ) OR
+                    ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days') ) OR
+                    ( m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%' )
+                ) AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida')
             """)
         if status_conditions:
              where_clauses.append(f"({ ' OR '.join(status_conditions) })")
 
     # Lógica de Ordenação
     sort_mapping = {
-        'nome_asc': 'nome_paciente ASC',
-        'nome_desc': 'nome_paciente DESC',
-        'idade_asc': 'idade_calculada ASC',
-        'idade_desc': 'idade_calculada DESC',
-        'metodo_asc': 'metodo ASC NULLS LAST',
+        'nome_asc': 'm.nome_paciente ASC',
+        'nome_desc': 'm.nome_paciente DESC',
+        'idade_asc': 'm.idade_calculada ASC',
+        'idade_desc': 'm.idade_calculada DESC',
+        'metodo_asc': 'm.metodo ASC NULLS LAST',
         'status_asc': """
             CASE
-                WHEN status_gravidez = 'Grávida' THEN 1
-                WHEN ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                     ( metodo ILIKE '%%trimestral%%' AND data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') ) THEN 2
-                WHEN (metodo IS NULL OR metodo = '') THEN 3
+                WHEN m.status_gravidez = 'Grávida' THEN 1
+                WHEN ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                     ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') ) THEN 2
+                WHEN (m.metodo IS NULL OR m.metodo = '') THEN 3
                 ELSE 4
-            END ASC, nome_paciente ASC
+            END ASC, m.nome_paciente ASC
         """
     }
-    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'nome_paciente ASC')
+    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC')
 
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
@@ -129,15 +129,18 @@ def api_pacientes_plafam():
 
         where_clause, order_by_clause, query_params = build_filtered_query(request.args)
         
+        # Query base agora com LEFT JOIN para buscar o acompanhamento
         base_query = """
         SELECT
-            nome_paciente, cartao_sus, idade_calculada, microarea,
-            metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto
-        FROM sistemaaps.mv_plafam
+            m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
+            m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
+            pa.status_acompanhamento, pa.data_acompanhamento
+        FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
         """
         
         final_query = base_query + where_clause
-        count_query = "SELECT COUNT(*) FROM sistemaaps.mv_plafam" + where_clause
+        count_query = "SELECT COUNT(*) FROM sistemaaps.mv_plafam m" + where_clause
 
         count_params = query_params.copy()
         
@@ -161,6 +164,8 @@ def api_pacientes_plafam():
                 linha_dict['data_aplicacao'] = linha_dict['data_aplicacao'].strftime('%Y-%m-%d')
             if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
                 linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            if linha_dict.get('data_acompanhamento') and isinstance(linha_dict['data_acompanhamento'], date):
+                linha_dict['data_acompanhamento'] = linha_dict['data_acompanhamento'].strftime('%d/%m/%Y')
             linha_dict['gestante'] = True if linha_dict.get('gestante') == 'Grávida' else False
             resultados.append(linha_dict)
 
@@ -191,7 +196,12 @@ def api_export_data():
 
         where_clause, order_by_clause, query_params = build_filtered_query(request.args)
 
-        base_query = "SELECT nome_paciente, cartao_sus, idade_calculada, microarea, metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto FROM sistemaaps.mv_plafam"
+        base_query = """
+        SELECT m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea, m.metodo, m.nome_equipe, 
+               m.data_aplicacao, m.status_gravidez, m.data_provavel_parto, pa.status_acompanhamento, pa.data_acompanhamento
+        FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+        """
         
         final_query = base_query + where_clause + order_by_clause
         
@@ -208,6 +218,8 @@ def api_export_data():
                 linha_dict['data_aplicacao'] = linha_dict['data_aplicacao'].strftime('%d/%m/%Y')
             if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
                 linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            if linha_dict.get('data_acompanhamento') and isinstance(linha_dict['data_acompanhamento'], date):
+                linha_dict['data_acompanhamento'] = linha_dict['data_acompanhamento'].strftime('%d/%m/%Y')
             linha_dict['gestante'] = True if linha_dict.get('gestante') == 'Grávida' else False
             resultados.append(linha_dict)
 
@@ -221,6 +233,56 @@ def api_export_data():
             cur.close()
         if conn:
             conn.close()
+
+@app.route('/api/update_acompanhamento', methods=['POST'])
+def update_acompanhamento():
+    data = request.get_json()
+    co_cidadao = data.get('co_cidadao')
+    status_str = data.get('status')
+
+    if not co_cidadao or status_str is None:
+        return jsonify({'sucesso': False, 'erro': 'Dados inválidos'}), 400
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        if status_str == '0':
+            sql_upsert = """
+                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
+                VALUES (%(co_cidadao)s, NULL, NULL)
+                ON CONFLICT (co_cidadao) DO UPDATE
+                SET status_acompanhamento = NULL,
+                    data_acompanhamento = NULL;
+            """
+            cur.execute(sql_upsert, {'co_cidadao': co_cidadao})
+        else:
+            sql_upsert = """
+                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
+                VALUES (%(co_cidadao)s, %(status)s, CURRENT_DATE)
+                ON CONFLICT (co_cidadao) DO UPDATE
+                SET status_acompanhamento = EXCLUDED.status_acompanhamento,
+                    data_acompanhamento = EXCLUDED.data_acompanhamento;
+            """
+            cur.execute(sql_upsert, {'status': int(status_str), 'co_cidadao': co_cidadao})
+        
+        conn.commit()
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Acompanhamento atualizado com sucesso!'})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar acompanhamento: {e}")
+        return jsonify({'sucesso': False, 'erro': f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 @app.route('/api/equipes')
 def api_equipes():

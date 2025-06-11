@@ -52,3 +52,30 @@ p {
     margin-top: 30px;
     text-align: center;
 }
+
+/* Estilos para as abas de equipe (movidos de custom_styles.css) */
+.equipe-tab {
+  /* As classes de layout do Tailwind como px-4, py-2, text-sm, font-medium, whitespace-nowrap são mantidas no HTML */
+  
+  background-color: #f3f4f6; /* Um cinza bem claro, similar ao fundo de botões inativos */
+  color: #4b5563; /* text-gray-600 do Tailwind */
+  border: 2px solid transparent; /* Borda base para manter o layout consistente com a ativa */
+  border-radius: 6px; /* Cantos arredondados */
+  margin-right: 4px; /* Pequeno espaçamento entre abas */
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.equipe-tab:hover {
+  background-color: #e5e7eb; /* Cinza um pouco mais escuro no hover (Tailwind gray-200) */
+  color: #1f2937; /* text-gray-800 do Tailwind */
+}
+
+/* Estilo para a aba da equipe ATIVA */
+.equipe-tab.active {
+  background-color: #1D70B8; /* Cor primária definida no Tailwind config */
+  color: white;
+  border-color: #1D70B8; /* Borda na mesma cor do fundo para um visual de botão sólido */
+  font-weight: 600; /* Mais destaque para o texto (Tailwind font-semibold) */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Pequena sombra para elevação */
+}
