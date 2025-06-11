@@ -21,8 +21,71 @@ def get_db_connection():
     )
     return conn
 
-# --- Rotas do Aplicativo Flask ---
+# --- Função Auxiliar para construir a query ---
+def build_filtered_query(args):
+    """Constrói a cláusula WHERE e os parâmetros com base nos filtros da requisição."""
+    equipe = args.get('equipe', 'Todas')
+    search_term = args.get('search', None)
+    metodos = args.getlist('metodo')
+    faixas_etarias = args.getlist('faixa_etaria')
+    status_list = args.getlist('status')
 
+    query_params = {}
+    where_clauses = []
+
+    # Filtro de Equipe
+    if equipe != 'Todas':
+        where_clauses.append("nome_equipe = %(equipe)s")
+        query_params['equipe'] = equipe
+    
+    # Filtro de Busca por Nome
+    if search_term:
+        where_clauses.append("unaccent(nome_paciente) ILIKE unaccent(%(search)s)")
+        query_params['search'] = f"%{search_term}%"
+
+    # Filtro de Métodos Contraceptivos
+    if metodos:
+        where_clauses.append("metodo ILIKE ANY(%(metodos)s)")
+        query_params['metodos'] = [f'%{m}%' for m in metodos]
+        
+    # Filtro de Faixa Etária
+    if faixas_etarias:
+        age_conditions = []
+        for faixa in faixas_etarias:
+            min_age, max_age = faixa.split('-')
+            age_conditions.append(f"idade_calculada BETWEEN {int(min_age)} AND {int(max_age)}")
+        if age_conditions:
+            where_clauses.append(f"({ ' OR '.join(age_conditions) })")
+
+    # Filtro de Status de Acompanhamento
+    if status_list:
+        status_conditions = []
+        if 'sem_metodo' in status_list:
+            status_conditions.append("(metodo IS NULL OR metodo = '')")
+        if 'gestante' in status_list:
+            status_conditions.append("status_gravidez = 'Grávida'")
+        if 'atrasado' in status_list:
+            status_conditions.append("""
+                (
+                    ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                    ( metodo ILIKE '%%trimestral%%' AND data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') )
+                )
+            """)
+        if 'em_dia' in status_list:
+            status_conditions.append("""
+                (
+                    ( (metodo ILIKE '%%mensal%%' OR metodo ILIKE '%%pílula%%') AND data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days') ) OR
+                    ( metodo ILIKE '%%trimestral%%' AND data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days') ) OR
+                    ( metodo ILIKE '%%diu%%' OR metodo ILIKE '%%implante%%' OR metodo ILIKE '%%laqueadura%%' )
+                ) AND (status_gravidez IS NULL OR status_gravidez != 'Grávida')
+            """)
+        if status_conditions:
+             where_clauses.append(f"({ ' OR '.join(status_conditions) })")
+
+    return " WHERE " + " AND ".join(where_clauses) if where_clauses else "", query_params
+
+
+# --- Rotas do Aplicativo Flask ---
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -31,6 +94,7 @@ def home():
 def painel_plafam():
     return render_template('Painel-Plafam.html')
 
+# --- API para buscar dados paginados para a tabela ---
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
     conn = None
@@ -39,103 +103,31 @@ def api_pacientes_plafam():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Parâmetros da requisição
-        equipe = request.args.get('equipe', 'Todas')
         page = int(request.args.get('page', 1))
-        search_term = request.args.get('search', None)
         limit = 20
         offset = (page - 1) * limit
 
-        # Parâmetros de Filtro
-        metodos = request.args.getlist('metodo')
-        faixas_etarias = request.args.getlist('faixa_etaria')
-        status_list = request.args.getlist('status')
-
-        query_params = {'limit': limit, 'offset': offset}
+        where_clause, query_params = build_filtered_query(request.args)
         
-        # Base da query
         base_query = """
         SELECT
             nome_paciente, cartao_sus, idade_calculada, microarea,
             metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto
-        FROM
-            sistemaaps.mv_plafam
+        FROM sistemaaps.mv_plafam
         """
-        where_clauses = []
-
-        # Filtro de Equipe
-        if equipe != 'Todas':
-            where_clauses.append("nome_equipe = %(equipe)s")
-            query_params['equipe'] = equipe
         
-        # Filtro de Busca por Nome
-        if search_term:
-            where_clauses.append("unaccent(nome_paciente) ILIKE unaccent(%(search)s)")
-            query_params['search'] = f"%{search_term}%"
+        final_query = base_query + where_clause
+        count_query = "SELECT COUNT(*) FROM sistemaaps.mv_plafam" + where_clause
 
-        # Filtro de Métodos Contraceptivos
-        if metodos:
-            # Garante que 'sem_metodo' não entre aqui
-            metodos_filtrados = [m for m in metodos if m != 'sem_metodo']
-            if metodos_filtrados:
-                where_clauses.append("metodo ILIKE ANY(%(metodos)s)")
-                query_params['metodos'] = [f'%{m}%' for m in metodos_filtrados]
-            
-        # Filtro de Faixa Etária
-        if faixas_etarias:
-            age_conditions = []
-            for faixa in faixas_etarias:
-                min_age, max_age = faixa.split('-')
-                age_conditions.append(f"idade_calculada BETWEEN {int(min_age)} AND {int(max_age)}")
-            if age_conditions:
-                where_clauses.append(f"({ ' OR '.join(age_conditions) })")
-
-        # Filtro de Status de Acompanhamento
-        if status_list:
-            status_conditions = []
-            if 'sem_metodo' in status_list:
-                status_conditions.append("(metodo IS NULL OR metodo = '')")
-            if 'gestante' in status_list:
-                status_conditions.append("status_gravidez = 'Grávida'")
-            if 'atrasado' in status_list:
-                # Lógica para atrasado: método hormonal com mais de X dias
-                status_conditions.append("""
-                    (
-                        ( (metodo ILIKE '%mensal%' OR metodo ILIKE '%pílula%') AND data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                        ( metodo ILIKE '%trimestral%' AND data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') )
-                    )
-                """)
-            if 'em_dia' in status_list:
-                 # Lógica para em dia: método de longa duração ou hormonal dentro do prazo
-                status_conditions.append("""
-                    (
-                        ( (metodo ILIKE '%mensal%' OR metodo ILIKE '%pílula%') AND data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days') ) OR
-                        ( metodo ILIKE '%trimestral%' AND data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days') ) OR
-                        ( metodo ILIKE '%diu%' OR metodo ILIKE '%implante%' OR metodo ILIKE '%laqueadura%' )
-                    ) AND (status_gravidez IS NULL OR status_gravidez != 'Grávida')
-                """)
-            if status_conditions:
-                 where_clauses.append(f"({ ' OR '.join(status_conditions) })")
-
-        # Monta a query final
-        final_query = base_query
-        if where_clauses:
-            final_query += " WHERE " + " AND ".join(where_clauses)
-        
-        # A query de contagem deve ter os mesmos filtros
-        count_query = final_query.replace(
-            'SELECT\n            nome_paciente, cartao_sus, idade_calculada, microarea,\n            metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto', 
-            'SELECT COUNT(*)'
-        )
-        
-        # Copia os parâmetros para a query de contagem, removendo os de paginação
+        # Parâmetros para contagem (sem limit/offset)
         count_params = query_params.copy()
-        if 'limit' in count_params: del count_params['limit']
-        if 'offset' in count_params: del count_params['offset']
-
+        
         cur.execute(count_query, count_params)
         total_pacientes = cur.fetchone()[0]
         
+        # Parâmetros para busca (com limit/offset)
+        query_params['limit'] = limit
+        query_params['offset'] = offset
         final_query += " ORDER BY nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
         
         cur.execute(final_query, query_params)
@@ -165,6 +157,53 @@ def api_pacientes_plafam():
     except Exception as e:
         print(f"Erro ao conectar ou consultar o banco de dados: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+# --- NOVA API para buscar TODOS os dados para exportação ---
+@app.route('/api/export_data')
+def api_export_data():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clause, query_params = build_filtered_query(request.args)
+
+        base_query = """
+        SELECT
+            nome_paciente, cartao_sus, idade_calculada, microarea,
+            metodo, nome_equipe, data_aplicacao, status_gravidez, data_provavel_parto
+        FROM sistemaaps.mv_plafam
+        """
+        
+        final_query = base_query + where_clause + " ORDER BY nome_paciente"
+        
+        cur.execute(final_query, query_params)
+        dados = cur.fetchall()
+
+        colunas_db = [desc[0] for desc in cur.description]
+        colunas_frontend = [col.replace('microarea', 'micro_area').replace('status_gravidez', 'gestante') for col in colunas_db]
+        
+        resultados = []
+        for linha in dados:
+            linha_dict = dict(zip(colunas_frontend, linha))
+            if linha_dict.get('data_aplicacao') and isinstance(linha_dict['data_aplicacao'], date):
+                linha_dict['data_aplicacao'] = linha_dict['data_aplicacao'].strftime('%d/%m/%Y')
+            if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
+                linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            linha_dict['gestante'] = True if linha_dict.get('gestante') == 'Grávida' else False
+            resultados.append(linha_dict)
+
+        return jsonify(resultados)
+
+    except Exception as e:
+        print(f"Erro na exportação: {e}")
+        return jsonify({"erro": f"Erro no servidor durante a exportação: {e}"}), 500
     finally:
         if cur:
             cur.close()

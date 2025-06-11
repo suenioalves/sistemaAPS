@@ -139,11 +139,8 @@
                             <i class="ri-filter-3-line mr-2"></i>
                             Filtros
                         </button>
-                        <!-- Menu Dropdown de Filtros (escondido por padrão) -->
                         <div id="filter-dropdown" class="absolute top-full mt-2 w-96 bg-white rounded-lg shadow-xl p-6 z-20 hidden">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Filtrar por</h3>
-                            
-                            <!-- Seção Método Contraceptivo -->
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Método contraceptivo</label>
                                 <div class="grid grid-cols-2 gap-2">
@@ -155,8 +152,6 @@
                                     <label class="flex items-center"><input type="checkbox" name="metodo" value="LAQUEADURA" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Laqueadura</label>
                                 </div>
                             </div>
-
-                            <!-- Seção Faixa Etária -->
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Faixa etária</label>
                                 <div class="grid grid-cols-2 gap-2">
@@ -166,8 +161,6 @@
                                     <label class="flex items-center"><input type="checkbox" name="faixa_etaria" value="40-49" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">40-45 anos</label>
                                 </div>
                             </div>
-                            
-                            <!-- Seção Status de Acompanhamento -->
                             <div class="mb-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Status de acompanhamento</label>
                                 <div class="grid grid-cols-2 gap-2">
@@ -177,8 +170,6 @@
                                     <label class="flex items-center"><input type="checkbox" name="status" value="gestante" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Gestante</label>
                                 </div>
                             </div>
-                            
-                            <!-- Botões de Ação -->
                             <div class="flex justify-end gap-3 border-t pt-4">
                                 <button id="clear-filters-btn" class="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100">Limpar</button>
                                 <button id="apply-filters-btn" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90">Aplicar filtros</button>
@@ -192,10 +183,24 @@
                         <i class="ri-sort-desc mr-2"></i>
                         Ordenar
                     </button>
-                    <button id="export-btn" class="px-4 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
-                        <i class="ri-download-2-line mr-2"></i>
-                        Exportar
-                    </button>
+                    <div class="relative" id="export-menu-container">
+                        <button id="export-btn" class="px-4 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-download-2-line mr-2"></i>
+                            Exportar
+                            <i class="ri-arrow-down-s-line ml-1"></i>
+                        </button>
+                        <div id="export-dropdown" class="absolute top-full right-0 mt-2 w-40 bg-white rounded-lg shadow-xl z-20 hidden overflow-hidden border">
+                           <a href="#" id="export-excel-btn" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100">
+                               <i class="ri-file-excel-2-line mr-2 text-green-600"></i> Excel (.xlsx)
+                           </a>
+                           <a href="#" id="export-csv-btn" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="ri-file-text-line mr-2 text-gray-500"></i> CSV (.csv)
+                           </a>
+                           <a href="#" id="export-pdf-btn" class="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="ri-file-pdf-2-line mr-2 text-red-600"></i> PDF (.pdf)
+                           </a>
+                        </div>
+                    </div>
                     <button id="print-invites-btn" class="px-4 py-2 bg-primary text-white rounded-lg flex items-center hover:bg-primary/90 text-sm whitespace-nowrap">
                         <i class="ri-printer-line mr-2"></i>
                         <span id="print-invites-text">Imprimir Convites</span>
@@ -229,7 +234,11 @@
         </div>
     </main>
     
+    <!-- Bibliotecas JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
     <script src="{{ url_for('static', filename='plafam_script.js') }}"></script>
 </body>
 </html>

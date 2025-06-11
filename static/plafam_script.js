@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // Inicializa as bibliotecas JS necessárias, se existirem no objeto window
     const { jsPDF } = window.jspdf;
+    const { XLSX } = window;
 
     // --- Seletores de Elementos ---
     const teamTabsContainer = document.getElementById('team-tabs-container');
@@ -18,6 +20,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const filterDropdown = document.getElementById('filter-dropdown');
     const applyFiltersBtn = document.getElementById('apply-filters-btn');
     const clearFiltersBtn = document.getElementById('clear-filters-btn');
+
+    // --- Elementos do Menu de Exportação ---
+    const exportMenuContainer = document.getElementById('export-menu-container');
+    const exportBtn = document.getElementById('export-btn');
+    const exportDropdown = document.getElementById('export-dropdown');
+    const exportExcelBtn = document.getElementById('export-excel-btn');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
 
     // --- Variáveis de Estado ---
     let activeTeam = 'Todas';
@@ -279,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function generatePDF(pacientesSelecionados) {
+    function generateInvitePDF(pacientesSelecionados) {
         console.log("Iniciando geração de PDF para", pacientesSelecionados.length, "paciente(s).");
         const doc = new jsPDF('l', 'mm', 'a4');
         const convitesPorPagina = 3;
@@ -404,10 +414,102 @@ document.addEventListener('DOMContentLoaded', function () {
         doc.output('dataurlnewwindow');
     }
 
-    // --- CORREÇÃO 2: Função de limpar filtros ---
     function clearAllFilters() {
         document.querySelectorAll('#filter-dropdown input[type="checkbox"]').forEach(cb => cb.checked = false);
         activeFilters = {};
+    }
+
+    function exportData(format) {
+        const params = new URLSearchParams({
+            equipe: activeTeam,
+        });
+
+        if (currentSearchTerm) {
+            params.append('search', currentSearchTerm);
+        }
+        for (const key in activeFilters) {
+            activeFilters[key].forEach(value => {
+                params.append(key, value);
+            });
+        }
+
+        fetch(`/api/export_data?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro || !Array.isArray(data) || data.length === 0) {
+                    alert('Nenhum dado para exportar com os filtros atuais.');
+                    return;
+                }
+
+                const dataToExport = data.map(p => ({
+                    'Nome da Paciente': p.nome_paciente,
+                    'CNS': p.cartao_sus,
+                    'Idade': p.idade_calculada,
+                    'Equipe': p.nome_equipe,
+                    'Microárea': p.micro_area,
+                    'Método Atual': p.metodo || 'Nenhum',
+                    'Data Aplicação': p.data_aplicacao,
+                    'Status Acompanhamento': getAcompanhamentoStatus(p),
+                    'Gestante': p.gestante ? 'Sim' : 'Não',
+                    'DPP': p.data_provavel_parto,
+                }));
+
+                if (format === 'xlsx') {
+                    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientes");
+                    XLSX.writeFile(workbook, `Plafam_${activeTeam}.xlsx`);
+                } else if (format === 'csv') {
+                    const header = Object.keys(dataToExport[0]).join(';');
+                    const rows = dataToExport.map(row => Object.values(row).map(val => `"${val || ''}"`).join(';'));
+                    const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
+
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `Plafam_${activeTeam}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else if (format === 'pdf') {
+                    exportPDF(dataToExport);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao exportar dados:', error);
+                alert('Falha ao exportar os dados.');
+            });
+    }
+
+    function exportPDF(dataToExport) {
+        const doc = new jsPDF({ orientation: 'landscape' });
+
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text("Relatório de Pacientes - Planejamento Familiar", 14, 22);
+
+        const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Microárea', 'Método Atual', 'Status', 'Gestante']];
+
+        const body = dataToExport.map(p => [
+            p['Nome da Paciente'],
+            p['CNS'],
+            p['Idade'],
+            p['Equipe'],
+            p['Microárea'],
+            p['Método Atual'],
+            p['Status Acompanhamento'],
+            p['Gestante']
+        ]);
+
+        doc.autoTable({
+            head: headers,
+            body: body,
+            startY: 30,
+            theme: 'striped',
+            headStyles: { fillColor: [29, 112, 184] },
+        });
+
+        doc.save(`Plafam_Relatorio_${activeTeam}.pdf`);
     }
 
     // --- Event Listeners ---
@@ -418,7 +520,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const checkbox = row.querySelector('.print-checkbox');
         if (checkbox) {
-            checkbox.checked = !checkbox.checked;
+            // Evita que o clique no checkbox acione o clique na linha duas vezes
+            if (event.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
             checkbox.dispatchEvent(new Event('change'));
         }
     });
@@ -454,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const pacientesParaImprimir = allPacientes.filter(p => selectedIds.includes(p.cartao_sus));
 
         if (pacientesParaImprimir.length > 0) {
-            generatePDF(pacientesParaImprimir);
+            generateInvitePDF(pacientesParaImprimir);
         } else {
             console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
             alert("Ocorreu um erro ao encontrar os dados dos pacientes selecionados. Tente novamente.");
@@ -478,6 +583,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        exportDropdown.classList.add('hidden');
         filterDropdown.classList.toggle('hidden');
     });
 
@@ -502,9 +608,36 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchPacientes();
     });
 
+    exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterDropdown.classList.add('hidden');
+        exportDropdown.classList.toggle('hidden');
+    });
+
+    exportExcelBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        exportData('xlsx');
+        exportDropdown.classList.add('hidden');
+    });
+
+    exportCsvBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        exportData('csv');
+        exportDropdown.classList.add('hidden');
+    });
+
+    exportPdfBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        exportData('pdf');
+        exportDropdown.classList.add('hidden');
+    });
+
     document.addEventListener('click', (e) => {
         if (!filterMenuContainer.contains(e.target)) {
             filterDropdown.classList.add('hidden');
+        }
+        if (!exportMenuContainer.contains(e.target)) {
+            exportDropdown.classList.add('hidden');
         }
     });
 
