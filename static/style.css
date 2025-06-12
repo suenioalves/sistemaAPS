@@ -53,29 +53,29 @@ p {
     text-align: center;
 }
 
-/* Estilos para as abas de equipe (movidos de custom_styles.css) */
+/* Estilos para as abas de equipe */
 .equipe-tab {
-  /* As classes de layout do Tailwind como px-4, py-2, text-sm, font-medium, whitespace-nowrap são mantidas no HTML */
-  
-  background-color: #f3f4f6; /* Um cinza bem claro, similar ao fundo de botões inativos */
-  color: #4b5563; /* text-gray-600 do Tailwind */
-  border: 2px solid transparent; /* Borda base para manter o layout consistente com a ativa */
+  background-color: white; /* Fundo branco para inativas */
+  color: #1D70B8; /* Texto azul primário */
+  border: 2px solid #60a5fa; /* Borda azul clara (Tailwind blue-400) */
   border-radius: 6px; /* Cantos arredondados */
   margin-right: 4px; /* Pequeno espaçamento entre abas */
   cursor: pointer;
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  /* As classes de layout do Tailwind como px-4 py-2 text-sm font-medium whitespace-nowrap são mantidas no HTML */
 }
 
 .equipe-tab:hover {
-  background-color: #e5e7eb; /* Cinza um pouco mais escuro no hover (Tailwind gray-200) */
-  color: #1f2937; /* text-gray-800 do Tailwind */
+  background-color: #eff6ff; /* Azul muito claro no hover (Tailwind blue-100) */
+  color: #1c64b1; /* Azul um pouco mais escuro para texto */
+  border-color: #3b82f6; /* Borda azul média (Tailwind blue-500) */
 }
 
 /* Estilo para a aba da equipe ATIVA */
 .equipe-tab.active {
-  background-color: #1D70B8; /* Cor primária definida no Tailwind config */
-  color: white;
-  border-color: #1D70B8; /* Borda na mesma cor do fundo para um visual de botão sólido */
+  background-color: #1D70B8; /* Cor primária azul */
+  color: white; /* Texto branco */
+  border-color: #1D70B8; /* Borda na mesma cor do fundo */
   font-weight: 600; /* Mais destaque para o texto (Tailwind font-semibold) */
   box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Pequena sombra para elevação */
 }

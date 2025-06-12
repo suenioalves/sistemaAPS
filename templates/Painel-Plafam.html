@@ -79,7 +79,25 @@
         }
 
         .table-row:nth-child(even) {
-            background-color: #f9fafb;
+            background-color: #f3f4f6; /* Tailwind gray-100, um pouco mais escuro que gray-50 (f9fafb) */
+        }
+        .method-badge { /* Estilo base para todos os métodos, se não destacado */
+            display: inline-block;
+            padding: 0.25rem 0.75rem; /* 4px 12px */
+            border-radius: 9999px; /* pill shape */
+            font-size: 0.75rem; /* 12px */
+            font-weight: 500;
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+            color: #374151; /* Tailwind gray-700 */
+            border: 1px solid transparent; /* Para manter o alinhamento com o destacado */
+            line-height: 1.25; /* Ajuste para melhor visualização do texto dentro do badge */
+        }
+
+        .method-badge.method-highlight-green {
+            background-color: #dcfce7; /* Tailwind green-100 */
+            color: #166534; /* Tailwind green-700 */
+            border: 1px solid #4ade80; /* Tailwind green-400, para um contorno verde */
+            /* padding, border-radius, font-size, font-weight são consistentes com .method-badge */
         }
         .table-row.cursor-pointer:hover {
             background-color: #f3f4f6;
