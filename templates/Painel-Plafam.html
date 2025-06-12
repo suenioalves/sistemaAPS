@@ -12,9 +12,6 @@
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet">
     
-    <!-- Link para seu arquivo de estilo principal -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
     
     <script>
@@ -79,29 +76,18 @@
         }
 
         .table-row:nth-child(even) {
-            background-color: #f3f4f6; /* Tailwind gray-100, um pouco mais escuro que gray-50 (f9fafb) */
-        }
-        .method-badge { /* Estilo base para todos os métodos, se não destacado */
-            display: inline-block;
-            padding: 0.25rem 0.75rem; /* 4px 12px */
-            border-radius: 9999px; /* pill shape */
-            font-size: 0.75rem; /* 12px */
-            font-weight: 500;
-            background-color: #e5e7eb; /* Tailwind gray-200 */
-            color: #374151; /* Tailwind gray-700 */
-            border: 1px solid transparent; /* Para manter o alinhamento com o destacado */
-            line-height: 1.25; /* Ajuste para melhor visualização do texto dentro do badge */
-        }
-
-        .method-badge.method-highlight-green {
-            background-color: #dcfce7; /* Tailwind green-100 */
-            color: #166534; /* Tailwind green-700 */
-            border: 1px solid #4ade80; /* Tailwind green-400, para um contorno verde */
-            /* padding, border-radius, font-size, font-weight são consistentes com .method-badge */
+            background-color: #f3f4f6; /* Cinza um pouco mais escuro */
         }
         .table-row.cursor-pointer:hover {
-            background-color: #f3f4f6;
+            background-color: #e5e7eb; /* Cinza mais escuro no hover */
         }
+        .row-selected {
+            background-color: #dbeafe !important; /* Azul claro (blue-200) */
+        }
+        .row-selected:hover {
+            background-color: #bfdbfe !important; /* Azul um pouco mais escuro (blue-300) */
+        }
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -110,7 +96,7 @@
             font-size: 0.75rem;
             font-weight: 500;
         }
-        .status-badge-ok {
+        .status-badge-ok, .method-badge-active {
             background-color: #dcfce7;
             color: #166534;
         }
@@ -126,14 +112,7 @@
             background-color: #fef9c3;
             color: #854d0e;
         }
-        .row-selected {
-            background-color: #eef2ff !important;
-        }
-        .row-selected:hover {
-            background-color: #e0e7ff !important;
-        }
-
-        /* Estilos para o badge de Acompanhamento */
+        
         .acompanhamento-status-badge {
             display: inline-block;
             padding: 4px 10px;
@@ -142,10 +121,10 @@
             font-weight: 500;
             margin-top: 4px;
         }
-        .status-com-agente { background-color: #fef9c3; color: #854d0e; } /* Amarelo */
-        .status-entregue { background-color: #dbeafe; color: #1e40af; } /* Azul */
-        .status-compareceu { background-color: #dcfce7; color: #166534; } /* Verde */
-        .status-nao-encontrado { background-color: #fee2e2; color: #991b1b; } /* Vermelho */
+        .status-com-agente { background-color: #fef9c3; color: #854d0e; }
+        .status-entregue { background-color: #dbeafe; color: #1e40af; }
+        .status-compareceu { background-color: #dcfce7; color: #166534; }
+        .status-nao-encontrado { background-color: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">

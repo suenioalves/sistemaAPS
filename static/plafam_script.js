@@ -52,6 +52,22 @@ document.addEventListener('DOMContentLoaded', function () {
         '4': { text: 'Não encontrado', class: 'status-nao-encontrado' }
     };
 
+    function parseISODate(isoDateString) {
+        if (!isoDateString || typeof isoDateString !== 'string') {
+            return null;
+        }
+        const parts = isoDateString.split('-');
+        if (parts.length === 3) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                return new Date(year, month, day);
+            }
+        }
+        return null;
+    }
+
     function checkScrollButtons() {
         const container = teamTabsContainer.querySelector('.scrollbar-hide');
         if (container) {
@@ -126,10 +142,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function getAcompanhamentoStatus(paciente) {
         if (paciente.gestante) return 'gestante';
         if (!paciente.metodo) return 'sem_metodo';
-        if (!paciente.data_aplicacao) return 'em_dia';
 
-        const dataAplicacao = new Date(paciente.data_aplicacao);
+        const dataAplicacao = parseISODate(paciente.data_aplicacao);
+        if (!dataAplicacao) return 'em_dia';
+
         const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
         const diffTime = hoje - dataAplicacao;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         let limiteDias = Infinity;
@@ -148,7 +167,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
         }
         if (status === 'na' || status === 'sem_metodo') return '';
-        const dataFormatada = new Date(paciente.data_aplicacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+        const dataAplicacao = parseISODate(paciente.data_aplicacao);
+        if (!dataAplicacao) return '';
+
+        const dataFormatada = dataAplicacao.toLocaleDateString('pt-BR');
         if (status === 'em dia') {
             return `<div>${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
         } else {
@@ -163,7 +186,26 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!paciente.metodo) {
             return `<span class="status-badge status-badge-no-method">Nenhum método</span>`;
         }
-        return `<span class="method-badge">${paciente.metodo}</span>`;
+
+        const displayMap = {
+            'mensal': 'Injetável Mensal',
+            'trimestral': 'Injetável Trimestral',
+            'pílulas': 'Pílula'
+        };
+        const metodoLower = paciente.metodo.toLowerCase();
+        let displayText = paciente.metodo;
+
+        for (const key in displayMap) {
+            if (metodoLower.includes(key)) {
+                displayText = displayMap[key];
+                break;
+            }
+        }
+
+        const activeMethods = ['diu', 'trimestral', 'mensal', 'pílula', 'implante', 'laqueadura'];
+        const badgeClass = activeMethods.some(m => metodoLower.includes(m)) ? 'method-badge-active' : 'status-badge-no-method';
+
+        return `<span class="status-badge ${badgeClass}">${displayText}</span>`;
     }
 
     function getImprimirCellContent(paciente, status) {
@@ -348,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { title: 'DIU de Cobre', text: 'Um método SEM HORMÔNIO de longa duração (10 anos) - inserido na UBS em poucos minutos.' },
             { title: 'Injetáveis', text: 'Que previnem a gravidez por um período específico: Mensal ou Trimestral.' },
             { title: 'Pílulas Anticoncepcionais', text: 'Comprimidos diários que regulam o ciclo menstrual e previnem a gravidez.' },
-            { title: 'Laqueadura ou Vasectomia', text: 'Método definitivo para acima de 21 anos, com ou sem filhos. Está sendo realizada no Hospital todo mês.' }
+            { title: 'Laqueadura ou Vasectomia (companheiro)', text: 'Métodos definitivos para você ou seu para seu companheiro, com ou sem filhos. Está sendo realizada no Hospital todo mês.' }
         ];
 
         pacientesSelecionados.forEach((paciente, index) => {
