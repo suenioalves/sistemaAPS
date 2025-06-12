@@ -129,14 +129,15 @@ def api_pacientes_plafam():
 
         where_clause, order_by_clause, query_params = build_filtered_query(request.args)
         
-        # Query base agora com LEFT JOIN para buscar o acompanhamento
         base_query = """
         SELECT
             m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
             m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
-            pa.status_acompanhamento, pa.data_acompanhamento
+            pa.status_acompanhamento, pa.data_acompanhamento,
+            ag.nome_agente
         FROM sistemaaps.mv_plafam m
         LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
         """
         
         final_query = base_query + where_clause
@@ -198,9 +199,11 @@ def api_export_data():
 
         base_query = """
         SELECT m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea, m.metodo, m.nome_equipe, 
-               m.data_aplicacao, m.status_gravidez, m.data_provavel_parto, pa.status_acompanhamento, pa.data_acompanhamento
+               m.data_aplicacao, m.status_gravidez, m.data_provavel_parto, pa.status_acompanhamento, pa.data_acompanhamento,
+               ag.nome_agente
         FROM sistemaaps.mv_plafam m
         LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
         """
         
         final_query = base_query + where_clause + order_by_clause

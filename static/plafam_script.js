@@ -143,21 +143,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return (diffDays <= limiteDias) ? 'em dia' : 'atrasado';
     }
 
-    function formatarNomeMetodo(metodoOriginal) {
-        if (!metodoOriginal || typeof metodoOriginal !== 'string' || metodoOriginal.trim() === '') {
-            return 'Nenhum método';
-        }
-        const metodoLower = metodoOriginal.trim().toLowerCase();
-
-        if (metodoLower === 'mensal') {
-            return 'Injetável Mensal';
-        }
-        if (metodoLower === 'trimestral') {
-            return 'Injetável Trimestral';
-        }
-        return metodoOriginal; // Retorna o original para outros casos
-    }
-
     function getStatusContent(paciente, status) {
         if (paciente.gestante) {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
@@ -172,29 +157,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function getMetodoContent(paciente) {
-        const metodoOriginal = paciente.metodo; // O valor que vem do backend
-        const nomeMetodoDisplay = formatarNomeMetodo(metodoOriginal); // Nome formatado para exibição
-
         if (paciente.gestante) {
             return `<span class="status-badge status-badge-pregnant">GESTANTE</span>`;
         }
-        if (!metodoOriginal) {
-            return `<span class="status-badge status-badge-no-method">${nomeMetodoDisplay}</span>`; // Exibe "Nenhum método"
+        if (!paciente.metodo) {
+            return `<span class="status-badge status-badge-no-method">Nenhum método</span>`;
         }
-
-        // Lista de palavras-chave para métodos a serem destacados (em minúsculas)
-        const metodosParaDestacar = ["laqueadura", "diu", "trimestral", "mensal", "pílula", "pilula"];
-        let extraClass = "";
-        
-        // Verifica se alguma parte do nome do método (em minúsculas) corresponde às palavras-chave
-        // Usamos includes para cobrir casos como "DIU de Cobre" ao procurar por "diu"
-        // Usamos o nome original para a lógica de destaque, mas exibimos o nome formatado
-        if (metodosParaDestacar.some(m => (metodoOriginal || '').toLowerCase().includes(m))) {
-            extraClass = " method-highlight-green";
-        }
-
-        // Exibe o nome formatado
-        return `<span class="method-badge${extraClass}">${nomeMetodoDisplay}</span>`;
+        return `<span class="method-badge">${paciente.metodo}</span>`;
     }
 
     function getImprimirCellContent(paciente, status) {
@@ -272,12 +241,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         row.classList.add('table-row', 'cursor-pointer');
                         const statusAcompanhamento = getAcompanhamentoStatus(paciente);
                         row.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap text-left">
+                            <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || ''}</div>
                                         <div class="text-xs text-gray-500">Cartão SUS: ${paciente.cartao_sus || ''}</div>
-                                        <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || ''} - Area: ${paciente.micro_area || ''}</div>
+                                        <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || ''} - Agente: ${paciente.nome_agente || 'A definir'}</div>
                                     </div>
                                 </div>
                             </td>
@@ -417,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function () {
             doc.text(`CNS: ${paciente.cartao_sus || 'Não informado'}`, xStart + conviteWidth / 2, currentY, { align: 'center' });
 
             currentY += 5;
-            doc.text(`${paciente.nome_equipe || 'Equipe não informada'} - ACS: Nome do Agente`, xStart + conviteWidth / 2, currentY, { align: 'center' });
+            doc.text(`Equipe ${paciente.nome_equipe || 'não informada'} - Agente: ${paciente.nome_agente || 'A definir'}`, xStart + conviteWidth / 2, currentY, { align: 'center' });
 
             currentY += 5;
             doc.setDrawColor(220, 220, 220);
@@ -512,7 +481,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Idade': p.idade_calculada,
                     'Equipe': p.nome_equipe,
                     'Microárea': p.micro_area,
-                    'Método Atual': formatarNomeMetodo(p.metodo), // Usa a função de formatação
+                    'Agente': p.nome_agente || 'A definir',
+                    'Método Atual': p.metodo || 'Nenhum',
                     'Data Aplicação': p.data_aplicacao || '',
                     'Status Acompanhamento': getAcompanhamentoStatus(p),
                     'Gestante': p.gestante ? 'Sim' : 'Não',
@@ -549,16 +519,16 @@ document.addEventListener('DOMContentLoaded', function () {
         doc.setFontSize(18);
         doc.setTextColor(40);
         doc.text("Relatório de Pacientes - Planejamento Familiar", 14, 22);
-        const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Microárea', 'Método Atual', 'Status', 'Gestante']];
+        const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Agente', 'Microárea', 'Método Atual', 'Status']];
         const body = dataToExport.map(p => [
             p['Nome da Paciente'],
             p['CNS'],
             p['Idade'],
             p['Equipe'],
+            p['Agente'],
             p['Microárea'],
             p['Método Atual'],
-            p['Status Acompanhamento'],
-            p['Gestante']
+            p['Status Acompanhamento']
         ]);
         doc.autoTable({
             head: headers,
