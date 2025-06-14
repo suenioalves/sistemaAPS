@@ -274,34 +274,51 @@
         </div>
         <div class="bg-white rounded shadow-sm p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-semibold text-gray-800">Linha do Tempo de Acompanhamento</h2>
-                <div class="relative">
-                    <div class="flex items-center border border-gray-300 rounded-full px-3 py-1">
-                        <div class="w-4 h-4 flex items-center justify-center text-gray-500 mr-2">
+                <h2 class="text-xl font-semibold text-gray-800">Acompanhamento de Adolescentes</h2>
+                <div class="flex items-center space-x-2">
+                    <!-- Botões de Filtro de Status -->
+                    <div class="flex flex-col space-y-1 mr-2">
+                        <div class="flex space-x-1">
+                            <button id="timeline-filter-metodo-em-dia" class="timeline-status-filter-btn bg-white text-green-700 border border-green-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="MetodoEmDia" data-inactive-class="bg-white text-green-700 border border-green-500" data-active-class="bg-green-500 text-white border-green-500">Método em dia</button>
+                            <button id="timeline-filter-gestante" class="timeline-status-filter-btn bg-white text-pink-700 border border-pink-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="Gestante" data-inactive-class="bg-white text-pink-700 border border-pink-500" data-active-class="bg-pink-500 text-white border-pink-500">Gestantes</button>
+                        </div>
+                        <div class="flex space-x-1">
+                            <button id="timeline-filter-sem-metodo" class="timeline-status-filter-btn bg-white text-yellow-700 border border-yellow-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="SemMetodo" data-inactive-class="bg-white text-yellow-700 border border-yellow-500" data-active-class="bg-yellow-400 text-yellow-800 border-yellow-400">Sem método</button>
+                            <button id="timeline-filter-metodo-vencido" class="timeline-status-filter-btn bg-white text-red-700 border border-red-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="MetodoVencido" data-inactive-class="bg-white text-red-700 border border-red-500" data-active-class="bg-red-500 text-white border-red-500">Método Vencido</button>
+                        </div>
+                    </div>
+                    <button id="timeline-filter-todos" class="timeline-status-filter-btn bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap self-center" data-status-filter="Todos" data-inactive-class="bg-white text-gray-700 border border-gray-300" data-active-class="bg-primary text-white">Todos</button>
+                    
+                    <!-- Busca -->
+                    <div class="relative">
+                        <input type="text" id="search-timeline-input" placeholder="Buscar adolescente..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                             <i class="ri-search-line"></i>
                         </div>
-                        <input type="text" placeholder="Buscar adolescente"
-                            class="border-none focus:outline-none text-sm w-48">
+                    </div>
+                    <!-- Botão Ordenar (placeholder, funcionalidade a ser implementada no JS) -->
+                    <div class="relative" id="timeline-sort-menu-container">
+                        <button id="timeline-sort-btn" class="px-3 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-sort-desc mr-2"></i>
+                            <span id="timeline-sort-btn-text">Nome (A-Z)</span>
+                        </button>
+                        <div id="timeline-sort-dropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-20 hidden overflow-hidden border">
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="nome_asc" data-text="Nome (A-Z)">
+                               <i class="ri-sort-alphabet-asc mr-2"></i> Nome (A-Z)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="nome_desc" data-text="Nome (Z-A)">
+                               <i class="ri-sort-alphabet-desc mr-2"></i> Nome (Z-A)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="idade_asc" data-text="Idade (crescente)">
+                               <i class="ri-sort-numeric-asc mr-2"></i> Idade (crescente)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="idade_desc" data-text="Idade (decrescente)">
+                               <i class="ri-sort-numeric-desc mr-2"></i> Idade (decrescente)
+                           </a>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="overflow-hidden">
-                <div class="flex space-x-2 mb-4">
-                    <button
-                        class="bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap">Todos</button>
-                    <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Sem
-                        método</button>
-                    <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Método
-                        a vencer</button>
-                    <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Método
-                        vencido</button>
-                    <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Visitas
-                        pendentes</button>
-                </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -309,15 +326,9 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Adolescente</th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Idade</th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Micro-área</th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Idade</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipe - Agente</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Status</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Próxima ação</th>
@@ -326,201 +337,16 @@
                                     Ações</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <tr class="hover:bg-gray-50 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div
-                                            class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-primary">
-                                            <span>JC</span>
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">Juliana Costa</div>
-                                            <div class="text-sm text-gray-500">Equipe Azul</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">15 anos</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">Micro-área 01</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                        Sem método
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    Abordagem com pais (15/06/2025)
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        class="text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap">Ver
-                                        detalhes</button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-gray-50 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div
-                                            class="flex-shrink-0 h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600">
-                                            <span>LS</span>
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">Larissa Silva</div>
-                                            <div class="text-sm text-gray-500">Equipe Verde</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">16 anos</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">Micro-área 03</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                        Método a vencer
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    Renovação de pílula (15/06/2025)
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        class="text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap">Ver
-                                        detalhes</button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-gray-50 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div
-                                            class="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                                            <span>GR</span>
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">Gabriela Rodrigues</div>
-                                            <div class="text-sm text-gray-500">Equipe Azul</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">17 anos</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">Micro-área 02</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                        Método ativo
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    Consulta trimestral (30/07/2025)
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        class="text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap">Ver
-                                        detalhes</button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-gray-50 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div
-                                            class="flex-shrink-0 h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                                            <span>BM</span>
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">Beatriz Mendes</div>
-                                            <div class="text-sm text-gray-500">Equipe Amarela</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">14 anos</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">Micro-área 05</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                        Sem método
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    Abordagem com pais (20/06/2025)
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        class="text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap">Ver
-                                        detalhes</button>
-                                </td>
-                            </tr>
-                            <tr class="hover:bg-gray-50 cursor-pointer">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div
-                                            class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                            <span>CA</span>
-                                        </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">Carolina Almeida</div>
-                                            <div class="text-sm text-gray-500">Equipe Verde</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">16 anos</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">Micro-área 04</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span
-                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                        Método vencido
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    Abordagem direta (14/06/2025)
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        class="text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap">Ver
-                                        detalhes</button>
-                                </td>
-                            </tr>
+                        <tbody id="timeline-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Linhas da tabela serão inseridas aqui pelo JS -->
+                             <tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="flex justify-between items-center mt-4">
-                    <div class="text-sm text-gray-700">
-                        Mostrando <span class="font-medium">1</span> a <span class="font-medium">5</span> de <span
-                            class="font-medium">126</span> resultados
-                    </div>
-                    <div class="flex space-x-2">
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm disabled:opacity-50 !rounded-button whitespace-nowrap"
-                            disabled>
-                            Anterior
-                        </button>
-                        <button
-                            class="bg-primary text-white rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">1</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">2</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">3</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">
-                            Próximo
-                        </button>
+                <div id="timeline-pagination-wrapper" class="flex items-center justify-between mt-4">
+                    <div id="timeline-pagination-info" class="text-sm text-gray-700"></div>
+                    <div id="timeline-pagination-container" class="flex space-x-1">
+                        <!-- Botões de paginação serão inseridos aqui -->
                     </div>
                 </div>
             </div>
@@ -542,35 +368,35 @@
                             <div class="bg-white rounded-lg shadow p-4">
                                 <div class="flex items-center justify-center mb-4">
                                     <div
-                                        class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
-                                        <span>JC</span>
+                                        id="timelineModalAvatarIniciais" class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
+                                        <span>--</span>
                                     </div>
                                 </div>
-                                <h4 class="text-lg font-medium text-center mb-2">Juliana Costa</h4>
-                                <div class="text-sm text-gray-500 text-center mb-4">15 anos</div>
+                                <h4 id="timelineModalAdolescenteNome" class="text-lg font-medium text-center mb-2">Nome da Adolescente</h4>
+                                <div id="timelineModalAdolescenteIdade" class="text-sm text-gray-500 text-center mb-4">-- anos</div>
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Micro-área:</span>
-                                        <span class="text-sm font-medium">01</span>
+                                        <span id="timelineModalMicroarea" class="text-sm font-medium">--</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Equipe:</span>
-                                        <span class="text-sm font-medium">Azul</span>
+                                        <span id="timelineModalEquipe" class="text-sm font-medium">--</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Status:</span>
-                                        <span class="text-sm font-medium text-red-600">Sem método</span>
+                                        <span id="timelineModalStatus" class="text-sm font-medium text-gray-700">--</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Próxima ação:</span>
-                                        <span class="text-sm font-medium">15/06/2025</span>
+                                        <span id="timelineModalProximaAcao" class="text-sm font-medium">--</span>
                                     </div>
                                 </div>
                                 <div class="mt-6">
                                     <button id="timelineRegisterBtn"
                                         class="w-full bg-primary text-white py-2 px-4 rounded flex items-center justify-center !rounded-button whitespace-nowrap">
                                         <div class="w-5 h-5 flex items-center justify-center mr-1">
-                                            <i class="ri-add-line"></i>
+                                            <i class="ri-add-line text-lg"></i>
                                         </div>
                                         Registrar ação
                                     </button>
@@ -578,7 +404,7 @@
                             </div>
                         </div>
                         <div class="w-2/3 pl-4">
-                            <div class="relative">
+                            <div id="timelineModalContentArea" class="relative">
                                 <div class="timeline-line"></div>
                                 <div class="flex mb-8 relative">
                                     <div

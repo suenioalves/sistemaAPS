@@ -523,5 +523,152 @@ def api_estatisticas_painel_adolescentes():
         if cur: cur.close()
         if conn: conn.close()
 
+def build_timeline_query_filters(args):
+    equipe = args.get('equipe', 'Todas')
+    agente_selecionado = args.get('agente_selecionado', 'Todas as áreas')
+    search_term = args.get('search_timeline', None)
+    status_timeline = args.get('status_timeline', 'Todos') # 'Todos', 'SemMetodo', 'MetodoVencido', 'MetodoEmDia', 'Gestante'
+    sort_by = args.get('sort_by_timeline', 'nome_asc')
+
+    query_params = {}
+    where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"] # Foco em adolescentes
+
+    if equipe != 'Todas':
+        where_clauses.append("m.nome_equipe = %(equipe)s")
+        query_params['equipe'] = equipe
+
+    if agente_selecionado != 'Todas as áreas':
+        if ' - ' in agente_selecionado:
+            parts = agente_selecionado.split(' - ', 1)
+            micro_area_str = parts[0].replace('Área ', '').strip()
+            # nome_agente_str = parts[1].strip() # Poderia ser usado se o filtro fosse mais granular
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea_timeline)s")
+                query_params['microarea_timeline'] = micro_area_str
+        # Se não tiver ' - ', pode ser apenas a microárea, mas a lógica atual do JS envia com ' - ' ou 'Todas as áreas'
+
+    if search_term:
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search_timeline)s)")
+        query_params['search_timeline'] = f"%{search_term}%"
+
+    if status_timeline == 'SemMetodo':
+        where_clauses.append("(m.metodo IS NULL OR m.metodo = '')")
+    elif status_timeline == 'MetodoVencido':
+        where_clauses.append("""
+            (
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                ))
+            )
+        """)
+    elif status_timeline == 'MetodoEmDia':
+        where_clauses.append("""
+            (
+                (m.metodo IS NOT NULL AND m.metodo != '') AND -- Paciente tem um método
+                (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND -- Paciente não está grávida
+                (
+                    (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                        ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                        (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                    )) OR
+                    (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%') 
+                )
+            )
+        """)
+    elif status_timeline == 'Gestante':
+        where_clauses.append("m.status_gravidez = 'Grávida'")
+    # 'Todos' não adiciona filtro de status específico do método
+
+    sort_mapping_timeline = {
+        'nome_asc': 'm.nome_paciente ASC',
+        'nome_desc': 'm.nome_paciente DESC',
+        'idade_asc': 'm.idade_calculada ASC',
+        'idade_desc': 'm.idade_calculada DESC',
+        # Adicionar mais ordenações se necessário
+    }
+    order_by_clause = " ORDER BY " + sort_mapping_timeline.get(sort_by, 'm.nome_paciente ASC')
+    
+    where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    return where_clause_str, order_by_clause, query_params
+
+@app.route('/api/timeline_adolescentes')
+def api_timeline_adolescentes():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        page = int(request.args.get('page_timeline', 1))
+        limit = 5 # Limite de 5 por página
+        offset = (page - 1) * limit
+
+        where_clause, order_by_clause, query_params = build_timeline_query_filters(request.args)
+
+        base_query_fields = """
+            m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
+            m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
+            ag.nome_agente
+            -- Adicionar campos para "próxima ação" quando definidos
+        """
+        
+        from_join_clause = """
+        FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+        """
+
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + from_join_clause + where_clause
+        cur.execute(count_query, query_params)
+        total_adolescentes = cur.fetchone()[0] or 0
+
+        query_params_paginated = query_params.copy()
+        query_params_paginated['limit'] = limit
+        query_params_paginated['offset'] = offset
+        
+        final_query = "SELECT " + base_query_fields + from_join_clause + where_clause + order_by_clause + " LIMIT %(limit)s OFFSET %(offset)s"
+        cur.execute(final_query, query_params_paginated)
+        
+        dados_adolescentes = []
+        for row in cur.fetchall():
+            linha_dict = dict(row)
+             # Tratamento de datas (similar ao api_pacientes_plafam)
+            data_app_val = linha_dict.get('data_aplicacao')
+            if data_app_val:
+                if isinstance(data_app_val, date):
+                    linha_dict['data_aplicacao'] = data_app_val.strftime('%Y-%m-%d')
+                elif isinstance(data_app_val, str):
+                    try:
+                        dt_obj = datetime.strptime(data_app_val, '%d/%m/%Y')
+                        linha_dict['data_aplicacao'] = dt_obj.strftime('%Y-%m-%d')
+                    except ValueError:
+                        try:
+                            datetime.strptime(data_app_val, '%Y-%m-%d')
+                        except ValueError:
+                            linha_dict['data_aplicacao'] = None
+                else:
+                    linha_dict['data_aplicacao'] = None
+            else:
+                linha_dict['data_aplicacao'] = None
+
+            if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
+                linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            
+            dados_adolescentes.append(linha_dict)
+
+        return jsonify({
+            'adolescentes': dados_adolescentes,
+            'total': total_adolescentes,
+            'page': page,
+            'limit': limit,
+            'pages': (total_adolescentes + limit - 1) // limit if total_adolescentes > 0 else 0
+        })
+    except Exception as e:
+        print(f"Erro na API timeline_adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')
