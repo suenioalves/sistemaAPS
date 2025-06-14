@@ -44,12 +44,21 @@ document.addEventListener('DOMContentLoaded', function () {
     let activeFilters = {};
     let currentSort = 'nome_asc';
 
+    // Função auxiliar para adicionar ou remover a classe de destaque da linha
+    function toggleRowSelectionStyle(checkboxElement) {
+        const row = checkboxElement.closest('tr');
+        if (row) {
+            row.classList.toggle('row-selected', checkboxElement.checked);
+        }
+    }
+
     const statusMap = {
-        '0': { text: '', class: '' },
-        '1': { text: 'Convite com o Agente', class: 'status-com-agente' },
-        '2': { text: 'Convite entregue', class: 'status-entregue' },
-        '3': { text: 'Compareceu à consulta', class: 'status-compareceu' },
-        '4': { text: 'Não encontrado', class: 'status-nao-encontrado' }
+        '0': { text: '', class: '' }, // Nenhuma ação
+        '1': { text: 'Convite com o agente', class: 'status-com-agente' },
+        '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
+        '3': { text: 'Plafam em consulta', class: 'status-compareceu' }, // Verde claro
+        '4': { text: 'Plafam em domicílio', class: 'status-domicilio' }, // Novo, Verde claro
+        '5': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' }
     };
 
     function checkScrollButtons() {
@@ -80,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const equipes = data;
                     const tabsHtml = `
                         <div class="flex items-center space-x-1 overflow-x-auto pb-2 flex-grow scrollbar-hide" style="scroll-snap-type: x mandatory;">
-                            <button class="team-tab px-4 py-2 text-sm font-medium whitespace-nowrap" data-equipe="Todas" style="scroll-snap-align: start;">Todas as Equipes</button>
+                            <button class="team-tab px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap" data-equipe="Todas" style="scroll-snap-align: start;">Todas as Equipes</button>
                             ${equipes.map(equipe => `
                                 <button class="team-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 whitespace-nowrap" data-equipe="${equipe}" style="scroll-snap-align: start;">${equipe}</button>
                             `).join('')}
@@ -108,13 +117,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function setActiveTab(equipeName) {
+        // Classes de estado para abas INATIVAS
+        const inactiveClasses = ['text-gray-500', 'border-transparent', 'hover:text-gray-700', 'hover:border-gray-300'];
+        // Classes de estado para abas ATIVAS
+        // 'selected-team-tab' aplica o fundo azul e cor de texto branca.
+        // 'text-primary' e 'border-primary' definem as cores do texto (sobrescrito por selected-team-tab) e da borda inferior.
+        const activeClasses = ['text-primary', 'border-primary', 'selected-team-tab'];
+
         document.querySelectorAll('.team-tab').forEach(tab => {
             if (tab.dataset.equipe === equipeName) {
-                tab.classList.add('text-primary', 'border-primary');
-                tab.classList.remove('text-gray-500', 'border-transparent', 'hover:border-gray-300');
+                // Aplicar estilos de ATIVA
+                tab.classList.add(...activeClasses);
+                // Remover estilos de INATIVA
+                tab.classList.remove(...inactiveClasses);
             } else {
-                tab.classList.remove('text-primary', 'border-primary');
-                tab.classList.add('text-gray-500', 'border-transparent', 'hover:border-gray-300');
+                // Aplicar estilos de INATIVA
+                tab.classList.add(...inactiveClasses);
+                // Remover estilos de ATIVA
+                tab.classList.remove(...activeClasses);
             }
         });
         const teamText = equipeName === 'Todas' ? 'Todas as Equipes' : equipeName;
@@ -147,8 +167,44 @@ document.addEventListener('DOMContentLoaded', function () {
         if (paciente.gestante) {
             return `<div class="text-xs">Data Provável do Parto:</div><div>${paciente.data_provavel_parto || 'N/A'}</div>`;
         }
-        if (status === 'na' || status === 'sem_metodo') return '';
-        const dataFormatada = new Date(paciente.data_aplicacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        // Se o status indica 'sem_metodo', não há data de aplicação para mostrar.
+        if (status === 'sem_metodo') {
+            return '';
+        }
+
+        // Se não houver data de aplicação (o backend deve enviar null se não houver,
+        // for inválida no origem, ou string vazia)
+        if (!paciente.data_aplicacao) {
+            // Se o status for 'em dia' (ex: para DIU, Implante, Laqueadura que não dependem de data para estar 'em dia'),
+            // apenas o badge de status é suficiente.
+            if (status === 'em dia' && paciente.metodo) {
+                const metodoLower = paciente.metodo.toLowerCase();
+                if (metodoLower.includes('diu') || metodoLower.includes('implante') || metodoLower.includes('laqueadura')) {
+                    return `<span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+                }
+            }
+            // Para outros casos (status 'atrasado' sem data, ou 'em dia' para métodos que deveriam ter data), retorna vazio para não mostrar "Invalid Date".
+            return '';
+        }
+
+        // Neste ponto, paciente.data_aplicacao DEVE ser uma string 'YYYY-MM-DD'
+        // Adicionar 'T00:00:00' para tratar a data como local meia-noite e evitar problemas de fuso horário
+        // ao converter para string com toLocaleDateString.
+        const dataAplicacaoObj = new Date(paciente.data_aplicacao + 'T00:00:00');
+
+        // Verifica se a data é válida após a construção.
+        // Se paciente.data_aplicacao for uma string malformada que passou pelo backend,
+        // new Date() pode resultar em "Invalid Date".
+        if (isNaN(dataAplicacaoObj.getTime())) {
+            console.warn(`Frontend: Data de aplicação resultou em inválida: '${paciente.data_aplicacao}' para ${paciente.nome_paciente}`);
+            return `<div>${paciente.data_aplicacao}</div><span class="status-badge status-badge-late mt-1">(data com erro)</span>`;
+        }
+
+        // Formata para o padrão brasileiro. timeZone: 'UTC' é importante aqui
+        // para que toLocaleDateString use a data como foi definida (meia-noite UTC)
+        // e não aplique o fuso do navegador que poderia mudar o dia.
+        const dataFormatada = dataAplicacaoObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
         if (status === 'em dia') {
             return `<div>${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
         } else {
@@ -214,10 +270,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     </button>
                     <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-30" role="menu">
                         <div class="py-1" role="none">
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="1">Convite com o Agente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="2">Convite Entregue</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Compareceu na consulta</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Não encontrado</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="1">Convite com o agente</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="2">Convite entregue ao cliente</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Plafam em consulta</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Plafam em domicílio</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="5">Cliente não encontrado</a>
                             <div class="border-t my-1"></div>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="0">Nenhuma ação</a>
                         </div>
@@ -624,19 +681,24 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Lógica para o checkbox de impressão
         const checkbox = row.querySelector('.print-checkbox');
         if (checkbox) {
-            if (event.target.tagName !== 'INPUT') {
+            // Se o clique foi na linha, mas NÃO diretamente no próprio checkbox
+            if (event.target !== checkbox) {
                 checkbox.checked = !checkbox.checked;
+                // Atualiza o estilo da linha imediatamente após a mudança programática do checkbox
+                toggleRowSelectionStyle(checkbox);
             }
-            checkbox.dispatchEvent(new Event('change'));
+            // Se o clique foi DIRETAMENTE no checkbox, o navegador já alterou o estado
+            // e o evento 'change' será disparado nativamente (tratado abaixo),
+            // que também chamará toggleRowSelectionStyle.
         }
     });
 
     tabelaPacientesBody.addEventListener('change', function (event) {
         if (event.target.classList.contains('print-checkbox')) {
-            const row = event.target.closest('tr');
-            row.classList.toggle('row-selected', event.target.checked);
+            toggleRowSelectionStyle(event.target); // event.target aqui é o checkbox
         }
     });
 

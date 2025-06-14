@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import psycopg2
-from datetime import date
+import psycopg2.extras # Adicionado para DictCursor
+from datetime import date, datetime
 
 app = Flask(__name__)
 
@@ -68,20 +69,25 @@ def build_filtered_query(args):
         if 'atrasado' in status_list:
             status_conditions.append("""
                 (
-                    ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                    ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') )
+                    (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days') )
+                    ))
                 )
             """)
         if 'em_dia' in status_list:
             status_conditions.append("""
                 (
-                    ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days') ) OR
-                    ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days') ) OR
+                    (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days') ) OR
+                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days') )
+                    )) OR
                     ( m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%' )
                 ) AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida')
             """)
         if status_conditions:
              where_clauses.append(f"({ ' OR '.join(status_conditions) })")
+
 
     # Lógica de Ordenação
     sort_mapping = {
@@ -93,8 +99,10 @@ def build_filtered_query(args):
         'status_asc': """
             CASE
                 WHEN m.status_gravidez = 'Grávida' THEN 1
-                WHEN ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                     ( m.metodo ILIKE '%%trimestral%%' AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '90 days') ) THEN 2
+                WHEN (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days') ) OR
+                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days') )
+                     )) THEN 2
                 WHEN (m.metodo IS NULL OR m.metodo = '') THEN 3
                 ELSE 4
             END ASC, m.nome_paciente ASC
@@ -114,6 +122,10 @@ def home():
 @app.route('/painel-plafam')
 def painel_plafam():
     return render_template('Painel-Plafam.html')
+
+@app.route('/painel-adolescentes')
+def painel_adolescentes():
+    return render_template('painel-adolescentes.html')
 
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
@@ -161,8 +173,33 @@ def api_pacientes_plafam():
         resultados = []
         for linha in dados:
             linha_dict = dict(zip(colunas_frontend, linha))
-            if linha_dict.get('data_aplicacao') and isinstance(linha_dict['data_aplicacao'], date):
-                linha_dict['data_aplicacao'] = linha_dict['data_aplicacao'].strftime('%Y-%m-%d')
+
+            # --- Tratamento específico para data_aplicacao ---
+            # Objetivo: Enviar para o frontend como 'YYYY-MM-DD' ou null.
+            data_app_val = linha_dict.get('data_aplicacao')
+            if data_app_val:
+                if isinstance(data_app_val, date):  # Se for um objeto date do Python
+                    linha_dict['data_aplicacao'] = data_app_val.strftime('%Y-%m-%d')
+                elif isinstance(data_app_val, str):  # Se for uma string
+                    try:
+                        # Tenta converter de 'dd/mm/yyyy' (formato da view, como informado)
+                        dt_obj = datetime.strptime(data_app_val, '%d/%m/%Y')
+                        linha_dict['data_aplicacao'] = dt_obj.strftime('%Y-%m-%d')
+                    except ValueError:
+                        # Se não for 'dd/mm/yyyy', verifica se já é 'yyyy-mm-dd'
+                        try:
+                            datetime.strptime(data_app_val, '%Y-%m-%d')
+                            # Se for, já está no formato correto, não precisa alterar.
+                        except ValueError:
+                            # Se não for nenhum dos formatos esperados, loga e define como None.
+                            print(f"Alerta: Formato de data_aplicacao ('{data_app_val}') não reconhecido na API. Enviando como null.")
+                            linha_dict['data_aplicacao'] = None
+                else: # Algum outro tipo inesperado
+                    print(f"Alerta: Tipo de data_aplicacao ({type(data_app_val)}) inesperado na API. Enviando como null.")
+                    linha_dict['data_aplicacao'] = None
+            else: # Se for None, False, 0, string vazia etc. vindo do banco
+                linha_dict['data_aplicacao'] = None # Garante que seja null para o JS
+
             if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
                 linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
             if linha_dict.get('data_acompanhamento') and isinstance(linha_dict['data_acompanhamento'], date):
@@ -311,6 +348,180 @@ def api_equipes():
             cur.close()
         if conn:
             conn.close()
+
+@app.route('/api/equipes_com_agentes_adolescentes')
+def api_equipes_com_agentes_adolescentes():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Pega todas as equipes distintas de mv_plafam ou tb_agentes
+        cur.execute("""
+            SELECT DISTINCT nome_equipe 
+            FROM (
+                SELECT nome_equipe FROM sistemaaps.mv_plafam
+                UNION
+                SELECT nome_equipe FROM sistemaaps.tb_agentes
+            ) AS equipes_unidas
+            WHERE nome_equipe IS NOT NULL 
+            ORDER BY nome_equipe
+        """)
+        equipes_db = cur.fetchall()
+        
+        resultado_final = []
+        for eq_row in equipes_db:
+            equipe_nome = eq_row['nome_equipe']
+            
+            # Contar adolescentes (14-18 anos) para a equipe atual
+            cur.execute("""
+                SELECT COUNT(DISTINCT m.cod_paciente)
+                FROM sistemaaps.mv_plafam m
+                WHERE m.nome_equipe = %s AND m.idade_calculada BETWEEN 14 AND 18
+            """, (equipe_nome,))
+            num_adolescentes = cur.fetchone()[0] or 0
+            
+            cur.execute("""
+                SELECT micro_area, nome_agente 
+                FROM sistemaaps.tb_agentes 
+                WHERE nome_equipe = %s 
+                ORDER BY micro_area, nome_agente
+            """, (equipe_nome,))
+            agentes_db = cur.fetchall()
+            agentes = []
+            if agentes_db:
+                agentes = [{"micro_area": ag['micro_area'], "nome_agente": ag['nome_agente']} for ag in agentes_db]
+            
+            resultado_final.append({"nome_equipe": equipe_nome, "agentes": agentes, "num_adolescentes": num_adolescentes})
+        
+        # Ordenar as equipes pelo número de adolescentes em ordem decrescente
+        resultado_final_ordenado = sorted(resultado_final, key=lambda x: x.get('num_adolescentes', 0), reverse=True)
+                
+        return jsonify(resultado_final_ordenado)
+    except Exception as e:
+        print(f"Erro ao buscar equipes com agentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/estatisticas_painel_adolescentes')
+def api_estatisticas_painel_adolescentes():
+    equipe_req = request.args.get('equipe', 'Todas')
+    # Espera "Área MA - Agente NOME" ou "Todas"
+    agente_selecionado_req = request.args.get('agente_selecionado', 'Todas') 
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        micro_area_filtro = None
+        # nome_agente_filtro = None # Não usado diretamente no filtro SQL se mv_plafam não tiver nome_agente
+        aplicar_filtro_agente_area = False
+
+        if agente_selecionado_req != 'Todas' and agente_selecionado_req != 'Todas as áreas':
+            # Exemplo: "Área 01 - Agente X" ou apenas "Área 01"
+            if ' - ' in agente_selecionado_req:
+                parts = agente_selecionado_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else: # Apenas "Área 01"
+                micro_area_str = agente_selecionado_req.replace('Área ', '').strip()
+            
+            if micro_area_str: # micro_area_str pode ser apenas o número da área
+                micro_area_filtro = micro_area_str
+                aplicar_filtro_agente_area = True
+
+        # --- Total de Adolescentes (14-18 anos) ---
+        # Este é para o card "Adolescentes - 14 a 18 anos" (respeita filtro de equipe e agente/área)
+        query_adolescentes_base = "SELECT COUNT(DISTINCT m.cod_paciente) FROM sistemaaps.mv_plafam m "
+        
+        # Cláusulas e parâmetros base para filtros de idade, equipe E área/agente
+        base_where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        base_params = []
+
+        if equipe_req != 'Todas':
+            base_where_clauses.append("m.nome_equipe = %s")
+            base_params.append(equipe_req)
+
+        if aplicar_filtro_agente_area and micro_area_filtro:
+            base_where_clauses.append("m.microarea = %s")
+            base_params.append(micro_area_filtro)
+
+        query_total_adolescentes_final = query_adolescentes_base + " WHERE " + " AND ".join(base_where_clauses)
+        cur.execute(query_total_adolescentes_final, tuple(base_params))
+        total_adolescentes = cur.fetchone()[0] or 0
+
+        # --- Adolescentes (14-18) SEM MÉTODO (respeita filtro de equipe e agente/área) ---
+        where_clauses_sem_metodo = list(base_where_clauses)
+        condicao_sem_metodo = "(m.metodo IS NULL OR m.metodo = '')"
+        where_clauses_sem_metodo.append(condicao_sem_metodo)
+        query_adolescentes_sem_metodo_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_sem_metodo)
+        cur.execute(query_adolescentes_sem_metodo_final, tuple(base_params)) # Reutiliza base_params pois a condição extra não tem placeholder
+        adolescentes_sem_metodo_count = cur.fetchone()[0] or 0
+        
+        # --- Adolescentes (14-18) COM MÉTODO ATRASADO (respeita filtro de equipe e agente/área) ---
+        where_clauses_metodo_atrasado = list(base_where_clauses)
+        condicao_metodo_atrasado = """
+        (
+            (m.metodo IS NOT NULL AND m.metodo != '') AND -- Garante que tem um método para estar atrasado
+            (
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days'))
+                )) OR
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                ))
+            )
+        )
+        """
+        where_clauses_metodo_atrasado.append(condicao_metodo_atrasado)
+        query_adolescentes_metodo_atrasado_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_metodo_atrasado)
+        cur.execute(query_adolescentes_metodo_atrasado_final, tuple(base_params))
+        adolescentes_com_metodo_atrasado_count = cur.fetchone()[0] or 0
+
+        # --- CÁLCULOS ESPECÍFICOS PARA O CARD "VISITAS/SEMANA" (APENAS FILTRO DE EQUIPE) ---
+        # Cláusulas e parâmetros apenas para filtro de idade e equipe (ignora agente/área)
+        equipe_only_where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        equipe_only_params = []
+
+        if equipe_req != 'Todas':
+            equipe_only_where_clauses.append("m.nome_equipe = %s")
+            equipe_only_params.append(equipe_req)
+
+        # Adolescentes (14-18) SEM MÉTODO (APENAS FILTRO DE EQUIPE)
+        where_clauses_sem_metodo_equipe_only = list(equipe_only_where_clauses)
+        where_clauses_sem_metodo_equipe_only.append(condicao_sem_metodo) # Reusa a condição_sem_metodo
+        query_adolescentes_sem_metodo_equipe_only_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_sem_metodo_equipe_only)
+        cur.execute(query_adolescentes_sem_metodo_equipe_only_final, tuple(equipe_only_params))
+        adolescentes_sem_metodo_equipe_only_count = cur.fetchone()[0] or 0
+
+        # Adolescentes (14-18) COM MÉTODO ATRASADO (APENAS FILTRO DE EQUIPE)
+        where_clauses_metodo_atrasado_equipe_only = list(equipe_only_where_clauses)
+        where_clauses_metodo_atrasado_equipe_only.append(condicao_metodo_atrasado) # Reusa a condicao_metodo_atrasado
+        query_adolescentes_metodo_atrasado_equipe_only_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_metodo_atrasado_equipe_only)
+        cur.execute(query_adolescentes_metodo_atrasado_equipe_only_final, tuple(equipe_only_params))
+        adolescentes_com_metodo_atrasado_equipe_only_count = cur.fetchone()[0] or 0
+        
+        # --- Card "Visitas/semana" (baseado nos cálculos de equipe_only) ---
+        adolescentes_para_visita_equipe_only_count = adolescentes_sem_metodo_equipe_only_count + adolescentes_com_metodo_atrasado_equipe_only_count
+        semanas_periodo = 25
+        visitas_semana_media = round(adolescentes_para_visita_equipe_only_count / semanas_periodo) if semanas_periodo > 0 and adolescentes_para_visita_equipe_only_count > 0 else 0
+        
+        return jsonify({
+            "total_adolescentes": total_adolescentes, 
+            "visitas_semana_media": visitas_semana_media,
+            "adolescentes_sem_metodo": adolescentes_sem_metodo_count,
+            "adolescentes_com_metodo_atrasado": adolescentes_com_metodo_atrasado_count
+        })
+    except Exception as e:
+        print(f"Erro ao buscar estatísticas de adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')

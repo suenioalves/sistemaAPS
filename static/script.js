@@ -1,1 +1,0 @@
-console.log("Seu script JavaScript do Dashboard principal está funcionando!");
