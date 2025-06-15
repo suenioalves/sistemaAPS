@@ -14,24 +14,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Elementos dos Cards de Estatísticas
     const totalAdolescentesValor = document.getElementById('totalAdolescentesValor');
-    const visitasSemanaValor = document.getElementById('visitasSemanaValor');
-    const labelEquipeCardAdolescentes = document.getElementById('labelEquipeCardAdolescentes');
-    const labelEquipeCardVisitasSemana = document.getElementById('labelEquipeCardVisitasSemana');
+    const labelEquipeCardTotalAdolescentes = document.getElementById('labelEquipeCardTotalAdolescentes');
+    
+    const adolescentesMetodoDiaValor = document.getElementById('adolescentesMetodoDiaValor');
+    const labelEquipeCardMetodoDia = document.getElementById('labelEquipeCardMetodoDia');
     const adolescentesSemMetodoValor = document.getElementById('adolescentesSemMetodoValor');
     const labelEquipeCardSemMetodo = document.getElementById('labelEquipeCardSemMetodo');
     const adolescentesMetodoAtrasadoValor = document.getElementById('adolescentesMetodoAtrasadoValor');
     const labelEquipeCardMetodoAtrasado = document.getElementById('labelEquipeCardMetodoAtrasado');
+    const adolescentesGestantesValor = document.getElementById('adolescentesGestantesValor');
+    const labelEquipeCardGestantes = document.getElementById('labelEquipeCardGestantes');
 
     let todasEquipesComAgentes = [];
     let equipeSelecionadaAtual = 'Todas';
     let agenteSelecionadoAtual = 'Todas as áreas';
 
+    const acompanhamentoAdolescentesTitle = document.getElementById('acompanhamentoAdolescentesTitle');
+    const sugestaoAbordagemContainer = document.getElementById('sugestaoAbordagemContainer');
+    let teamLevelStatsForSuggestion = null; // To store team-level stats for the suggestion
     // --- Elementos da Tabela de Timeline ---
     const timelineTableBody = document.getElementById('timeline-table-body');
     const timelinePaginationInfo = document.getElementById('timeline-pagination-info');
     const timelinePaginationContainer = document.getElementById('timeline-pagination-container');
     const searchTimelineInput = document.getElementById('search-timeline-input');
-    const timelineStatusFilterButtons = document.querySelectorAll('.timeline-status-filter-btn');
+    const timelineStatusFilterButtons = document.querySelectorAll('.timeline-status-tab-btn'); // Alterado para nova classe das abas
     const timelineSortBtn = document.getElementById('timeline-sort-btn');
     const timelineSortBtnText = document.getElementById('timeline-sort-btn-text');
     const timelineSortDropdown = document.getElementById('timeline-sort-dropdown');
@@ -41,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentTimelineStatusFilter = 'Todos'; // 'Todos', 'SemMetodo', 'MetodoVencido'
     let currentTimelineSort = 'nome_asc';
     let currentFetchedTimelineAdolescents = []; // Cache for adolescents on the currently displayed timeline page
+    const imprimirInformativosMaeBtn = document.getElementById('imprimir-informativos-mae-btn');
 
     // --- Elementos dos Modais ---
     const timelineModal = document.getElementById('timelineModal');
@@ -49,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const timelineModalAdolescenteIdade = timelineModal ? timelineModal.querySelector('#timelineModalAdolescenteIdade') : null; // Adicionar este ID
     const timelineModalMicroarea = timelineModal ? timelineModal.querySelector('#timelineModalMicroarea') : null; // Adicionar este ID
     const timelineModalEquipe = timelineModal ? timelineModal.querySelector('#timelineModalEquipe') : null; // Adicionar este ID
+    const timelineModalNomeMae = timelineModal ? timelineModal.querySelector('#timelineModalNomeMae') : null; // Novo ID para nome da mãe
     const timelineModalStatus = timelineModal ? timelineModal.querySelector('#timelineModalStatus') : null; // Adicionar este ID
     const timelineModalProximaAcao = timelineModal ? timelineModal.querySelector('#timelineModalProximaAcao') : null; // Adicionar este ID
     const timelineModalAvatarIniciais = timelineModal ? timelineModal.querySelector('#timelineModalAvatarIniciais') : null; // Adicionar este ID
@@ -56,6 +64,32 @@ document.addEventListener('DOMContentLoaded', function () {
     const closeTimelineModalBtn = document.getElementById('closeTimelineModal');
     const closeTimelineModalFooterBtn = document.getElementById('closeTimelineModalBtn');
     const timelineRegisterBtn = document.getElementById('timelineRegisterBtn');
+
+    const timelineEventIcons = {
+        1: 'ri-parent-line',        // Abordagem com pais
+        2: 'ri-user-voice-line',    // Abordagem direta com adolescente
+        3: 'ri-hospital-line',      // Consulta na UBS
+        4: 'ri-mail-send-line',     // Entrega de convite
+        'default': 'ri-calendar-event-line'
+    };
+    const timelineEventColors = { // Tailwind CSS color classes for icon background
+        1: 'bg-blue-100 text-blue-600',
+        2: 'bg-teal-100 text-teal-600',
+        3: 'bg-purple-100 text-purple-600',
+        4: 'bg-orange-100 text-orange-600',
+        'default': 'bg-gray-100 text-gray-600'
+    };
+    const tipoAbordagemMap = {
+        1: "Abordagem com pais",
+        2: "Abordagem direta com adolescente",
+        3: "Consulta na UBS",
+        4: "Entrega de convite"
+    };
+    const resultadoAbordagemMap = {
+        1: "Deseja iniciar um método contraceptivo",
+        2: "Recusou método contraceptivo",
+        3: "Ausente em domicílio"
+    };
 
     const registerModal = document.getElementById('registerModal');
     const registerModalTitle = registerModal ? registerModal.querySelector('h3') : null;
@@ -101,22 +135,66 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        labelEquipeCardAdolescentes.textContent = textoLabelEquipeBase;
-        labelEquipeCardSemMetodo.textContent = textoLabelEquipeBase;
-        labelEquipeCardMetodoAtrasado.textContent = textoLabelEquipeBase;
+        // Aplicar a label base para todos os cards
+        if(labelEquipeCardTotalAdolescentes) labelEquipeCardTotalAdolescentes.textContent = textoLabelEquipeBase;
+        if(labelEquipeCardMetodoDia) labelEquipeCardMetodoDia.textContent = textoLabelEquipeBase;
+        if(labelEquipeCardSemMetodo) labelEquipeCardSemMetodo.textContent = textoLabelEquipeBase;
+        if(labelEquipeCardMetodoAtrasado) labelEquipeCardMetodoAtrasado.textContent = textoLabelEquipeBase;
+        if(labelEquipeCardGestantes) labelEquipeCardGestantes.textContent = textoLabelEquipeBase;
 
-        // Card Visitas/semana (mostra apenas a equipe, mesmo se agente selecionado)
-        let textoLabelEquipeVisitas = "Todas as Equipes";
-        if (equipeSelecionadaAtual === 'Todas') {
-            textoLabelEquipeVisitas = "Todas as Equipes";
-        } else {
-            textoLabelEquipeVisitas = `Equipe ${equipeSelecionadaAtual}`;
-        }
-        labelEquipeCardVisitasSemana.textContent = textoLabelEquipeVisitas;
+        // O card "Total de Adolescentes" usa uma label um pouco diferente no HTML,
+        // mas o texto da equipe/agente é o mesmo.
+        // Se precisar de lógica diferente para a label do card "Total de Adolescentes", ajuste aqui.
 
         // Se os cards não tiverem equipe selecionada (ex: ao carregar "Todas as equipes")
         // os valores numéricos são para o geral.
         // Se uma equipe for selecionada, os valores são para aquela equipe/agente.
+    }
+    
+    function updateAcompanhamentoTitle() {
+        if (!acompanhamentoAdolescentesTitle) return;
+
+        let title = "Acompanhamento de Adolescentes";
+        if (equipeSelecionadaAtual !== 'Todas') {
+            title += ` - Equipe: ${equipeSelecionadaAtual}`;
+            if (agenteSelecionadoAtual !== 'Todas as áreas') {
+                // agenteSelecionadoAtual já vem formatado como "Área X - Agente Y" ou "Área X"
+                title += ` - ${agenteSelecionadoAtual}`;
+            }
+        }
+        // Se equipeSelecionadaAtual for 'Todas', o título permanece o base.
+        acompanhamentoAdolescentesTitle.textContent = title;
+    }
+
+    function updateSugestaoAbordagem() { // No longer takes estatisticasData directly
+        if (!sugestaoAbordagemContainer) return;
+
+        // Show suggestion only if a specific team is selected and we have team-level stats
+        if (equipeSelecionadaAtual !== 'Todas' && teamLevelStatsForSuggestion) {
+            const semMetodo = teamLevelStatsForSuggestion.semMetodo || 0;
+            const metodoAtrasado = teamLevelStatsForSuggestion.metodoAtrasado || 0;
+            const totalParaAbordagem = semMetodo + metodoAtrasado;
+            
+            const semanasPeriodo = 25; // Aproximadamente 6 meses
+            let sugestaoX = 0;
+
+            if (totalParaAbordagem > 0 && semanasPeriodo > 0) {
+                sugestaoX = Math.ceil(totalParaAbordagem / semanasPeriodo);
+            }
+            
+            // Garantir um mínimo de 2 abordagens por semana, se houver alguma adolescente para abordar
+            if (totalParaAbordagem > 0 && sugestaoX < 2) {
+                sugestaoX = 2;
+            }
+
+            sugestaoAbordagemContainer.innerHTML = `
+                <i class="ri-information-line align-middle mr-1"></i>Para acompanhar todas as adolescentes da equipe ${equipeSelecionadaAtual} no período de 6 meses sugerimos ${sugestaoX} abordagem (consultas ou visitas) por semana.
+            `;
+            sugestaoAbordagemContainer.classList.remove('hidden');
+        } else {
+            sugestaoAbordagemContainer.classList.add('hidden');
+            sugestaoAbordagemContainer.innerHTML = '';
+        }
     }
 
     function fetchEstatisticas() {
@@ -132,25 +210,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.erro) {
                     console.error('Erro ao buscar estatísticas:', data.erro);
                     totalAdolescentesValor.textContent = '-';
-                    visitasSemanaValor.textContent = '-';
                     adolescentesSemMetodoValor.textContent = '-';
                     adolescentesMetodoAtrasadoValor.textContent = '-';
+                    adolescentesMetodoDiaValor.textContent = '-';
+                    adolescentesGestantesValor.textContent = '-';
                     return;
                 }
                 totalAdolescentesValor.textContent = data.total_adolescentes !== undefined ? data.total_adolescentes : '-';
-                visitasSemanaValor.textContent = data.visitas_semana_media !== undefined ? data.visitas_semana_media : '-';
                 adolescentesSemMetodoValor.textContent = data.adolescentes_sem_metodo !== undefined ? data.adolescentes_sem_metodo : '-';
                 adolescentesMetodoAtrasadoValor.textContent = data.adolescentes_com_metodo_atrasado !== undefined ? data.adolescentes_com_metodo_atrasado : '-';
+                adolescentesMetodoDiaValor.textContent = data.adolescentes_metodo_em_dia !== undefined ? data.adolescentes_metodo_em_dia : '-';
+                adolescentesGestantesValor.textContent = data.adolescentes_gestantes !== undefined ? data.adolescentes_gestantes : '-';
+
+                // If a specific team is selected AND we are looking at "Todas as áreas" for that team,
+                // it means these are the team-level stats we need for the suggestion.
+                if (equipeSelecionadaAtual !== 'Todas' && agenteSelecionadoAtual === 'Todas as áreas') {
+                    teamLevelStatsForSuggestion = {
+                        semMetodo: data.adolescentes_sem_metodo || 0,
+                        metodoAtrasado: data.adolescentes_com_metodo_atrasado || 0
+                    };
+                }
+                updateSugestaoAbordagem(); // Update suggestion (it will use teamLevelStatsForSuggestion)
             })
             .finally(atualizarLabelsDosCards) // Atualiza os labels após buscar as estatísticas
             .catch(error => {
                 console.error('Erro de rede ao buscar estatísticas:', error);
                 totalAdolescentesValor.textContent = 'Erro';
-                visitasSemanaValor.textContent = 'Erro';
                 adolescentesSemMetodoValor.textContent = 'Erro';
                 adolescentesMetodoAtrasadoValor.textContent = 'Erro';
+                adolescentesMetodoDiaValor.textContent = 'Erro';
+                adolescentesGestantesValor.textContent = 'Erro';
+                teamLevelStatsForSuggestion = null; // Clear stored stats on error
+                updateSugestaoAbordagem(); // Limpa a sugestão em caso de erro
             });
     }
+
+    // Função combinada para atualizar tudo após seleção
+    function atualizarPainelCompleto() { fetchEstatisticas(); fetchTimelineData(); updateAcompanhamentoTitle(); fetchGraficosData(); }
 
     function popularDropdownAgentes(agentes) {
         microareaDropdownContent.innerHTML = ''; // Limpa opções anteriores
@@ -163,8 +259,7 @@ document.addEventListener('DOMContentLoaded', function () {
             microareaButtonText.textContent = 'Todas as áreas';
             agenteSelecionadoAtual = 'Todas as áreas';
             microareaDropdown.classList.add('hidden');
-            fetchEstatisticas();
-            fetchTimelineData(); // Atualiza a tabela da timeline
+            atualizarPainelCompleto();
         });
         microareaDropdownContent.appendChild(todasAgenciasOption);
 
@@ -178,8 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     microareaButtonText.textContent = displayText;
                     agenteSelecionadoAtual = displayText; // Envia "Área MA - Agente NOME"
                     microareaDropdown.classList.add('hidden');
-                    fetchEstatisticas();
-                    fetchTimelineData(); // Atualiza a tabela da timeline
+                    atualizarPainelCompleto();
                 });
                 microareaDropdownContent.appendChild(option);
             });
@@ -211,8 +305,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     popularDropdownAgentes([]); // Limpa agentes ou mostra "Todas as áreas"
                     microareaButtonText.textContent = 'Todas as áreas'; // Reset agente dropdown
                     agenteSelecionadoAtual = 'Todas as áreas';
-                    fetchEstatisticas();
-                    fetchTimelineData(); // Atualiza a tabela da timeline
+                    teamLevelStatsForSuggestion = null; // Clear team-level stats when going to "Todas as equipes"
+                    atualizarPainelCompleto();
                 });
                 equipeDropdownContent.appendChild(todasEquipesOption);
 
@@ -228,16 +322,162 @@ document.addEventListener('DOMContentLoaded', function () {
                         popularDropdownAgentes(equipe.agentes);
                         microareaButtonText.textContent = 'Todas as áreas'; // Reset agente dropdown
                         agenteSelecionadoAtual = 'Todas as áreas';
-                        fetchEstatisticas(); // Busca estatísticas para a equipe (todos os agentes)
-                        fetchTimelineData(); // Atualiza a tabela da timeline
+                        atualizarPainelCompleto();
                     });
                     equipeDropdownContent.appendChild(option);
                 });
 
                 // Carrega estatísticas iniciais para "Todas as equipes"
-                fetchEstatisticas();
+                // e atualiza o título do acompanhamento
+                atualizarPainelCompleto();
             })
             .catch(error => console.error('Erro de rede ao buscar equipes e agentes:', error));
+    }
+
+    // --- Funções para os Gráficos ---
+    let statusChartInstance = null;
+    let ageChartInstance = null; // Renomearemos para pizzaChartInstance mentalmente
+
+    const statusColors = {
+        gestantes: 'rgb(236, 72, 153)', // Rosa (Tailwind pink-500)
+        sem_metodo: 'rgb(250, 204, 21)', // Amarelo (Tailwind yellow-400)
+        metodo_atraso: 'rgb(239, 68, 68)', // Vermelho (Tailwind red-500)
+        metodo_em_dia: 'rgb(34, 197, 94)'  // Verde (Tailwind green-500)
+    };
+    const statusLabels = {
+        gestantes: 'Grávidas',
+        sem_metodo: 'Sem Método',
+        metodo_atraso: 'Método em Atraso',
+        metodo_em_dia: 'Método em Dia'
+    };
+
+    function initCharts() {
+        const chartStatusEl = document.getElementById('chartStatus');
+        const chartAgeEl = document.getElementById('chartAge'); // Este será o de pizza
+
+        if (chartStatusEl) {
+            statusChartInstance = echarts.init(chartStatusEl);
+        }
+        if (chartAgeEl) {
+            ageChartInstance = echarts.init(chartAgeEl);
+        }
+        // Redimensionar gráficos quando a janela mudar de tamanho
+        window.addEventListener('resize', function () {
+            statusChartInstance?.resize();
+            ageChartInstance?.resize();
+        });
+    }
+
+    function fetchGraficosData() {
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual
+            // agente_selecionado não é usado aqui, pois os gráficos são por equipe ou todas as microáreas da equipe
+        });
+
+        fetch(`/api/graficos_painel_adolescentes?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    console.error("Erro ao buscar dados dos gráficos:", data.erro);
+                    return;
+                }
+                updatePizzaChart(data.pizza_data);
+                updateBarChart(data.bar_chart_data);
+            })
+            .catch(error => console.error('Erro de rede ao buscar dados dos gráficos:', error));
+    }
+
+    function updatePizzaChart(pizzaData) {
+        if (!ageChartInstance || !pizzaData) return;
+
+        const seriesData = [
+            { value: pizzaData.gestantes || 0, name: statusLabels.gestantes, itemStyle: { color: statusColors.gestantes } },
+            { value: pizzaData.sem_metodo || 0, name: statusLabels.sem_metodo, itemStyle: { color: statusColors.sem_metodo } },
+            { value: pizzaData.metodo_atraso || 0, name: statusLabels.metodo_atraso, itemStyle: { color: statusColors.metodo_atraso } },
+            { value: pizzaData.metodo_em_dia || 0, name: statusLabels.metodo_em_dia, itemStyle: { color: statusColors.metodo_em_dia } }
+        ].filter(item => item.value > 0); // Filtra para não mostrar itens com valor 0 na legenda/pizza
+
+        const option = {
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}: {c} ({d}%)'
+            },
+            legend: {
+                orient: 'horizontal',
+                bottom: 0,
+                data: seriesData.map(item => item.name)
+            },
+            series: [
+                {
+                    name: 'Distribuição da Equipe',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 8,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: { show: false, position: 'center' },
+                    emphasis: {
+                        label: { show: true, fontSize: '16', fontWeight: 'bold' }
+                    },
+                    labelLine: { show: false },
+                    data: seriesData
+                }
+            ]
+        };
+        ageChartInstance.setOption(option, true); // true para limpar o gráfico anterior
+    }
+
+    function updateBarChart(barData) {
+        if (!statusChartInstance || !barData) return;
+
+        let categories;
+        let seriesDataFunction;
+
+        if (equipeSelecionadaAtual === 'Todas') {
+            categories = [...new Set(barData.map(item => item.nome_equipe || 'Equipe N/A'))].sort();
+            seriesDataFunction = (statusKey, category) => {
+                const item = barData.find(d => (d.nome_equipe || 'Equipe N/A') === category);
+                return item ? (item[statusKey] || 0) : 0;
+            };
+        } else { // Specific team selected
+            // Create unique categories based on "Área X - Agente Y" or "Área X"
+            categories = [...new Set(barData.map(item => {
+                const microarea = item.microarea || 'N/A';
+                const agente = item.nome_agente || 'Agente Desconhecido';
+                return `Área ${microarea} - ${agente}`;
+            }))].sort();
+
+            seriesDataFunction = (statusKey, categoryLabel) => {
+                const item = barData.find(d => {
+                    const ma = d.microarea || 'N/A';
+                    const ag = d.nome_agente || 'Agente Desconhecido';
+                    return `Área ${ma} - ${ag}` === categoryLabel;
+                });
+                return item ? (item[statusKey] || 0) : 0;
+            };
+        }
+
+        const series = Object.keys(statusLabels).map(statusKey => ({
+            name: statusLabels[statusKey],
+            type: 'bar',
+            stack: 'total',
+            itemStyle: { color: statusColors[statusKey], borderRadius: [4, 4, 0, 0] },
+            emphasis: { focus: 'series' },
+            data: categories.map(cat => seriesDataFunction(statusKey, cat))
+        }));
+
+        const option = {
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { data: Object.values(statusLabels), bottom: 0 },
+            grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+            xAxis: { type: 'category', data: categories, axisLabel: { interval: 0, rotate: categories.length > 5 ? 30 : 0 } },
+            yAxis: { type: 'value' },
+            series: series
+        };
+        statusChartInstance.setOption(option, true); // true para limpar o gráfico anterior
     }
 
     // --- Funções para a Tabela de Timeline ---
@@ -256,9 +496,15 @@ document.addEventListener('DOMContentLoaded', function () {
             statusClass = 'text-yellow-700';
         } else if (ado.data_aplicacao) {
             const dataAplicacao = new Date(ado.data_aplicacao + 'T00:00:00'); // Considerar como data local
-            const hoje = new Date();
-            hoje.setHours(0,0,0,0); // Normalizar hoje para meia-noite para comparação de dias
             
+            if (isNaN(dataAplicacao.getTime())) { // Verifica se a data é inválida
+                statusTexto = 'Data de aplicação inválida.';
+                statusClass = 'text-red-500 font-semibold';
+            } else {
+                // Continua com a lógica original se a data for válida
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0); // Normalizar hoje para meia-noite para comparação de dias
+
             let limiteDias = Infinity;
             const metodoLower = ado.metodo.toLowerCase();
 
@@ -282,6 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
                 statusClass = 'text-green-600';
             }
+            }
         } else { // Tem método mas não tem data de aplicação (pode acontecer se o dado for inconsistente)
             statusTexto = 'Data de aplicação não informada.';
             statusClass = 'text-gray-500';
@@ -296,7 +543,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderTimelineTable(data) {
         timelineTableBody.innerHTML = '';
         if (!data || !data.adolescentes || data.adolescentes.length === 0) {
-            timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhuma adolescente encontrada.</td></tr>`;
+            timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhuma adolescente encontrada.</td></tr>`; // Colspan ajustado para 6 colunas
             renderTimelinePagination(0, 1, 5, 0);
             return;
         }
@@ -306,24 +553,29 @@ document.addEventListener('DOMContentLoaded', function () {
             row.className = 'hover:bg-gray-50';
             row.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${ado.nome_paciente || 'N/A'}</div>
+                    <div class="text-sm font-medium text-gray-900">${ado.nome_paciente || 'N/A'}, ${ado.idade_calculada || 'N/A'} anos</div>
                     <div class="text-xs text-gray-500">CNS: ${ado.cartao_sus || 'N/A'}</div>
+                    <div class="text-xs text-gray-400">Mãe: ${ado.nome_responsavel || 'N/A'}</div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${ado.idade_calculada || 'N/A'} anos</td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm text-gray-900">${ado.nome_equipe || 'N/A'}</div>
                     <div class="text-xs text-gray-500">${ado.nome_agente || `Microárea ${ado.microarea || 'N/A'}`}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getTimelineMetodoStatusContent(ado)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${ado.proxima_acao_data || 'A definir'} <br>
-                    <span class="text-xs">${ado.proxima_acao_tipo || ''}</span>
+                    ${ado.proxima_acao_descricao ?
+                    `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>` :
+                    'A definir'
+                }
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button class="timeline-ver-detalhes-btn text-primary hover:text-indigo-700 !rounded-button whitespace-nowrap" 
                             data-cod-paciente="${ado.cod_paciente}"
                             data-nome-paciente="${ado.nome_paciente || ''}">
-                        Ver detalhes</button>
+                        Registrar Ações</button>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <input type="checkbox" class="imprimir-informativo-mae-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-cod-paciente="${ado.cod_paciente}">
                 </td>
             `;
         });
@@ -387,11 +639,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         // Botão Próximo
         paginationHtml += `<button data-page="${page + 1}" class="timeline-page-btn px-3 py-1 border border-gray-300 text-sm rounded-md ${page === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" ${page === totalPages ? 'disabled' : ''}>Próximo</button>`;
-        
+
         timelinePaginationContainer.innerHTML = paginationHtml;
 
         document.querySelectorAll('.timeline-page-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 if (this.disabled || this.dataset.page === undefined) return; // Ignora reticências e botões desabilitados
                 currentTimelinePage = parseInt(this.dataset.page);
                 fetchTimelineData();
@@ -400,7 +652,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function fetchTimelineData() {
-        timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>`;
+        timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Colspan ajustado para 6 colunas
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual,
             agente_selecionado: agenteSelecionadoAtual,
@@ -413,10 +665,10 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(`/api/timeline_adolescentes?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
-                if(data.erro) {
+                if (data.erro) {
                     console.error("Erro ao buscar dados da timeline:", data.erro);
-                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`;
-                    renderTimelinePagination(0,1,5,0);
+                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`; // Colspan ajustado para 6 colunas
+                    renderTimelinePagination(0, 1, 5, 0);
                     return;
                 }
                 currentFetchedTimelineAdolescents = data.adolescentes || []; // Update cache
@@ -425,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => {
                 // Limpar a tabela e a paginação em caso de erro de rede
                 if (timelineTableBody) {
-                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro de comunicação ao carregar dados.</td></tr>`;
+                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro de comunicação ao carregar dados.</td></tr>`; // Colspan ajustado para 6 colunas
                 }
                 if (timelinePaginationInfo) timelinePaginationInfo.innerHTML = '';
                 if (timelinePaginationContainer) timelinePaginationContainer.innerHTML = '';
@@ -433,8 +685,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 currentFetchedTimelineAdolescents = []; // Clear cache on error
 
                 console.error('Erro de rede ao buscar dados da timeline:', error);
-                timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro de comunicação.</td></tr>`;
-                renderTimelinePagination(0,1,5,0);
+                renderTimelinePagination(0, 1, 5, 0);
             });
     }
 
@@ -444,76 +695,167 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!nome) return 'N/A';
         const partes = nome.split(' ');
         if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
-        return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+        return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] || '')).toUpperCase();
     }
 
     async function abrirModalTimeline(codPaciente) {
-        // Idealmente, buscar dados completos da adolescente, incluindo histórico
-        // fetch(`/api/detalhes_adolescente/${codPaciente}`) ...
-        // Por agora, vamos usar os dados que já temos na tabela e o cache da página atual.
+        if (!codPaciente) return;
 
-        // Try to find in the cache of the currently displayed timeline page first
-        let adoDetalhes = currentFetchedTimelineAdolescents.find(a => String(a.cod_paciente) === String(codPaciente));
+        try {
+            const response = await fetch(`/api/adolescente_detalhes_timeline/${codPaciente}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ erro: "Erro desconhecido ao buscar detalhes." }));
+                throw new Error(errorData.erro || `HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
 
-        if (!adoDetalhes) {
-            // If not found in the current page's cache, then try the fallback.
-            // This might happen if the click event is somehow stale or data is inconsistent.
-            // The warning is still relevant here.
-            console.warn("Adolescente não encontrado na cache da página atual da timeline, tentando fallback para a API (re-fetch da página atual)...");
-            // ou ter uma API /api/adolescente_detalhes/<cod_paciente>
-            // Por ora, se não achar, não abre o modal ou mostra erro.
-            // Para este exemplo, vamos assumir que os dados da tabela são suficientes para o cabeçalho do modal.
-            // E que a timeline de eventos viria de outra chamada.
-            
-            // Tentativa de encontrar na última leva de dados da timeline
-            const params = new URLSearchParams({
-                equipe: equipeSelecionadaAtual,
-                agente_selecionado: agenteSelecionadoAtual,
-                page_timeline: currentTimelinePage, // ou 1 se quiser buscar sempre
-                search_timeline: '', // Limpa busca para tentar achar pelo ID
-                status_timeline: 'Todos',
-                sort_by_timeline: 'nome_asc'
+            if (data.erro) {
+                alert(`Erro ao carregar detalhes: ${data.erro}`);
+                return;
+            }
+
+            const adoDetalhes = data.detalhes;
+            const eventosTimeline = data.eventos_timeline || [];
+
+            // Adiciona cod_paciente ao objeto adoDetalhes se não estiver presente, para consistência
+            currentAdolescenteForModal = { ...adoDetalhes, cod_paciente: codPaciente, nome_responsavel: adoDetalhes.nome_responsavel };
+
+            // Populate left card
+            if (timelineModalTitle) timelineModalTitle.textContent = `Acompanhamento - Linha do Tempo - ${adoDetalhes.nome_paciente || 'Desconhecida'}`;
+            if (timelineModalAvatarIniciais) timelineModalAvatarIniciais.textContent = getIniciais(adoDetalhes.nome_paciente);
+            if (timelineModalAdolescenteNome) timelineModalAdolescenteNome.textContent = adoDetalhes.nome_paciente || 'N/A';
+            if (timelineModalAdolescenteIdade) timelineModalAdolescenteIdade.textContent = `${adoDetalhes.idade_calculada || 'N/A'} anos`;
+            if (timelineModalMicroarea) timelineModalMicroarea.textContent = adoDetalhes.microarea || 'N/A';
+            if (timelineModalEquipe) timelineModalEquipe.textContent = adoDetalhes.nome_equipe || 'N/A';
+            if (timelineModalNomeMae) timelineModalNomeMae.textContent = adoDetalhes.nome_responsavel || 'N/A';
+
+            // Status e Próxima Ação (usar dados de mv_plafam para status geral, próxima ação virá da timeline)
+            const statusGeralContent = getTimelineMetodoStatusContent(adoDetalhes); // Usa dados de mv_plafam
+            if (timelineModalStatus) timelineModalStatus.innerHTML = statusGeralContent.split('<div class="text-xs')[0];
+
+            // Determinar próxima ação com base nos eventos da timeline
+            let proximaAcaoTexto = 'A definir';
+            if (eventosTimeline.length > 0) {
+                // A lógica para "próxima ação" pode ser mais complexa,
+                // por exemplo, encontrar o evento mais recente que seja um agendamento futuro.
+                // Por ora, vamos pegar a observação do evento mais recente se parecer um agendamento.
+                const eventoMaisRecente = eventosTimeline[0]; // Já ordenado por DESC data_acao
+                if (eventoMaisRecente.observacoes && eventoMaisRecente.observacoes.toLowerCase().includes('agendamento')) {
+                    proximaAcaoTexto = `${tipoAbordagemMap[eventoMaisRecente.tipo_abordagem]} em ${new Date(eventoMaisRecente.data_acao + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                } else if (adoDetalhes.proxima_acao_data) { // Fallback para o campo da tabela principal se existir
+                    proximaAcaoTexto = adoDetalhes.proxima_acao_data;
+                }
+            }
+            if (timelineModalProximaAcao) timelineModalProximaAcao.textContent = proximaAcaoTexto;
+
+
+            renderTimelineEvents(eventosTimeline, adoDetalhes.nome_paciente);
+
+            if (timelineModal) timelineModal.classList.remove('hidden');
+
+        } catch (error) {
+            console.error("Falha ao abrir modal da timeline:", error);
+            alert(`Não foi possível carregar os detalhes da adolescente: ${error.message}`);
+        }
+    }
+
+    function renderTimelineEvents(eventos, nomePaciente) {
+        if (timelineModalContent) {
+            timelineModalContent.innerHTML = ''; // Clear previous content
+
+            if (!eventos || eventos.length === 0) {
+                timelineModalContent.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhuma abordagem registrada para esta adolescente.</p>';
+                return;
+            }
+
+            const timelineLine = document.createElement('div');
+            timelineLine.className = 'timeline-line';
+            timelineModalContent.appendChild(timelineLine);
+
+            eventos.forEach((evento, index) => {
+                const dataAcaoFormatada = evento.data_acao ? new Date(evento.data_acao + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não informada';
+                const iconClass = timelineEventIcons[evento.tipo_abordagem] || timelineEventIcons['default'];
+                const iconColorClass = timelineEventColors[evento.tipo_abordagem] || timelineEventColors['default'];
+
+                let tipoAbordagemTexto = tipoAbordagemMap[evento.tipo_abordagem] || `Tipo ${evento.tipo_abordagem || 'Desconhecido'}`;
+                let resultadoAbordagemTexto = evento.resultado_abordagem ? (resultadoAbordagemMap[evento.resultado_abordagem] || `Resultado ${evento.resultado_abordagem}`) : '';
+
+                // Lógica para destacar se é uma "próxima ação" agendada
+                // (Exemplo: se a data_acao for futura ou observações indicarem agendamento)
+                let cardBorderClass = '';
+                const dataAcaoObj = evento.data_acao ? new Date(evento.data_acao + 'T00:00:00') : null;
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                if (dataAcaoObj && dataAcaoObj > hoje && (evento.observacoes || '').toLowerCase().includes('agendamento')) {
+                    cardBorderClass = 'border-2 border-primary'; // Destaca ações futuras agendadas
+                }
+
+                let deleteButtonHtml = '';
+                if (index === 0) { // Adiciona o botão de deletar apenas para o item mais recente (topo da timeline)
+                    deleteButtonHtml = `
+                        <button class="delete-timeline-action-btn text-red-500 hover:text-red-700 absolute bottom-2 right-2 p-1" title="Deletar esta ação" data-co-abordagem="${evento.co_abordagem}">
+                            <i class="ri-delete-bin-line text-lg"></i>
+                        </button>`;
+                }
+
+                const eventHtml = `
+                    <div class="flex mb-8 relative">
+                        <div class="w-12 h-12 rounded-full ${iconColorClass} flex items-center justify-center z-10 flex-shrink-0">
+                            <div class="w-6 h-6 flex items-center justify-center">
+                                <i class="${iconClass} text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow relative ${cardBorderClass}">
+                            ${deleteButtonHtml}
+                            <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-medium">${tipoAbordagemTexto}</h5>
+                                <span class="text-sm text-gray-500">${dataAcaoFormatada}</span>
+                            </div>
+                            ${resultadoAbordagemTexto ? `<p class="text-sm text-gray-700 mb-1"><strong>Resultado:</strong> ${resultadoAbordagemTexto}</p>` : ''}
+                            ${evento.observacoes ? `<p class="text-sm text-gray-600 mb-2">${evento.observacoes.replace(/\n/g, '<br>')}</p>` : '<p class="text-sm text-gray-400 mb-2">Nenhuma observação registrada.</p>'}
+                            <div class="text-sm text-gray-500">
+                                Responsável: <span class="font-medium">${evento.responsavel_pela_acao || 'Não informado'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                timelineModalContent.insertAdjacentHTML('beforeend', eventHtml);
             });
+
+            // Adicionar event listeners para os botões de deletar
+            document.querySelectorAll('.delete-timeline-action-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const coAbordagem = this.dataset.coAbordagem;
+                    deletarAcaoTimeline(coAbordagem);
+                });
+            });
+        }
+    }
+
+    async function deletarAcaoTimeline(coAbordagem) {
+        if (!coAbordagem) return;
+
+        if (confirm("Tem certeza que deseja deletar esta ação da linha do tempo? Esta ação não pode ser desfeita.")) {
             try {
-                const response = await fetch(`/api/timeline_adolescentes?${params.toString()}`);
-                const data = await response.json();
-                if (data.adolescentes) {
-                    adoDetalhes = data.adolescentes.find(a => String(a.cod_paciente) === String(codPaciente));
+                const response = await fetch(`/api/adolescente/acao/${coAbordagem}`, {
+                    method: 'DELETE',
+                });
+                const result = await response.json();
+
+                if (response.ok && result.sucesso) {
+                    alert(result.mensagem || "Ação deletada com sucesso!");
+                    // Reabrir/atualizar o modal da timeline para refletir a mudança
+                    if (currentAdolescenteForModal && currentAdolescenteForModal.cod_paciente) {
+                        abrirModalTimeline(currentAdolescenteForModal.cod_paciente);
+                    }
+                } else {
+                    alert(`Falha ao deletar ação: ${result.erro || 'Erro desconhecido.'}`);
                 }
             } catch (error) {
-                console.error("Erro ao tentar buscar detalhes do adolescente via fallback:", error);
+                console.error("Erro ao deletar ação da timeline:", error);
+                alert("Erro de comunicação ao tentar deletar a ação.");
             }
         }
-
-        if (!adoDetalhes) {
-            // If still not found after cache and fallback
-            alert("Não foi possível carregar os detalhes da adolescente.");
-            return;
-        }
-        currentAdolescenteForModal = adoDetalhes; // Guarda para o modal de registro
-
-        if (timelineModalTitle) timelineModalTitle.textContent = `Linha do Tempo - ${adoDetalhes.nome_paciente || 'Desconhecida'}`;
-        if (timelineModalAvatarIniciais) timelineModalAvatarIniciais.textContent = getIniciais(adoDetalhes.nome_paciente);
-        if (timelineModalAdolescenteNome) timelineModalAdolescenteNome.textContent = adoDetalhes.nome_paciente || 'N/A';
-        if (timelineModalAdolescenteIdade) timelineModalAdolescenteIdade.textContent = `${adoDetalhes.idade_calculada || 'N/A'} anos`;
-        if (timelineModalMicroarea) timelineModalMicroarea.textContent = adoDetalhes.microarea || 'N/A';
-        if (timelineModalEquipe) timelineModalEquipe.textContent = adoDetalhes.nome_equipe || 'N/A';
-        
-        // Status e Próxima Ação (simplificado, idealmente viria de dados mais detalhados)
-        const statusContent = getTimelineMetodoStatusContent(adoDetalhes); // Reutiliza a função
-        if (timelineModalStatus) timelineModalStatus.innerHTML = statusContent.split('<div class="text-xs')[0]; // Pega só a parte principal do status
-        if (timelineModalProximaAcao) timelineModalProximaAcao.textContent = adoDetalhes.proxima_acao_data || 'A definir'; // Placeholder
-
-        // Popular a área da linha do tempo (timelineModalContentArea)
-        // Esta parte é complexa e depende de como você quer buscar e renderizar o histórico.
-        // Por enquanto, vamos deixar o conteúdo estático do HTML ou limpar.
-        if (timelineModalContent) {
-            // timelineModalContent.innerHTML = '<p class="text-center text-gray-500">Histórico de acompanhamento será carregado aqui...</p>';
-            // Ou, para manter o estático por enquanto:
-            // console.log("Mantendo conteúdo estático da linha do tempo por enquanto.");
-        }
-
-        if (timelineModal) timelineModal.classList.remove('hidden');
     }
 
     function abrirModalRegistro() {
@@ -523,19 +865,191 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (registerModalTitle) registerModalTitle.textContent = `Registrar Nova Ação - ${currentAdolescenteForModal.nome_paciente || 'Desconhecida'}`;
         // Limpar campos do formulário de registro aqui, se necessário
+        const form = registerModal.querySelector('form'); // Supondo que os inputs estão dentro de um form
+        if (form) form.reset();
+
+        // Resetar dropdowns para texto padrão
+        const resultButtonSpan = document.getElementById('resultButton')?.querySelector('span');
+        if (resultButtonSpan) resultButtonSpan.textContent = 'Selecione o resultado';
+        const nextActionButtonSpan = document.getElementById('nextActionButton')?.querySelector('span');
+        if (nextActionButtonSpan) nextActionButtonSpan.textContent = 'Selecione o tipo';
+
+        // Esconder seção de método
+        const methodSection = document.getElementById('methodSection');
+        if (methodSection) methodSection.classList.add('hidden');
+
+        // Limpar campo de observações
+        const observacoesTextarea = registerModal.querySelector('textarea');
+        if (observacoesTextarea) observacoesTextarea.value = '';
+
         if (registerModal) registerModal.classList.remove('hidden');
         if (timelineModal) timelineModal.classList.add('hidden'); // Fecha o modal da timeline
     }
 
+    function generateMotherInformativePDF(selectedAdolescents) {
+        if (!selectedAdolescents || selectedAdolescents.length === 0) {
+            alert("Nenhuma adolescente selecionada para gerar informativos.");
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('l', 'mm', 'a4'); // Alterado para Landscape (paisagem)
+        const informativosPorPagina = 3;
+
+        // Dimensões da página A4 em paisagem
+        const pageWidthA4 = 297;
+        const pageHeightA4 = 210;
+        const margin = 10;
+
+        const informativoWidth = (pageWidthA4 - (margin * 2) - (margin * (informativosPorPagina - 1))) / informativosPorPagina;
+        const informativoHeightTotal = pageHeightA4 - (margin * 2); // Altura total disponível para o conteúdo do informativo dentro das margens
+
+        selectedAdolescents.forEach((ado, index) => {
+            const page = Math.floor(index / informativosPorPagina);
+            const positionInPage = index % informativosPorPagina;
+
+            if (positionInPage === 0 && page > 0) {
+                doc.addPage();
+            }
+
+            const currentXStart = margin + (positionInPage * (informativoWidth + margin));
+            let currentY = margin + 10; // Y inicial para o conteúdo dentro do box do informativo
+
+            const contentAreaX = currentXStart + 5; // Margem interna do box
+            const contentAreaWidth = informativoWidth - 10; // Largura útil para texto dentro do box
+
+            // Desenha o retângulo para o informativo atual (similar ao convite)
+            doc.setDrawColor(200, 200, 200); // Cor da borda do box
+            doc.rect(currentXStart, margin, informativoWidth, informativoHeightTotal);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(29, 112, 184); // Cor primária (azul do Plafam)
+            doc.text("Prevenção na Adolescência", currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += 8;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(51, 51, 51); // #333333
+
+            // Greeting line with conditional bolding and uppercase for mother's name
+            if (ado.nome_responsavel && ado.nome_responsavel.trim() !== "") {
+                const prefix = "Prezada(o) Sra. ";
+                const nomeMaeUpperCase = ado.nome_responsavel.toUpperCase();
+                const suffix = ""; // Parentheses removed
+
+                // Calculate widths for precise centering
+                doc.setFont("helvetica", "normal"); // Set to normal for prefix/suffix width calculation
+                const prefixWidth = doc.getTextWidth(prefix);
+                const suffixWidth = doc.getTextWidth(suffix);
+
+                doc.setFont("helvetica", "bold"); // Set to bold for name width calculation
+                const nomeMaeWidth = doc.getTextWidth(nomeMaeUpperCase);
+
+                const totalGreetingWidth = prefixWidth + nomeMaeWidth + suffixWidth;
+                let currentXGreeting = currentXStart + (informativoWidth - totalGreetingWidth) / 2;
+
+                // Print parts
+                doc.setFont("helvetica", "normal");
+                doc.text(prefix, currentXGreeting, currentY);
+                currentXGreeting += prefixWidth;
+
+                doc.setFont("helvetica", "bold");
+                doc.text(nomeMaeUpperCase, currentXGreeting, currentY);
+                currentXGreeting += nomeMaeWidth;
+
+                doc.setFont("helvetica", "normal");
+                doc.text(suffix, currentXGreeting, currentY);
+            } else {
+                doc.setFont("helvetica", "normal"); // Ensure normal font
+                doc.text("Prezada(o)", currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            }
+            currentY += 6; 
+
+            // Adicionar nome da adolescente
+            if (ado.nome_paciente && ado.nome_paciente.trim() !== "") {
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9); // Fonte um pouco menor para o nome da filha
+                doc.setTextColor(102, 102, 102); // Cinza, #666666
+                const filhaText = `Filha: ${ado.nome_paciente}`;
+                // Tenta centralizar, mas se for muito longo, pode quebrar.
+                // Idealmente, teríamos uma lógica para truncar ou reduzir mais a fonte se necessário.
+                doc.text(filhaText, currentXStart + informativoWidth / 2, currentY, { align: 'center', maxWidth: contentAreaWidth });
+                currentY += 5;
+            }
+            doc.setFontSize(10); // Resetar para o tamanho de fonte padrão do corpo
+            doc.setTextColor(51, 51, 51); // Resetar para a cor padrão do corpo
+
+            const introText = "A adolescência é uma fase de grandes descobertas e transformações. Nosso objetivo é apoiar nossas jovens a fazerem escolhas conscientes para um futuro saudável e planejado.";
+            let splitText = doc.splitTextToSize(introText, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 5;
+
+            const desafioText = "Gravidez na adolescência pode trazer desafios significativos para a saúde, estudos e desenvolvimento pessoal. A prevenção é o melhor caminho.";
+            splitText = doc.splitTextToSize(desafioText, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 5;
+
+            const metodosIntro = "Existem diversas opções seguras e eficazes de métodos contraceptivos, disponíveis gratuitamente pelo SUS:";
+            splitText = doc.splitTextToSize(metodosIntro, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 4;
+
+            // Lista de métodos com "ícones" e centralizada
+            // const checkIcon = "✓"; // Símbolo de check removido
+
+            doc.setFont("helvetica", "bold"); // Definir negrito para os métodos
+            doc.setFontSize(10);
+            doc.setTextColor(51, 51, 51);
+            doc.text(`DIU (Dispositivo Intrauterino)`, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += 5;
+            doc.text(`Pílulas Anticoncepcionais`, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += 5;
+            doc.text(`Injetáveis (mensal/trimestral)`, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += 7;
+
+            const metodosOrientacao = "Cada método tem suas características, e podemos tirar as suas dúvidas e de sua filha.";
+            splitText = doc.splitTextToSize(metodosOrientacao, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 5;
+
+            doc.setFont("helvetica", "bold");
+            const apoioText1 = "Sua filha precisa de apoio? Converse abertamente com ela sobre as formas de prevenção. O diálogo e a informação são fundamentais.";
+            splitText = doc.splitTextToSize(apoioText1, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 7;
+
+            doc.setFont("helvetica", "normal"); // Reset bold for the next line if it's not bold
+            doc.setTextColor(29, 112, 184); // Cor primária para o CTA
+            const ctaText = "Venha em consulta com sua equipe de saúde para mais informações.";
+            splitText = doc.splitTextToSize(ctaText, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            currentY += (splitText.length * 4.8) + 5;
+
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(51, 51, 51); // Reset color to default text color for bold
+            const ctaText2 = "Não precisa tirar ficha.";
+            splitText = doc.splitTextToSize(ctaText2, contentAreaWidth);
+            doc.text(splitText, currentXStart + informativoWidth / 2, currentY, { align: 'center' });
+            // currentY += (splitText.length * 4.8); // No increment needed if it's the last text before footer
+
+            // Footer do informativo
+            // Linha do rodapé removida conforme solicitado
+        });
+
+        doc.output('dataurlnewwindow');
+    }
+
+
     // Inicialização
     fetchEquipesEAgentes();
+    initCharts(); // Inicializa as instâncias dos gráficos
     fetchTimelineData(); // Carrega dados da timeline na inicialização
     // A primeira chamada a fetchEstatisticas (dentro de fetchEquipesEAgentes) já vai chamar atualizarLabelsDosCards.
 
 
     // --- Event Listeners para a Tabela de Timeline ---
     if (searchTimelineInput) {
-        searchTimelineInput.addEventListener('keyup', function(event) {
+        searchTimelineInput.addEventListener('keyup', function (event) {
             if (event.key === 'Enter') {
                 currentTimelineSearch = this.value;
                 currentTimelinePage = 1;
@@ -544,22 +1058,49 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+
     timelineStatusFilterButtons.forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', function () {
             // Define o botão clicado como ativo e os outros como inativos
             timelineStatusFilterButtons.forEach(btn => {
+                // Limpa classes de cor de fundo e texto anteriores
+                btn.classList.remove('bg-primary', 'text-white', 'bg-green-500', 'bg-red-500', 'bg-yellow-400', 'text-yellow-800', 'bg-pink-500');
+                btn.classList.remove('text-gray-500', 'hover:text-gray-700', 'hover:text-green-700', 'hover:text-red-700', 'hover:text-yellow-600', 'hover:text-pink-700');
+                // Limpa classes de borda anteriores e adiciona a borda inferior padrão para inativas
+                btn.classList.remove('border-primary', 'border-green-500', 'border-red-500', 'border-yellow-400', 'border-pink-500');
+                btn.classList.add('border-transparent', 'hover:border-gray-300'); // Borda inferior padrão para inativas
+
                 if (btn === this) {
-                    btn.className = `timeline-status-filter-btn py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap ${this.dataset.activeClass}`;
+                    // Estilo ativo para abas
+                    // btn.classList.add('border-primary', 'text-primary'); // Removido para usar classes do data attribute
+                    // btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); // Removido
+                    // Aplica classes ativas do botão clicado
+                    btn.classList.add(this.dataset.activeBg, this.dataset.activeText, this.dataset.activeBorder);
+                    btn.classList.remove('border-transparent', 'hover:border-gray-300'); // Remove borda de inativa
                 } else {
-                    btn.className = `timeline-status-filter-btn py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap ${btn.dataset.inactiveClass}`;
+                    // Estilo inativo para abas
+                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    btn.classList.remove('border-primary', 'text-primary');
+                    // Aplica classes inativas dos outros botões (lendo dos data attributes)
+                    btn.classList.add(btn.dataset.inactiveBg);
+                    // As classes de texto inativo e borda inativa já são o padrão ou são aplicadas acima
+                    btn.dataset.inactiveText.split(' ').forEach(cls => { if (cls) btn.classList.add(cls); });
+                    btn.dataset.inactiveBorder.split(' ').forEach(cls => { if (cls) btn.classList.add(cls); });
                 }
             });
-            
+
+
+
+
             currentTimelineStatusFilter = this.dataset.statusFilter;
             currentTimelinePage = 1;
             fetchTimelineData();
         });
     });
+    // Ativar o filtro "Todos" inicialmente
+    if (document.getElementById('timeline-filter-todos')) {
+        document.getElementById('timeline-filter-todos').click();
+    }
 
     if (timelineSortBtn) {
         timelineSortBtn.addEventListener('click', (e) => {
@@ -587,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Event listener para os botões "Ver detalhes" na tabela da timeline
-    timelineTableBody.addEventListener('click', function(event) {
+    timelineTableBody.addEventListener('click', function (event) {
         const target = event.target;
         if (target.classList.contains('timeline-ver-detalhes-btn') || target.closest('.timeline-ver-detalhes-btn')) {
             const button = target.classList.contains('timeline-ver-detalhes-btn') ? target : target.closest('.timeline-ver-detalhes-btn');
@@ -616,20 +1157,106 @@ document.addEventListener('DOMContentLoaded', function () {
         cancelRegisterModalFooterBtn.addEventListener('click', () => registerModal.classList.add('hidden'));
     }
     if (saveRegisterModalBtn) {
-        saveRegisterModalBtn.addEventListener('click', function() {
-            // Lógica para salvar o registro da ação
-            // Precisa pegar os dados do formulário do registerModal
-            // Enviar para uma API /api/registrar_acao_adolescente
-            // Atualizar a linha do tempo no modal da timeline (se estiver aberto) ou a tabela principal
-            console.log("Salvar registro clicado para:", currentAdolescenteForModal);
-            // Exemplo:
-            // const tipoAcao = registerModal.querySelector('input[name="action-type"]:checked').value;
-            // const dataAcao = registerModal.querySelector('input[type="date"]').value; // Ajustar seletor
-            // ... pegar outros campos ...
-            // fetch('/api/registrar_acao_adolescente', { method: 'POST', body: JSON.stringify(...) }) ...
-            if (registerModal) registerModal.classList.add('hidden');
-            // Opcionalmente, reabrir o modal da timeline ou atualizar a tabela principal
+        saveRegisterModalBtn.addEventListener('click', async function () {
+            if (!currentAdolescenteForModal || !currentAdolescenteForModal.cod_paciente) {
+                alert("Erro: Dados da adolescente não encontrados.");
+                return;
+            }
+
+            const tipoAcaoRadio = registerModal.querySelector('input[name="action-type"]:checked');
+            const dataAcaoInput = registerModal.querySelector('input[type="date"]'); // Primeira data é da ação atual
+            const resultadoButton = document.getElementById('resultButton');
+            const observacoesTextarea = registerModal.querySelector('textarea');
+            const responsavelInput = document.getElementById('registerResponsibleInput');
+
+            // Próxima Ação
+            const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1]; // Segunda data é da próxima ação
+            const proximaAcaoTipoButton = document.getElementById('nextActionButton');
+
+            const payload = {
+                co_cidadao: currentAdolescenteForModal.cod_paciente,
+                nome_adolescente: currentAdolescenteForModal.nome_paciente,
+                nome_responsavel_atual: currentAdolescenteForModal.nome_responsavel,
+                acao_atual: {
+                    tipo_abordagem: tipoAcaoRadio ? parseInt(tipoAcaoRadio.value) : null,
+                    data_acao: dataAcaoInput ? dataAcaoInput.value : null,
+                    resultado_abordagem: resultadoButton.dataset.selectedValue ? parseInt(resultadoButton.dataset.selectedValue) : null,
+                    observacoes: observacoesTextarea ? observacoesTextarea.value.trim() : '',
+                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : ''
+                }
+            };
+
+            if (proximaAcaoDataInput && proximaAcaoDataInput.value && proximaAcaoTipoButton.dataset.selectedValue) {
+                payload.proxima_acao = {
+                    tipo_abordagem: parseInt(proximaAcaoTipoButton.dataset.selectedValue),
+                    data_acao: proximaAcaoDataInput.value,
+                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : '', // Usando o mesmo responsável
+                    observacoes: `Agendamento de: ${proximaAcaoTipoButton.querySelector('span').textContent}`,
+                    resultado_abordagem: null // Próxima ação não tem resultado ainda
+                };
+            }
+
+            if (!payload.acao_atual.tipo_abordagem || !payload.acao_atual.data_acao || !payload.acao_atual.responsavel_pela_acao) {
+                alert("Por favor, preencha: Tipo de ação, Data da ação e Responsável pela ação.");
+                return;
+            }
+            // Validação para resultado da abordagem, se um tipo de ação que o requer for selecionado
+            if (payload.acao_atual.tipo_abordagem !== 4 && !payload.acao_atual.resultado_abordagem) { // Se não for "Entrega de convite"
+                alert("Por favor, selecione o Resultado da abordagem.");
+                return;
+            }
+
+
+            try {
+                const response = await fetch('/api/adolescente/registrar_acao', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (response.ok && result.sucesso) {
+                    alert(result.mensagem || "Ação registrada com sucesso!");
+                    if (registerModal) registerModal.classList.add('hidden');
+
+                    // Limpar o formulário após o sucesso
+                    const form = registerModal.querySelector('form'); // Adicione uma tag <form> no HTML se não houver
+                    if (form) form.reset();
+                    if (resultadoButton.querySelector('span')) resultadoButton.querySelector('span').textContent = 'Selecione o resultado';
+                    delete resultadoButton.dataset.selectedValue;
+                    if (proximaAcaoTipoButton.querySelector('span')) proximaAcaoTipoButton.querySelector('span').textContent = 'Selecione o tipo';
+                    delete proximaAcaoTipoButton.dataset.selectedValue;
+                    const methodSection = document.getElementById('methodSection');
+                    if (methodSection) methodSection.classList.add('hidden');
+                    if (responsavelInput) responsavelInput.value = '';
+
+
+                    // Reabrir e atualizar o modal da timeline
+                    abrirModalTimeline(currentAdolescenteForModal.cod_paciente);
+                    fetchTimelineData(); // Atualiza a tabela principal também
+                } else {
+                    alert(`Falha ao registrar ação: ${result.erro || 'Erro desconhecido.'}`);
+                }
+            } catch (error) {
+                console.error("Erro ao salvar ação:", error);
+                alert("Erro de comunicação ao salvar ação.");
+            }
         });
     }
 
+    if (imprimirInformativosMaeBtn) {
+        imprimirInformativosMaeBtn.addEventListener('click', () => {
+            const selectedAdolescentCodes = [];
+            document.querySelectorAll('.imprimir-informativo-mae-checkbox:checked').forEach(checkbox => {
+                selectedAdolescentCodes.push(checkbox.dataset.codPaciente);
+            });
+
+            if (selectedAdolescentCodes.length === 0) {
+                alert("Por favor, selecione pelo menos uma adolescente na coluna 'Imprimir Informativo' para gerar os PDFs.");
+                return;
+            }
+            const adolescentesParaInformativo = currentFetchedTimelineAdolescents.filter(ado => selectedAdolescentCodes.includes(String(ado.cod_paciente)));
+            generateMotherInformativePDF(adolescentesParaInformativo);
+        });
+    }
 });

@@ -462,6 +462,36 @@ def api_estatisticas_painel_adolescentes():
         cur.execute(query_adolescentes_sem_metodo_final, tuple(base_params)) # Reutiliza base_params pois a condição extra não tem placeholder
         adolescentes_sem_metodo_count = cur.fetchone()[0] or 0
         
+        # --- Adolescentes (14-18) GESTANTES (respeita filtro de equipe e agente/área) ---
+        where_clauses_gestantes = list(base_where_clauses)
+        condicao_gestantes = "m.status_gravidez = 'Grávida'"
+        where_clauses_gestantes.append(condicao_gestantes)
+        query_adolescentes_gestantes_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_gestantes)
+        cur.execute(query_adolescentes_gestantes_final, tuple(base_params))
+        adolescentes_gestantes_count = cur.fetchone()[0] or 0
+
+        # --- Adolescentes (14-18) COM MÉTODO EM DIA (respeita filtro de equipe e agente/área) ---
+        where_clauses_metodo_em_dia = list(base_where_clauses)
+        # A condição para 'MetodoEmDia' já está definida em build_timeline_query_filters, podemos reutilizar ou redefinir
+        # Para clareza, vamos redefinir aqui, garantindo que não seja gestante.
+        condicao_metodo_em_dia = """
+        (
+            (m.metodo IS NOT NULL AND m.metodo != '') AND 
+            (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND 
+            (
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                )) OR
+                (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%') 
+            )
+        )
+        """
+        where_clauses_metodo_em_dia.append(condicao_metodo_em_dia)
+        query_adolescentes_metodo_em_dia_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_metodo_em_dia)
+        cur.execute(query_adolescentes_metodo_em_dia_final, tuple(base_params))
+        adolescentes_com_metodo_em_dia_count = cur.fetchone()[0] or 0
+
         # --- Adolescentes (14-18) COM MÉTODO ATRASADO (respeita filtro de equipe e agente/área) ---
         where_clauses_metodo_atrasado = list(base_where_clauses)
         condicao_metodo_atrasado = """
@@ -482,39 +512,12 @@ def api_estatisticas_painel_adolescentes():
         cur.execute(query_adolescentes_metodo_atrasado_final, tuple(base_params))
         adolescentes_com_metodo_atrasado_count = cur.fetchone()[0] or 0
 
-        # --- CÁLCULOS ESPECÍFICOS PARA O CARD "VISITAS/SEMANA" (APENAS FILTRO DE EQUIPE) ---
-        # Cláusulas e parâmetros apenas para filtro de idade e equipe (ignora agente/área)
-        equipe_only_where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
-        equipe_only_params = []
-
-        if equipe_req != 'Todas':
-            equipe_only_where_clauses.append("m.nome_equipe = %s")
-            equipe_only_params.append(equipe_req)
-
-        # Adolescentes (14-18) SEM MÉTODO (APENAS FILTRO DE EQUIPE)
-        where_clauses_sem_metodo_equipe_only = list(equipe_only_where_clauses)
-        where_clauses_sem_metodo_equipe_only.append(condicao_sem_metodo) # Reusa a condição_sem_metodo
-        query_adolescentes_sem_metodo_equipe_only_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_sem_metodo_equipe_only)
-        cur.execute(query_adolescentes_sem_metodo_equipe_only_final, tuple(equipe_only_params))
-        adolescentes_sem_metodo_equipe_only_count = cur.fetchone()[0] or 0
-
-        # Adolescentes (14-18) COM MÉTODO ATRASADO (APENAS FILTRO DE EQUIPE)
-        where_clauses_metodo_atrasado_equipe_only = list(equipe_only_where_clauses)
-        where_clauses_metodo_atrasado_equipe_only.append(condicao_metodo_atrasado) # Reusa a condicao_metodo_atrasado
-        query_adolescentes_metodo_atrasado_equipe_only_final = query_adolescentes_base + " WHERE " + " AND ".join(where_clauses_metodo_atrasado_equipe_only)
-        cur.execute(query_adolescentes_metodo_atrasado_equipe_only_final, tuple(equipe_only_params))
-        adolescentes_com_metodo_atrasado_equipe_only_count = cur.fetchone()[0] or 0
-        
-        # --- Card "Visitas/semana" (baseado nos cálculos de equipe_only) ---
-        adolescentes_para_visita_equipe_only_count = adolescentes_sem_metodo_equipe_only_count + adolescentes_com_metodo_atrasado_equipe_only_count
-        semanas_periodo = 25
-        visitas_semana_media = round(adolescentes_para_visita_equipe_only_count / semanas_periodo) if semanas_periodo > 0 and adolescentes_para_visita_equipe_only_count > 0 else 0
-        
         return jsonify({
             "total_adolescentes": total_adolescentes, 
-            "visitas_semana_media": visitas_semana_media,
             "adolescentes_sem_metodo": adolescentes_sem_metodo_count,
-            "adolescentes_com_metodo_atrasado": adolescentes_com_metodo_atrasado_count
+            "adolescentes_com_metodo_atrasado": adolescentes_com_metodo_atrasado_count,
+            "adolescentes_gestantes": adolescentes_gestantes_count,
+            "adolescentes_metodo_em_dia": adolescentes_com_metodo_em_dia_count
         })
     except Exception as e:
         print(f"Erro ao buscar estatísticas de adolescentes: {e}")
@@ -609,7 +612,7 @@ def api_timeline_adolescentes():
         base_query_fields = """
             m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
             m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
-            ag.nome_agente
+            ag.nome_agente, m.nome_responsavel
             -- Adicionar campos para "próxima ação" quando definidos
         """
         
@@ -631,30 +634,72 @@ def api_timeline_adolescentes():
         
         dados_adolescentes = []
         for row in cur.fetchall():
-            linha_dict = dict(row)
-             # Tratamento de datas (similar ao api_pacientes_plafam)
-            data_app_val = linha_dict.get('data_aplicacao')
+            row_dict = dict(row)
+            # Inicializa os campos de próxima ação
+            row_dict['proxima_acao_data_formatada'] = None
+            row_dict['proxima_acao_descricao'] = None
+
+            # Tratamento de datas para cada linha
+            data_app_val = row_dict.get('data_aplicacao')
             if data_app_val:
                 if isinstance(data_app_val, date):
-                    linha_dict['data_aplicacao'] = data_app_val.strftime('%Y-%m-%d')
+                    row_dict['data_aplicacao'] = data_app_val.strftime('%Y-%m-%d')
                 elif isinstance(data_app_val, str):
                     try:
                         dt_obj = datetime.strptime(data_app_val, '%d/%m/%Y')
-                        linha_dict['data_aplicacao'] = dt_obj.strftime('%Y-%m-%d')
+                        row_dict['data_aplicacao'] = dt_obj.strftime('%Y-%m-%d')
                     except ValueError:
                         try:
                             datetime.strptime(data_app_val, '%Y-%m-%d')
+                            # Se já estiver no formato YYYY-MM-DD, não faz nada
                         except ValueError:
-                            linha_dict['data_aplicacao'] = None
+                            row_dict['data_aplicacao'] = None # Formato não reconhecido
                 else:
-                    linha_dict['data_aplicacao'] = None
+                    row_dict['data_aplicacao'] = None # Tipo inesperado
             else:
-                linha_dict['data_aplicacao'] = None
+                row_dict['data_aplicacao'] = None # Valor original era nulo ou vazio
 
-            if linha_dict.get('data_provavel_parto') and isinstance(linha_dict['data_provavel_parto'], date):
-                linha_dict['data_provavel_parto'] = linha_dict['data_provavel_parto'].strftime('%d/%m/%Y')
+            if row_dict.get('data_provavel_parto') and isinstance(row_dict.get('data_provavel_parto'), date):
+                row_dict['data_provavel_parto'] = row_dict.get('data_provavel_parto').strftime('%d/%m/%Y')
             
-            dados_adolescentes.append(linha_dict)
+            dados_adolescentes.append(row_dict)
+
+        # A busca por próximas ações já ocorre após este loop e usa 'dados_adolescentes'
+        if dados_adolescentes: # Este if agora é para a lógica de próximas ações
+            
+            # Buscar próximas ações futuras para os adolescentes da página atual
+            cod_pacientes_pagina = [ado['cod_paciente'] for ado in dados_adolescentes]
+            
+            if cod_pacientes_pagina:
+                # Mapa para descrições de tipo_abordagem (igual ao do JS)
+                tipo_abordagem_map_py = {
+                    1: "Abordagem com pais",
+                    2: "Abordagem direta com adolescente",
+                    3: "Consulta na UBS",
+                    4: "Entrega de convite"
+                }
+
+                query_proximas_acoes = """
+                    SELECT co_cidadao, tipo_abordagem, data_acao
+                    FROM (
+                        SELECT
+                            co_cidadao, tipo_abordagem, data_acao,
+                            ROW_NUMBER() OVER (PARTITION BY co_cidadao ORDER BY data_acao ASC) as rn
+                        FROM sistemaaps.tb_plafam_adolescentes
+                        WHERE co_cidadao = ANY(%(cod_pacientes)s) AND data_acao > CURRENT_DATE
+                    ) AS sub
+                    WHERE rn = 1;
+                """
+                cur.execute(query_proximas_acoes, {'cod_pacientes': cod_pacientes_pagina})
+                proximas_acoes_db = cur.fetchall()
+
+                proximas_acoes_map = {pa['co_cidadao']: pa for pa in proximas_acoes_db}
+
+                for ado in dados_adolescentes:
+                    if ado['cod_paciente'] in proximas_acoes_map:
+                        acao = proximas_acoes_map[ado['cod_paciente']]
+                        ado['proxima_acao_data_formatada'] = acao['data_acao'].strftime('%d/%m/%Y') if acao['data_acao'] else None
+                        ado['proxima_acao_descricao'] = tipo_abordagem_map_py.get(acao['tipo_abordagem'], 'Ação futura')
 
         return jsonify({
             'adolescentes': dados_adolescentes,
@@ -669,6 +714,267 @@ def api_timeline_adolescentes():
     finally:
         if cur: cur.close()
         if conn: conn.close()
+
+@app.route('/api/adolescente_detalhes_timeline/<co_cidadao>')
+def api_adolescente_detalhes_timeline(co_cidadao):
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Buscar detalhes básicos da adolescente em mv_plafam
+        cur.execute("""
+            SELECT m.nome_paciente, m.idade_calculada, m.microarea, m.nome_equipe, m.cartao_sus, m.nome_responsavel,
+                   ag.nome_agente
+            FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+            WHERE m.cod_paciente = %s AND m.idade_calculada BETWEEN 14 AND 18
+        """, (co_cidadao,))
+        detalhes_mv = cur.fetchone()
+
+        if not detalhes_mv:
+            return jsonify({"erro": "Adolescente não encontrada ou fora da faixa etária."}), 404
+        
+        # O nome_responsavel agora vem diretamente de mv_plafam
+
+        cur.execute("""
+            SELECT co_abordagem, tipo_abordagem, resultado_abordagem, observacoes, data_acao, responsavel_pela_acao
+            FROM sistemaaps.tb_plafam_adolescentes
+            WHERE co_cidadao = %(co_cidadao)s
+            ORDER BY data_acao DESC, co_abordagem DESC
+        """, {'co_cidadao': co_cidadao})
+        eventos_timeline_db = cur.fetchall()
+
+        eventos_timeline = []
+        for evento in eventos_timeline_db:
+            evento_dict = dict(evento)
+            if evento_dict['data_acao'] and isinstance(evento_dict['data_acao'], date):
+                evento_dict['data_acao'] = evento_dict['data_acao'].strftime('%Y-%m-%d')
+            eventos_timeline.append(evento_dict)
+
+        detalhes_finais = dict(detalhes_mv)
+        # 'nome_responsavel' já está incluído em detalhes_finais se existir em detalhes_mv
+        # Se a coluna nome_responsavel não existir em mv_plafam, detalhes_finais['nome_responsavel'] será None ou ausente.
+
+        return jsonify({
+            "detalhes": detalhes_finais,
+            "eventos_timeline": eventos_timeline
+        })
+
+    except Exception as e:
+        print(f"Erro em api_adolescente_detalhes_timeline: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/adolescente/registrar_acao', methods=['POST'])
+def api_registrar_acao_adolescente():
+    data = request.get_json()
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        def inserir_acao(acao_data, co_cidadao, nome_adolescente, nome_responsavel_atual):
+            # Buscar o próximo co_abordagem
+            cur.execute("SELECT MAX(co_abordagem) FROM sistemaaps.tb_plafam_adolescentes")
+            max_co_abordagem = cur.fetchone()[0]
+            novo_co_abordagem = (max_co_abordagem + 1) if max_co_abordagem is not None else 1
+
+            cur.execute("""
+                INSERT INTO sistemaaps.tb_plafam_adolescentes
+                (co_abordagem, co_cidadao, nome_adolescente, nome_responsavel, 
+                 tipo_abordagem, resultado_abordagem, observacoes, 
+                 data_acao, responsavel_pela_acao, metodo_desejado)
+                VALUES (%(co_abordagem)s, %(co_cidadao)s, %(nome_adolescente)s, %(nome_responsavel)s, 
+                        %(tipo_abordagem)s, %(resultado_abordagem)s, %(observacoes)s, 
+                        %(data_acao)s, %(responsavel_pela_acao)s, %(metodo_desejado)s)
+                RETURNING co_abordagem;
+            """, {
+                'co_abordagem': novo_co_abordagem,
+                'co_cidadao': co_cidadao,
+                'nome_adolescente': nome_adolescente,
+                'nome_responsavel': nome_responsavel_atual, # Usar o nome do responsável passado
+                'tipo_abordagem': acao_data.get('tipo_abordagem'),
+                'resultado_abordagem': acao_data.get('resultado_abordagem'),
+                'observacoes': acao_data.get('observacoes'),
+                'data_acao': acao_data.get('data_acao'),
+                'responsavel_pela_acao': acao_data.get('responsavel_pela_acao'),
+                'metodo_desejado': acao_data.get('metodo_desejado') # Adicionado
+            })
+            return cur.fetchone()[0]
+
+        # Inserir ação atual
+        inserir_acao(data['acao_atual'], data['co_cidadao'], data.get('nome_adolescente'), data.get('nome_responsavel_atual'))
+
+        # Inserir próxima ação, se houver
+        if data.get('proxima_acao'):
+            inserir_acao(data['proxima_acao'], data['co_cidadao'], data.get('nome_adolescente'), data.get('nome_responsavel_atual'))
+
+        conn.commit()
+        return jsonify({"sucesso": True, "mensagem": "Ação(ões) registrada(s) com sucesso!"})
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao registrar ação do adolescente: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/graficos_painel_adolescentes')
+def api_graficos_painel_adolescentes():
+    equipe_req = request.args.get('equipe', 'Todas')
+    # agente_selecionado_req = request.args.get('agente_selecionado', 'Todas') # Não usado para estes gráficos
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # --- Dados para Gráfico de Pizza (Distribuição da Equipe) ---
+        # Contagem total por status para a equipe selecionada (ou todas)
+        
+        base_where_pizza = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params_pizza = {}
+        if equipe_req != 'Todas':
+            base_where_pizza.append("m.nome_equipe = %(equipe)s")
+            params_pizza['equipe'] = equipe_req
+        
+        where_clause_pizza_str = " WHERE " + " AND ".join(base_where_pizza) if base_where_pizza else ""
+
+        query_pizza_status = f"""
+            SELECT 
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            {where_clause_pizza_str};
+        """
+        cur.execute(query_pizza_status, params_pizza)
+        dados_pizza = cur.fetchone()
+
+        # --- Dados para Gráfico de Barras (Distribuição por Micro-área) ---
+        # Contagem por status AGRUPADO POR MICROÁREA para a equipe selecionada (ou todas)
+        
+        dados_barras_db = []
+
+        if equipe_req != 'Todas':
+            # Query para agrupar por AGENTE (via microarea) DENTRO DA EQUIPE SELECIONADA
+            base_where_barras_agente = ["m.idade_calculada BETWEEN 14 AND 18", "m.nome_equipe = %(equipe)s"]
+            params_barras_agente = {'equipe': equipe_req}
+            where_clause_barras_agente_str = " WHERE " + " AND ".join(base_where_barras_agente)
+
+            query_barras_status_por_agente = f"""
+            SELECT 
+                m.microarea, ag.nome_agente,
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+            {where_clause_barras_agente_str}
+            GROUP BY m.microarea, ag.nome_agente
+            ORDER BY m.microarea, ag.nome_agente;
+            """
+            cur.execute(query_barras_status_por_agente, params_barras_agente)
+            dados_barras_db = cur.fetchall()
+        else: # "Todas as Equipes" selecionado
+            # Query para agrupar por EQUIPE
+            query_barras_status_por_equipe = f"""
+            SELECT 
+                m.nome_equipe,
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            WHERE m.idade_calculada BETWEEN 14 AND 18 AND m.nome_equipe IS NOT NULL
+            GROUP BY m.nome_equipe
+            ORDER BY m.nome_equipe;
+            """
+            cur.execute(query_barras_status_por_equipe)
+            dados_barras_db = cur.fetchall()
+        
+        dados_barras = []
+        if dados_barras_db:
+            for row in dados_barras_db:
+                dados_barras.append(dict(row))
+
+        return jsonify({
+            "pizza_data": dict(dados_pizza) if dados_pizza else {},
+            "bar_chart_data": dados_barras
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar dados para gráficos de adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')

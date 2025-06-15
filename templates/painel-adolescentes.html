@@ -244,51 +244,107 @@
                         </div>
                     </div>
                 </div>
-                <div class="md:col-span-2">
-                    <div class="flex flex-col h-full justify-between">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="bg-indigo-50 rounded p-4 text-center">
-                                <p id="labelEquipeCardAdolescentes" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
-                                <p class="text-sm text-gray-600 mb-1">Adolescentes - 14 a 18 anos</p>
-                                <p id="totalAdolescentesValor" class="text-2xl font-bold text-primary">0</p>
-                            </div>
-                            <div class="bg-green-50 rounded p-4 text-center">
-                                <p id="labelEquipeCardVisitasSemana" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
-                                <p class="text-sm text-gray-600 mb-1">Visitas/semana</p>
-                                <p id="visitasSemanaValor" class="text-2xl font-bold text-secondary">0</p>
-                            </div>
+                <!-- Container dos Cards de Estatísticas à Direita -->
+                <div class="md:col-span-2 grid md:grid-cols-2 gap-6">
+                    <!-- Coluna 1: Card Grande Total Adolescentes -->
+                    <div class="bg-indigo-50 rounded p-4 text-center flex flex-col justify-center items-center h-full">
+                        <p id="labelEquipeCardTotalAdolescentes" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
+                        <p class="text-lg font-semibold text-gray-700 mb-2">Total de Adolescentes (14-18 anos)</p>
+                        <p id="totalAdolescentesValor" class="text-4xl font-bold text-primary">0</p>
+                    </div>
+
+                    <!-- Coluna 2: Grid 2x2 para os outros cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Método em Dia (Verde) -->
+                        <div class="bg-green-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoDia" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-green-700 mb-1">Método em Dia</p>
+                            <p id="adolescentesMetodoDiaValor" class="text-2xl font-bold text-green-700">0</p>
+                        </div>
+                        <!-- Método em Atraso (Vermelho) -->
+                        <div class="bg-red-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoAtrasado" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-red-700 mb-1">Método em Atraso</p>
+                            <p id="adolescentesMetodoAtrasadoValor" class="text-2xl font-bold text-red-700">0</p>
+                        </div>
+                        <!-- Sem Método (Amarelo) -->
                             <div class="bg-yellow-100 rounded p-4 text-center">
                                 <p id="labelEquipeCardSemMetodo" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
-                                <p class="text-sm text-gray-600 mb-1">Adolescentes sem método</p>
+                                <p class="text-sm font-medium text-yellow-700 mb-1">Sem Método</p>
                                 <p id="adolescentesSemMetodoValor" class="text-2xl font-bold text-yellow-700">0</p>
                             </div>
-                            <div class="bg-red-100 rounded p-4 text-center">
-                                <p id="labelEquipeCardMetodoAtrasado" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
-                                <p class="text-sm text-gray-600 mb-1">Adolescentes método atrasado</p>
-                                <p id="adolescentesMetodoAtrasadoValor" class="text-2xl font-bold text-red-700">0</p>
-                            </div>
+                        <!-- Gestantes (Rosa) -->
+                        <div class="bg-pink-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardGestantes" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-pink-700 mb-1">Gestantes</p>
+                            <p id="adolescentesGestantesValor" class="text-2xl font-bold text-pink-700">0</p>
                         </div>
-                    </div>
+                            </div>
                 </div>
             </div>
         </div>
         <div class="bg-white rounded shadow-sm p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-semibold text-gray-800">Acompanhamento de Adolescentes</h2>
+                <h2 id="acompanhamentoAdolescentesTitle" class="text-xl font-semibold text-gray-800">Acompanhamento de Adolescentes</h2>
+                <!-- Controles de Busca e Ordenação movidos para cá ou para baixo das abas -->
+            </div>
+            <div id="sugestaoAbordagemContainer" class="mb-4 text-sm text-blue-600 hidden">
+                <!-- Controles de Busca e Ordenação movidos para cá ou para baixo das abas -->
+            </div>
+            <!-- Abas de Filtro de Status -->
+            <div class="flex space-x-2 border-b border-gray-200 mb-6">
+                <button id="timeline-filter-todos" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="Todos"
+                        data-active-bg="bg-primary"
+                        data-active-text="text-white"
+                        data-active-border="border-primary"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-gray-700"
+                        data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
+                <button id="timeline-filter-metodo-em-dia" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="MetodoEmDia"
+                        data-active-bg="bg-green-500"
+                        data-active-text="text-white"
+                        data-active-border="border-green-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-green-700"
+                        data-inactive-border="border-transparent hover:border-green-300">Método em dia</button>
+                <button id="timeline-filter-metodo-vencido" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="MetodoVencido"
+                        data-active-bg="bg-red-500"
+                        data-active-text="text-white"
+                        data-active-border="border-red-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-red-700"
+                        data-inactive-border="border-transparent hover:border-red-300">Método Vencido</button>
+                <button id="timeline-filter-sem-metodo" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="SemMetodo"
+                        data-active-bg="bg-yellow-400"
+                        data-active-text="text-yellow-800"
+                        data-active-border="border-yellow-400"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-yellow-600"
+                        data-inactive-border="border-transparent hover:border-yellow-300">Sem método</button>
+                <button id="timeline-filter-gestante" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="Gestante"
+                        data-active-bg="bg-pink-500"
+                        data-active-text="text-white"
+                        data-active-border="border-pink-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-pink-700"
+                        data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
+            </div>
+
+            <!-- Barra de Ferramentas da Tabela (Busca, Ordenação, Impressão) -->
+            <div class="flex justify-between items-center mb-4">
+                <div> <!-- Espaço reservado à esquerda, ou pode ser removido se os botões de filtro preencherem -->
+                </div>
                 <div class="flex items-center space-x-2">
-                    <!-- Botões de Filtro de Status -->
-                    <div class="flex flex-col space-y-1 mr-2">
-                        <div class="flex space-x-1">
-                            <button id="timeline-filter-metodo-em-dia" class="timeline-status-filter-btn bg-white text-green-700 border border-green-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="MetodoEmDia" data-inactive-class="bg-white text-green-700 border border-green-500" data-active-class="bg-green-500 text-white border-green-500">Método em dia</button>
-                            <button id="timeline-filter-gestante" class="timeline-status-filter-btn bg-white text-pink-700 border border-pink-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="Gestante" data-inactive-class="bg-white text-pink-700 border border-pink-500" data-active-class="bg-pink-500 text-white border-pink-500">Gestantes</button>
-                        </div>
-                        <div class="flex space-x-1">
-                            <button id="timeline-filter-sem-metodo" class="timeline-status-filter-btn bg-white text-yellow-700 border border-yellow-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="SemMetodo" data-inactive-class="bg-white text-yellow-700 border border-yellow-500" data-active-class="bg-yellow-400 text-yellow-800 border-yellow-400">Sem método</button>
-                            <button id="timeline-filter-metodo-vencido" class="timeline-status-filter-btn bg-white text-red-700 border border-red-500 py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-status-filter="MetodoVencido" data-inactive-class="bg-white text-red-700 border border-red-500" data-active-class="bg-red-500 text-white border-red-500">Método Vencido</button>
-                        </div>
-                    </div>
-                    <button id="timeline-filter-todos" class="timeline-status-filter-btn bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap self-center" data-status-filter="Todos" data-inactive-class="bg-white text-gray-700 border border-gray-300" data-active-class="bg-primary text-white">Todos</button>
-                    
                     <!-- Busca -->
                     <div class="relative">
                         <input type="text" id="search-timeline-input" placeholder="Buscar adolescente..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
@@ -317,6 +373,11 @@
                            </a>
                         </div>
                     </div>
+                    <div>
+                        <button id="imprimir-informativos-mae-btn" class="px-3 py-2 bg-secondary text-white rounded-lg flex items-center hover:bg-secondary/90 text-sm whitespace-nowrap !rounded-button">
+                            <i class="ri-printer-line mr-2"></i>Imprimir Informativos (Mães)
+                        </div>
+                    </div>
                 </div>
             </div>
                 <div class="overflow-x-auto">
@@ -326,7 +387,6 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Adolescente</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Idade</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipe - Agente</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Status</th>
                                 <th scope="col"
@@ -335,11 +395,13 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ações</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Imprimir Informativo</th>
+
                             </tr>
                         </thead>
                         <tbody id="timeline-table-body" class="bg-white divide-y divide-gray-200">
                             <!-- Linhas da tabela serão inseridas aqui pelo JS -->
-                             <tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
+                             <tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -376,12 +438,20 @@
                                 <div id="timelineModalAdolescenteIdade" class="text-sm text-gray-500 text-center mb-4">-- anos</div>
                                 <div class="space-y-2">
                                     <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Nome da Mãe:</span>
+                                        <span id="timelineModalNomeMae" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Micro-área:</span>
                                         <span id="timelineModalMicroarea" class="text-sm font-medium">--</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Equipe:</span>
                                         <span id="timelineModalEquipe" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Agente:</span>
+                                        <span id="timelineModalAgente" class="text-sm font-medium">--</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-sm text-gray-600">Status:</span>
@@ -405,7 +475,7 @@
                         </div>
                         <div class="w-2/3 pl-4">
                             <div id="timelineModalContentArea" class="relative">
-                                <div class="timeline-line"></div>
+                                <!-- A linha da timeline será adicionada dinamicamente pelo JS se houver eventos -->
                                 <div class="flex mb-8 relative">
                                     <div
                                         class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-primary z-10 flex-shrink-0">
@@ -520,29 +590,24 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
                             <div class="space-y-2">
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type" checked>
+                                    <input type="radio" name="action-type" value="1" checked>
                                     <span class="radio-mark"></span>
                                     Abordagem com pais
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type">
+                                    <input type="radio" name="action-type" value="2">
                                     <span class="radio-mark"></span>
                                     Abordagem direta com adolescente
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type">
+                                    <input type="radio" name="action-type" value="3">
                                     <span class="radio-mark"></span>
                                     Consulta na UBS
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type">
+                                    <input type="radio" name="action-type" value="4">
                                     <span class="radio-mark"></span>
                                     Entrega de convite
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Renovação de método
                                 </label>
                             </div>
                         </div>
@@ -564,17 +629,10 @@
                                 </button>
                                 <div id="resultDropdown"
                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                    <div class="p-2">
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Aceite de método
-                                            contraceptivo</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Recusa de método
-                                            contraceptivo</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Agendamento de
-                                            consulta</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Ausente no domicílio
-                                        </div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Solicitou nova
-                                            abordagem futura</div>
+                                    <div class="p-2" id="resultDropdownOptionsContainer">
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
                                     </div>
                                 </div>
                             </div>
@@ -583,32 +641,32 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Método escolhido</label>
                             <div class="space-y-2">
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="Pílula anticoncepcional">
                                     <span class="radio-mark"></span>
                                     Pílula anticoncepcional
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="Anticoncepcional injetável mensal">
                                     <span class="radio-mark"></span>
                                     Anticoncepcional injetável mensal
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="Anticoncepcional injetável trimestral">
                                     <span class="radio-mark"></span>
                                     Anticoncepcional injetável trimestral
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="DIU">
                                     <span class="radio-mark"></span>
                                     DIU
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="Implante subdérmico">
                                     <span class="radio-mark"></span>
                                     Implante subdérmico
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type">
+                                    <input type="radio" name="method-type" value="Preservativo">
                                     <span class="radio-mark"></span>
                                     Preservativo
                                 </label>
@@ -618,13 +676,13 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
                             <textarea
                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
-                                placeholder="Registre informações adicionais relevantes..."></textarea>
+                                placeholder="Registre informações adicionais relevantes..."></textarea> <!-- Fechamento da tag textarea -->
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Próxima ação</label>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Data</label>
+                                    <label id="proximaAcaoDataLabel" class="block text-xs text-gray-500 mb-1">Data</label>
                                     <input type="date"
                                         class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                         value="2025-07-13">
@@ -641,50 +699,25 @@
                                         </button>
                                         <div id="nextActionDropdown"
                                             class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                            <div class="p-2">
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Abordagem com
-                                                    pais</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Abordagem
-                                                    direta</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Consulta na
-                                                    UBS</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Renovação de
-                                                    método</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Entrega de
-                                                    convite</div>
+                                            <div class="p-2" id="nextActionDropdownOptionsContainer">
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Consulta na UBS</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela ação</label>
-                            <div class="relative">
-                                <button id="responsibleButton"
-                                    class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                    <span>Selecione o responsável</span>
-                                    <div class="w-4 h-4 flex items-center justify-center">
-                                        <i class="ri-arrow-down-s-line"></i>
-                                    </div>
-                                </button>
-                                <div id="responsibleDropdown"
-                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                    <div class="p-2">
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">ACS Fernanda Oliveira
-                                        </div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Enf. Marcelo Santos
-                                        </div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Dra. Mariana Santos
-                                        </div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">ACS Ricardo Pereira
-                                        </div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Enf. Camila Rodrigues
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <input type="text" id="registerResponsibleInput" name="registerResponsibleInput"
+                                   class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent !rounded-button"
+                                   placeholder="Nome do responsável pela ação">
                         </div>
+
                         <div>
                             <label class="custom-checkbox">
                                 <input type="checkbox">
@@ -697,23 +730,26 @@
                 <div class="p-6 border-t flex justify-end">
                     <button id="cancelRegisterBtn"
                         class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Cancelar</button>
-                    <button class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">Salvar
-                        registro</button>
+                    <button id="saveRegisterFormBtn" class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">
+                        Salvar registro
+                    </button>
+                    
                 </div>
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="col-span-2 bg-white rounded shadow-sm p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Status</h2>
-                <div id="chartStatus" class="h-80"></div>
-            </div>
-            <div class="col-span-1 bg-white rounded shadow-sm p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Idade</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            <div class="md:col-span-1 bg-white rounded shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição da Equipe</h2>
                 <div id="chartAge" class="h-80"></div>
+            </div>
+            <div class="md:col-span-2 bg-white rounded shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Micro-área</h2>
+                <div id="chartStatus" class="h-80"></div>
             </div>
         </div>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script id="dropdownHandlers">
         // O script original dropdownHandlers foi removido pois a lógica de dropdown
         // para Equipe e Área/Agente agora está em adolescentes_script.js.
@@ -725,14 +761,15 @@
         document.addEventListener('DOMContentLoaded', function () {
             const otherDropdowns = [
                 // { button: 'statusButton', dropdown: 'statusDropdown' }, // Este foi desabilitado no HTML
-                { button: 'resultButton', dropdown: 'resultDropdown' },
-                { button: 'nextActionButton', dropdown: 'nextActionDropdown' },
-                { button: 'responsibleButton', dropdown: 'responsibleDropdown' }
+                { button: 'resultButton', dropdown: 'resultDropdown', optionsContainer: 'resultDropdownOptionsContainer' },
+                { button: 'nextActionButton', dropdown: 'nextActionDropdown', optionsContainer: 'nextActionDropdownOptionsContainer' }
+                // { button: 'responsibleButton', dropdown: 'responsibleDropdown' } // Removido pois virou input
             ];
             otherDropdowns.forEach(item => {
                 const button = document.getElementById(item.button);
                 const dropdown = document.getElementById(item.dropdown);
-                if (button && dropdown) {
+                const optionsContainer = document.getElementById(item.optionsContainer);
+                if (button && dropdown && optionsContainer) {
                     button.addEventListener('click', function (event) {
                         event.stopPropagation();
                         dropdown.classList.toggle('hidden');
@@ -742,12 +779,14 @@
                         option.addEventListener('click', function () {
                             if (button.querySelector('span')) {
                                 button.querySelector('span').textContent = this.textContent;
+                                // Armazenar o valor em um atributo do botão ou em uma variável JS se necessário
+                                button.dataset.selectedValue = this.dataset.value; 
                             }
                             dropdown.classList.add('hidden');
                             // Lógica específica como a do methodSection
                             if (item.button === 'resultButton') {
                                 const methodSection = document.getElementById('methodSection');
-                                if (this.textContent === 'Aceite de método contraceptivo') {
+                                if (this.dataset.value === '1') { // "Deseja iniciar um método contraceptivo"
                                     methodSection.classList.remove('hidden');
                                 } else {
                                     methodSection.classList.add('hidden');
@@ -778,7 +817,7 @@
             const closeTimelineModalBtn = document.getElementById('closeTimelineModalBtn');
             const closeRegisterModal = document.getElementById('closeRegisterModal');
             const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
-            const newActionButton = document.querySelector('button.bg-primary');
+            // const newActionButton = document.querySelector('button.bg-primary'); // saveRegisterFormBtn é mais específico
             const timelineRegisterBtn = document.getElementById('timelineRegisterBtn');
             function openRegisterModalForJuliana() {
                 const modalTitle = registerModal.querySelector('h3');
@@ -786,8 +825,8 @@
                 registerModal.classList.remove('hidden');
             }
             function handleRegisterSave() {
-                const saveBtn = registerModal.querySelector('button.bg-primary');
-                if (!saveBtn.hasEventListener) {
+                const saveBtn = document.getElementById('saveRegisterFormBtn'); // Usar ID específico
+                if (saveBtn && !saveBtn.hasEventListener) { // Verificar se saveBtn existe
                     saveBtn.addEventListener('click', function () {
                         const date = registerModal.querySelector('input[type="date"]').value;
                         const actionType = registerModal.querySelector('input[name="action-type"]:checked').parentElement.textContent.trim();
