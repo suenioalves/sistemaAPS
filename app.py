@@ -530,8 +530,8 @@ def build_timeline_query_filters(args):
     equipe = args.get('equipe', 'Todas')
     agente_selecionado = args.get('agente_selecionado', 'Todas as áreas')
     search_term = args.get('search_timeline', None)
-    status_timeline = args.get('status_timeline', 'Todos') # 'Todos', 'SemMetodo', 'MetodoVencido', 'MetodoEmDia', 'Gestante'
-    sort_by = args.get('sort_by_timeline', 'nome_asc')
+    status_timeline = args.get('status_timeline', 'Todos')
+    sort_by = args.get('sort_by_timeline', 'proxima_acao_asc') # Novo padrão de ordenação
 
     query_params = {}
     where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"] # Foco em adolescentes
@@ -588,9 +588,10 @@ def build_timeline_query_filters(args):
         'nome_desc': 'm.nome_paciente DESC',
         'idade_asc': 'm.idade_calculada ASC',
         'idade_desc': 'm.idade_calculada DESC',
-        # Adicionar mais ordenações se necessário
+        'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC'
     }
-    order_by_clause = " ORDER BY " + sort_mapping_timeline.get(sort_by, 'm.nome_paciente ASC')
+    # Default seguro para ordenação, caso sort_by seja inválido
+    order_by_clause = " ORDER BY " + sort_mapping_timeline.get(sort_by, 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC')
     
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     return where_clause_str, order_by_clause, query_params
@@ -612,23 +613,37 @@ def api_timeline_adolescentes():
         base_query_fields = """
             m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
             m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
-            ag.nome_agente, m.nome_responsavel
-            -- Adicionar campos para "próxima ação" quando definidos
+            ag.nome_agente, m.nome_responsavel,
+            pa_futura.data_acao AS data_proxima_acao_ordenacao,
+            pa_futura.tipo_abordagem AS tipo_proxima_acao_ordenacao
         """
         
         from_join_clause = """
         FROM sistemaaps.mv_plafam m
         LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+        LEFT JOIN LATERAL (
+            SELECT pa.data_acao, pa.tipo_abordagem
+            FROM sistemaaps.tb_plafam_adolescentes pa
+            WHERE pa.co_cidadao = m.cod_paciente
+              AND pa.data_acao >= CURRENT_DATE
+              AND pa.resultado_abordagem IS NULL
+            ORDER BY pa.data_acao ASC
+            LIMIT 1
+        ) pa_futura ON TRUE
         """
 
-        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + from_join_clause + where_clause
+        # FROM clause simplificado para a contagem, para evitar problemas de performance ou contagem incorreta com o JOIN LATERAL
+        from_clause_for_count = """
+        FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+        """
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + from_clause_for_count + where_clause
         cur.execute(count_query, query_params)
         total_adolescentes = cur.fetchone()[0] or 0
 
         query_params_paginated = query_params.copy()
         query_params_paginated['limit'] = limit
         query_params_paginated['offset'] = offset
-        
         final_query = "SELECT " + base_query_fields + from_join_clause + where_clause + order_by_clause + " LIMIT %(limit)s OFFSET %(offset)s"
         cur.execute(final_query, query_params_paginated)
         
@@ -636,8 +651,22 @@ def api_timeline_adolescentes():
         for row in cur.fetchall():
             row_dict = dict(row)
             # Inicializa os campos de próxima ação
-            row_dict['proxima_acao_data_formatada'] = None
-            row_dict['proxima_acao_descricao'] = None
+            data_prox_acao_ord = row_dict.pop('data_proxima_acao_ordenacao', None)
+            tipo_prox_acao_ord = row_dict.pop('tipo_proxima_acao_ordenacao', None)
+
+            if data_prox_acao_ord and isinstance(data_prox_acao_ord, date):
+                row_dict['proxima_acao_data_formatada'] = data_prox_acao_ord.strftime('%d/%m/%Y')
+                tipo_abordagem_map_py = {
+                    1: "Abordagem com pais",
+                    2: "Abordagem direta com adolescente",
+                    3: "Consulta na UBS",
+                    4: "Entrega de convite"
+                }
+                row_dict['proxima_acao_descricao'] = tipo_abordagem_map_py.get(tipo_prox_acao_ord, 'Ação futura')
+            else:
+                row_dict['proxima_acao_data_formatada'] = None
+                row_dict['proxima_acao_descricao'] = None
+
 
             # Tratamento de datas para cada linha
             data_app_val = row_dict.get('data_aplicacao')
@@ -664,43 +693,6 @@ def api_timeline_adolescentes():
             
             dados_adolescentes.append(row_dict)
 
-        # A busca por próximas ações já ocorre após este loop e usa 'dados_adolescentes'
-        if dados_adolescentes: # Este if agora é para a lógica de próximas ações
-            
-            # Buscar próximas ações futuras para os adolescentes da página atual
-            cod_pacientes_pagina = [ado['cod_paciente'] for ado in dados_adolescentes]
-            
-            if cod_pacientes_pagina:
-                # Mapa para descrições de tipo_abordagem (igual ao do JS)
-                tipo_abordagem_map_py = {
-                    1: "Abordagem com pais",
-                    2: "Abordagem direta com adolescente",
-                    3: "Consulta na UBS",
-                    4: "Entrega de convite"
-                }
-
-                query_proximas_acoes = """
-                    SELECT co_cidadao, tipo_abordagem, data_acao
-                    FROM (
-                        SELECT
-                            co_cidadao, tipo_abordagem, data_acao,
-                            ROW_NUMBER() OVER (PARTITION BY co_cidadao ORDER BY data_acao ASC) as rn
-                        FROM sistemaaps.tb_plafam_adolescentes
-                        WHERE co_cidadao = ANY(%(cod_pacientes)s) AND data_acao > CURRENT_DATE
-                    ) AS sub
-                    WHERE rn = 1;
-                """
-                cur.execute(query_proximas_acoes, {'cod_pacientes': cod_pacientes_pagina})
-                proximas_acoes_db = cur.fetchall()
-
-                proximas_acoes_map = {pa['co_cidadao']: pa for pa in proximas_acoes_db}
-
-                for ado in dados_adolescentes:
-                    if ado['cod_paciente'] in proximas_acoes_map:
-                        acao = proximas_acoes_map[ado['cod_paciente']]
-                        ado['proxima_acao_data_formatada'] = acao['data_acao'].strftime('%d/%m/%Y') if acao['data_acao'] else None
-                        ado['proxima_acao_descricao'] = tipo_abordagem_map_py.get(acao['tipo_abordagem'], 'Ação futura')
-
         return jsonify({
             'adolescentes': dados_adolescentes,
             'total': total_adolescentes,
@@ -726,7 +718,8 @@ def api_adolescente_detalhes_timeline(co_cidadao):
         # Buscar detalhes básicos da adolescente em mv_plafam
         cur.execute("""
             SELECT m.nome_paciente, m.idade_calculada, m.microarea, m.nome_equipe, m.cartao_sus, m.nome_responsavel,
-                   ag.nome_agente
+                   ag.nome_agente,
+                   m.metodo, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto -- Para status no modal 
             FROM sistemaaps.mv_plafam m
             LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
             WHERE m.cod_paciente = %s AND m.idade_calculada BETWEEN 14 AND 18
@@ -754,8 +747,28 @@ def api_adolescente_detalhes_timeline(co_cidadao):
             eventos_timeline.append(evento_dict)
 
         detalhes_finais = dict(detalhes_mv)
-        # 'nome_responsavel' já está incluído em detalhes_finais se existir em detalhes_mv
-        # Se a coluna nome_responsavel não existir em mv_plafam, detalhes_finais['nome_responsavel'] será None ou ausente.
+        detalhes_finais['proxima_acao_data_formatada'] = None
+        detalhes_finais['proxima_acao_descricao'] = None
+
+        # Buscar a próxima ação futura específica para esta adolescente para o modal
+        cur.execute("""
+            SELECT tipo_abordagem, data_acao
+            FROM sistemaaps.tb_plafam_adolescentes
+            WHERE co_cidadao = %(co_cidadao)s 
+              AND data_acao >= CURRENT_DATE  -- Mudança para >=
+              AND resultado_abordagem IS NULL
+            ORDER BY data_acao ASC
+            LIMIT 1;
+        """, {'co_cidadao': co_cidadao})
+        proxima_acao_especifica = cur.fetchone()
+
+        if proxima_acao_especifica:
+            tipo_abordagem_map_py = {
+                1: "Abordagem com pais", 2: "Abordagem direta com adolescente",
+                3: "Consulta na UBS", 4: "Entrega de convite"
+            }
+            detalhes_finais['proxima_acao_data_formatada'] = proxima_acao_especifica['data_acao'].strftime('%d/%m/%Y')
+            detalhes_finais['proxima_acao_descricao'] = tipo_abordagem_map_py.get(proxima_acao_especifica['tipo_abordagem'], 'Ação futura')       
 
         return jsonify({
             "detalhes": detalhes_finais,

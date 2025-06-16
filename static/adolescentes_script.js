@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const timelineSortBtnText = document.getElementById('timeline-sort-btn-text');
     const timelineSortDropdown = document.getElementById('timeline-sort-dropdown');
     const timelineSortOptions = document.querySelectorAll('.timeline-sort-option');
-    let currentTimelinePage = 1;
+    let currentTimelinePage = 1; 
     let currentTimelineSearch = '';
     let currentTimelineStatusFilter = 'Todos'; // 'Todos', 'SemMetodo', 'MetodoVencido'
     let currentTimelineSort = 'nome_asc';
@@ -549,6 +549,58 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         data.adolescentes.forEach(ado => {
+            const isGestante = ado.status_gravidez === 'Grávida';
+            let isMetodoEmDia = false;
+
+            if (!isGestante && ado.metodo && ado.data_aplicacao) {
+                // A data_aplicacao vem como 'YYYY-MM-DD' do backend para esta função
+                const dataAplicacaoParts = ado.data_aplicacao.split('-');
+                const dataAplicacao = new Date(parseInt(dataAplicacaoParts[0]), parseInt(dataAplicacaoParts[1]) - 1, parseInt(dataAplicacaoParts[2]));
+
+                if (!isNaN(dataAplicacao.getTime())) {
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+                    let limiteDias = Infinity;
+                    const metodoLower = ado.metodo.toLowerCase();
+
+                    if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) limiteDias = 30;
+                    else if (metodoLower.includes('trimestral')) limiteDias = 90;
+
+                    if (limiteDias !== Infinity) {
+                        const dataVencimento = new Date(dataAplicacao);
+                        dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
+                        if (hoje < dataVencimento) {
+                            isMetodoEmDia = true;
+                        }
+                    } else { // Métodos de longa duração (DIU, Implante, Laqueadura)
+                        isMetodoEmDia = true;
+                    }
+                }
+            }
+
+            const shouldHideActions = isGestante || isMetodoEmDia;
+
+            let registrarAcoesHtml = '';
+            if (!shouldHideActions) {
+                registrarAcoesHtml = `
+                    <button class="timeline-ver-detalhes-btn text-primary hover:text-indigo-700 !rounded-button whitespace-nowrap" 
+                            data-cod-paciente="${ado.cod_paciente}"
+                            data-nome-paciente="${ado.nome_paciente || ''}">
+                        Registrar Ações</button>`;
+            }
+
+            let proximaAcaoDisplay = 'A definir';
+            if (shouldHideActions) {
+                proximaAcaoDisplay = '';
+            } else if (ado.proxima_acao_descricao) {
+                proximaAcaoDisplay = `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+            }
+
+            let imprimirCheckboxHtml = '';
+            if (!shouldHideActions) {
+                imprimirCheckboxHtml = `<input type="checkbox" class="imprimir-informativo-mae-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-cod-paciente="${ado.cod_paciente}">`;
+            }
+
             const row = timelineTableBody.insertRow();
             row.className = 'hover:bg-gray-50';
             row.innerHTML = `
@@ -563,19 +615,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getTimelineMetodoStatusContent(ado)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${ado.proxima_acao_descricao ?
-                    `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>` :
-                    'A definir'
-                }
+                    ${proximaAcaoDisplay}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button class="timeline-ver-detalhes-btn text-primary hover:text-indigo-700 !rounded-button whitespace-nowrap" 
-                            data-cod-paciente="${ado.cod_paciente}"
-                            data-nome-paciente="${ado.nome_paciente || ''}">
-                        Registrar Ações</button>
+                    ${registrarAcoesHtml}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                    <input type="checkbox" class="imprimir-informativo-mae-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" data-cod-paciente="${ado.cod_paciente}">
+                    ${imprimirCheckboxHtml}
                 </td>
             `;
         });
@@ -734,20 +780,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (timelineModalStatus) timelineModalStatus.innerHTML = statusGeralContent.split('<div class="text-xs')[0];
 
             // Determinar próxima ação com base nos eventos da timeline
-            let proximaAcaoTexto = 'A definir';
-            if (eventosTimeline.length > 0) {
-                // A lógica para "próxima ação" pode ser mais complexa,
-                // por exemplo, encontrar o evento mais recente que seja um agendamento futuro.
-                // Por ora, vamos pegar a observação do evento mais recente se parecer um agendamento.
-                const eventoMaisRecente = eventosTimeline[0]; // Já ordenado por DESC data_acao
-                if (eventoMaisRecente.observacoes && eventoMaisRecente.observacoes.toLowerCase().includes('agendamento')) {
-                    proximaAcaoTexto = `${tipoAbordagemMap[eventoMaisRecente.tipo_abordagem]} em ${new Date(eventoMaisRecente.data_acao + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
-                } else if (adoDetalhes.proxima_acao_data) { // Fallback para o campo da tabela principal se existir
-                    proximaAcaoTexto = adoDetalhes.proxima_acao_data;
+            if (timelineModalProximaAcao) {
+                if (adoDetalhes.proxima_acao_descricao && adoDetalhes.proxima_acao_data_formatada) {
+                    timelineModalProximaAcao.textContent = `${adoDetalhes.proxima_acao_descricao} (${adoDetalhes.proxima_acao_data_formatada})`;
+                } else {
+                    timelineModalProximaAcao.textContent = 'A definir';
                 }
             }
-            if (timelineModalProximaAcao) timelineModalProximaAcao.textContent = proximaAcaoTexto;
-
 
             renderTimelineEvents(eventosTimeline, adoDetalhes.nome_paciente);
 
@@ -1112,6 +1151,18 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchEquipesEAgentes();
     initCharts(); // Inicializa as instâncias dos gráficos
     fetchTimelineData(); // Carrega dados da timeline na inicialização
+
+    // Define a ordenação padrão e atualiza o texto do botão
+    currentTimelineSort = 'proxima_acao_asc'; // Define a ordenação padrão
+    if (timelineSortBtnText) {
+        const defaultSortOption = document.querySelector(`.timeline-sort-option[data-sort="${currentTimelineSort}"]`);
+        if (defaultSortOption && defaultSortOption.dataset.text) {
+            timelineSortBtnText.textContent = defaultSortOption.dataset.text;
+        } else {
+            timelineSortBtnText.textContent = 'Próxima Ação'; // Fallback se a opção não for encontrada ou não tiver data-text
+        }
+    }
+
     // A primeira chamada a fetchEstatisticas (dentro de fetchEquipesEAgentes) já vai chamar atualizarLabelsDosCards.
 
 
@@ -1209,10 +1260,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Event Listeners para os Modais ---
     if (closeTimelineModalBtn) {
-        closeTimelineModalBtn.addEventListener('click', () => timelineModal.classList.add('hidden'));
+        closeTimelineModalBtn.addEventListener('click', () => {
+            timelineModal.classList.add('hidden');
+            atualizarPainelCompleto(); // Atualiza a tabela e estatísticas
+        });
     }
     if (closeTimelineModalFooterBtn) {
-        closeTimelineModalFooterBtn.addEventListener('click', () => timelineModal.classList.add('hidden'));
+        closeTimelineModalFooterBtn.addEventListener('click', () => {
+            timelineModal.classList.add('hidden');
+            atualizarPainelCompleto(); // Atualiza a tabela e estatísticas
+        });
     }
     if (timelineRegisterBtn) { // Botão "Registrar ação" DENTRO do modal da timeline
         timelineRegisterBtn.addEventListener('click', abrirModalRegistro);
