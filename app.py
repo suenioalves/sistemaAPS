@@ -778,41 +778,102 @@ def api_registrar_acao_adolescente():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        def inserir_acao(acao_data, co_cidadao, nome_adolescente, nome_responsavel_atual):
-            # Buscar o próximo co_abordagem
-            cur.execute("SELECT MAX(co_abordagem) FROM sistemaaps.tb_plafam_adolescentes")
-            max_co_abordagem = cur.fetchone()[0]
-            novo_co_abordagem = (max_co_abordagem + 1) if max_co_abordagem is not None else 1
+        co_cidadao = data['co_cidadao']
+        nome_adolescente = data.get('nome_adolescente')
+        nome_responsavel_atual = data.get('nome_responsavel_atual')
+        acao_atual_payload = data['acao_atual']
+        proxima_acao_payload = data.get('proxima_acao')
 
+        # Obter o próximo valor para co_abordagem de forma segura para múltiplas inserções
+        cur.execute("SELECT MAX(co_abordagem) FROM sistemaaps.tb_plafam_adolescentes")
+        max_co_abordagem = cur.fetchone()[0]
+        next_co_abordagem_counter = (max_co_abordagem + 1) if max_co_abordagem is not None else 1
+
+        # --- Etapa 1: Lidar com a Ação Atual ---
+        # Verificar se existe uma ação futura pendente para esta adolescente para ser atualizada
+        cur.execute("""
+            SELECT co_abordagem
+            FROM sistemaaps.tb_plafam_adolescentes
+            WHERE co_cidadao = %(co_cidadao)s 
+              AND data_acao >= CURRENT_DATE 
+              AND resultado_abordagem IS NULL  -- Adicionado: apenas ações futuras PENDENTES
+            ORDER BY data_acao ASC, co_abordagem ASC -- Garante seleção consistente
+            LIMIT 1;
+        """, {'co_cidadao': co_cidadao})
+        pending_future_action = cur.fetchone()
+
+        if pending_future_action:
+            co_abordagem_to_update = pending_future_action[0]
+            # Atualizar a ação futura existente com os detalhes da "acao_atual"
+            cur.execute("""
+                UPDATE sistemaaps.tb_plafam_adolescentes
+                SET tipo_abordagem = %(tipo_abordagem)s,
+                    resultado_abordagem = %(resultado_abordagem)s,
+                    observacoes = %(observacoes)s,
+                    data_acao = %(data_acao)s, -- Data em que a ação foi efetivamente realizada
+                    responsavel_pela_acao = %(responsavel_pela_acao)s,
+                    metodo_desejado = %(metodo_desejado)s,
+                    nome_responsavel = %(nome_responsavel)s, -- Atualiza nome do responsável
+                    nome_adolescente = %(nome_adolescente)s -- Atualiza nome da adolescente
+                WHERE co_abordagem = %(co_abordagem)s;
+            """, {
+                'tipo_abordagem': acao_atual_payload.get('tipo_abordagem'),
+                'resultado_abordagem': acao_atual_payload.get('resultado_abordagem'),
+                'observacoes': acao_atual_payload.get('observacoes'),
+                'data_acao': acao_atual_payload.get('data_acao'),
+                'responsavel_pela_acao': acao_atual_payload.get('responsavel_pela_acao'),
+                'metodo_desejado': acao_atual_payload.get('metodo_desejado'),
+                'nome_responsavel': nome_responsavel_atual,
+                'nome_adolescente': nome_adolescente,
+                'co_abordagem': co_abordagem_to_update
+            })
+        else:
+            # Nenhuma ação futura pendente, então insere "acao_atual" como um novo registro
             cur.execute("""
                 INSERT INTO sistemaaps.tb_plafam_adolescentes
-                (co_abordagem, co_cidadao, nome_adolescente, nome_responsavel, 
-                 tipo_abordagem, resultado_abordagem, observacoes, 
+                (co_abordagem, co_cidadao, nome_adolescente, nome_responsavel,
+                 tipo_abordagem, resultado_abordagem, observacoes,
                  data_acao, responsavel_pela_acao, metodo_desejado)
-                VALUES (%(co_abordagem)s, %(co_cidadao)s, %(nome_adolescente)s, %(nome_responsavel)s, 
-                        %(tipo_abordagem)s, %(resultado_abordagem)s, %(observacoes)s, 
-                        %(data_acao)s, %(responsavel_pela_acao)s, %(metodo_desejado)s)
-                RETURNING co_abordagem;
+                VALUES (%(co_abordagem)s, %(co_cidadao)s, %(nome_adolescente)s, %(nome_responsavel)s,
+                        %(tipo_abordagem)s, %(resultado_abordagem)s, %(observacoes)s,
+                        %(data_acao)s, %(responsavel_pela_acao)s, %(metodo_desejado)s);
             """, {
-                'co_abordagem': novo_co_abordagem,
+                'co_abordagem': next_co_abordagem_counter,
                 'co_cidadao': co_cidadao,
                 'nome_adolescente': nome_adolescente,
-                'nome_responsavel': nome_responsavel_atual, # Usar o nome do responsável passado
-                'tipo_abordagem': acao_data.get('tipo_abordagem'),
-                'resultado_abordagem': acao_data.get('resultado_abordagem'),
-                'observacoes': acao_data.get('observacoes'),
-                'data_acao': acao_data.get('data_acao'),
-                'responsavel_pela_acao': acao_data.get('responsavel_pela_acao'),
-                'metodo_desejado': acao_data.get('metodo_desejado') # Adicionado
+                'nome_responsavel': nome_responsavel_atual,
+                'tipo_abordagem': acao_atual_payload.get('tipo_abordagem'),
+                'resultado_abordagem': acao_atual_payload.get('resultado_abordagem'),
+                'observacoes': acao_atual_payload.get('observacoes'),
+                'data_acao': acao_atual_payload.get('data_acao'),
+                'responsavel_pela_acao': acao_atual_payload.get('responsavel_pela_acao'),
+                'metodo_desejado': acao_atual_payload.get('metodo_desejado')
             })
-            return cur.fetchone()[0]
+            next_co_abordagem_counter += 1 # Incrementar para a próxima possível inserção
 
-        # Inserir ação atual
-        inserir_acao(data['acao_atual'], data['co_cidadao'], data.get('nome_adolescente'), data.get('nome_responsavel_atual'))
-
-        # Inserir próxima ação, se houver
-        if data.get('proxima_acao'):
-            inserir_acao(data['proxima_acao'], data['co_cidadao'], data.get('nome_adolescente'), data.get('nome_responsavel_atual'))
+        # --- Etapa 2: Lidar com a Próxima Ação (se fornecida) ---
+        # Esta é sempre uma inserção de uma nova ação futura
+        if proxima_acao_payload:
+            cur.execute("""
+                INSERT INTO sistemaaps.tb_plafam_adolescentes
+                (co_abordagem, co_cidadao, nome_adolescente, nome_responsavel,
+                 tipo_abordagem, resultado_abordagem, observacoes,
+                 data_acao, responsavel_pela_acao, metodo_desejado)
+                VALUES (%(co_abordagem)s, %(co_cidadao)s, %(nome_adolescente)s, %(nome_responsavel)s,
+                        %(tipo_abordagem)s, %(resultado_abordagem)s, %(observacoes)s,
+                        %(data_acao)s, %(responsavel_pela_acao)s, %(metodo_desejado)s);
+            """, {
+                'co_abordagem': next_co_abordagem_counter, # Usa o contador, possivelmente incrementado
+                'co_cidadao': co_cidadao,
+                'nome_adolescente': nome_adolescente,
+                'nome_responsavel': nome_responsavel_atual,
+                'tipo_abordagem': proxima_acao_payload.get('tipo_abordagem'),
+                'resultado_abordagem': None, # Próxima ação não tem resultado ainda
+                'observacoes': None, # Observação da nova ação futura será vazia/nula
+                'data_acao': proxima_acao_payload.get('data_acao'), # Data futura
+                'responsavel_pela_acao': proxima_acao_payload.get('responsavel_pela_acao'),
+                'metodo_desejado': proxima_acao_payload.get('metodo_desejado')
+            })
 
         conn.commit()
         return jsonify({"sucesso": True, "mensagem": "Ação(ões) registrada(s) com sucesso!"})

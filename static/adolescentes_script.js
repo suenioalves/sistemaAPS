@@ -774,8 +774,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             eventos.forEach((evento, index) => {
                 const dataAcaoFormatada = evento.data_acao ? new Date(evento.data_acao + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não informada';
-                const iconClass = timelineEventIcons[evento.tipo_abordagem] || timelineEventIcons['default'];
-                const iconColorClass = timelineEventColors[evento.tipo_abordagem] || timelineEventColors['default'];
+                let iconClass = timelineEventIcons['default']; // Inicia com default
+                let iconColorClass = timelineEventColors['default']; // Inicia com default
 
                 let tipoAbordagemTexto = tipoAbordagemMap[evento.tipo_abordagem] || `Tipo ${evento.tipo_abordagem || 'Desconhecido'}`;
                 let resultadoAbordagemTexto = evento.resultado_abordagem ? (resultadoAbordagemMap[evento.resultado_abordagem] || `Resultado ${evento.resultado_abordagem}`) : '';
@@ -786,10 +786,71 @@ document.addEventListener('DOMContentLoaded', function () {
                 const dataAcaoObj = evento.data_acao ? new Date(evento.data_acao + 'T00:00:00') : null;
                 const hoje = new Date();
                 hoje.setHours(0, 0, 0, 0);
-                if (dataAcaoObj && dataAcaoObj > hoje && (evento.observacoes || '').toLowerCase().includes('agendamento')) {
+                // Considera agendamento se a data for futura E a observação contiver "agendamento"
+                // OU se a data for futura e não houver resultado (indicando que ainda não ocorreu)
+                const isFutureEvent = dataAcaoObj && dataAcaoObj > hoje;
+                const hasSchedulingKeyword = (evento.observacoes || '').toLowerCase().includes('agendamento');
+                const isConsideredFutureScheduledEvent = isFutureEvent && (hasSchedulingKeyword || evento.resultado_abordagem === null || evento.resultado_abordagem === undefined);
+
+                cardBorderClass = ''; // Alterado de 'let cardBorderClass = ""' para apenas atribuição
+
+                if (isConsideredFutureScheduledEvent) {
                     cardBorderClass = 'border-2 border-primary'; // Destaca ações futuras agendadas
+                    iconClass = 'ri-calendar-event-line'; // Ícone de agenda sempre
+
+                    // Lógica para cor da agenda (verde ou amarela)
+                    const obsLowerCase = (evento.observacoes || '').toLowerCase();
+                    if (evento.tipo_abordagem === 3 || obsLowerCase.includes('método') || obsLowerCase.includes('contraceptivo') || obsLowerCase.includes('aplicar') || obsLowerCase.includes('iniciar diu') || obsLowerCase.includes('inserir diu') || obsLowerCase.includes('colocar diu')) {
+                        iconColorClass = 'bg-green-100 text-green-600'; // Agenda verde
+                    } else {
+                        iconColorClass = 'bg-yellow-100 text-yellow-600'; // Agenda amarela
+                    }
+
+                    if (index === 0) { // Se for o primeiro evento da lista (o mais recente/último registrado)
+                        tipoAbordagemTexto = 'Agendamento';
+                    }
+                } else { // Ação já realizada (não é um agendamento futuro)
+                    if (evento.resultado_abordagem === 3) { // Ausente / Não encontrado - TEM PRIORIDADE
+                        iconClass = 'ri-question-mark';
+                        iconColorClass = 'bg-red-100 text-red-600';
+                    } else if (evento.tipo_abordagem === 1) { // Caso específico: Abordagem com pais (e não ausente)
+                        iconClass = timelineEventIcons[1]; // Ícone de pais
+                        if (evento.resultado_abordagem === 1) { // Aceitou método
+                            iconColorClass = 'bg-green-100 text-green-600'; // Verde
+                        } else if (evento.resultado_abordagem === 2) { // Recusou método
+                            iconColorClass = 'bg-red-100 text-red-600'; // Vermelho
+                        } else {
+                            // Outros resultados para abordagem com pais (ex: sem resultado definido ainda)
+                            iconColorClass = timelineEventColors[1]; // Cor padrão azul
+                        }
+                    } else { // Outros tipos de abordagem (não pais, não ausente e não futuras)
+                        // Define o ícone e cor padrão com base no tipo de abordagem
+                        iconClass = timelineEventIcons[evento.tipo_abordagem] || timelineEventIcons['default'];
+                        iconColorClass = timelineEventColors[evento.tipo_abordagem] || timelineEventColors['default'];
+
+                        // Sobrescreve com base no resultado (sabemos que não é 3 aqui)
+                        if (evento.resultado_abordagem === 1) { // Aceitou / Deseja iniciar método
+                            iconClass = 'ri-check-line';
+                            iconColorClass = 'bg-green-100 text-green-600';
+                        } else if (evento.resultado_abordagem === 2) { // Recusou
+                            iconClass = 'ri-close-line';
+                            iconColorClass = 'bg-red-100 text-red-600';
+                        }
+                        // Se não for resultado 1 ou 2 (e não 3), mantém o ícone/cor padrão do tipo de abordagem.
+                    }
                 }
 
+                // Lógica anterior para isFutureScheduledEvent (apenas para referência, agora é isConsideredFutureScheduledEvent)
+                /*
+                if (isFutureScheduledEvent) {
+                    cardBorderClass = 'border-2 border-primary'; // Destaca ações futuras agendadas
+                    iconClass = 'ri-calendar-event-line'; // Ícone de agenda
+                    iconColorClass = 'bg-yellow-100 text-yellow-600'; // Cores amarelas
+                    if (index === 0) { // Se for o primeiro evento da lista (o mais recente/último registrado)
+                        tipoAbordagemTexto = 'Agendamento';
+                    }
+                }
+                */
                 let deleteButtonHtml = '';
                 if (index === 0) { // Adiciona o botão de deletar apenas para o item mais recente (topo da timeline)
                     deleteButtonHtml = `
@@ -867,6 +928,13 @@ document.addEventListener('DOMContentLoaded', function () {
         // Limpar campos do formulário de registro aqui, se necessário
         const form = registerModal.querySelector('form'); // Supondo que os inputs estão dentro de um form
         if (form) form.reset();
+
+        // Definir a data atual para o primeiro campo de data (ação atual)
+        const dataAcaoAtualInput = registerModal.querySelector('input[type="date"]'); // Pega o primeiro input de data
+        if (dataAcaoAtualInput) {
+            const hoje = new Date();
+            dataAcaoAtualInput.value = hoje.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        }
 
         // Resetar dropdowns para texto padrão
         const resultButtonSpan = document.getElementById('resultButton')?.querySelector('span');
