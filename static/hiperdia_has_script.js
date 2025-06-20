@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const equipeDropdownContent = document.getElementById('hiperdia-equipe-dropdown-content');
 
     const microareaButton = document.getElementById('hiperdia-microarea-button');
+    const hipertensosCard = document.getElementById('hipertensosCard');
     const microareaButtonText = document.getElementById('hiperdia-microarea-button-text');
     const microareaDropdown = document.getElementById('hiperdia-microarea-dropdown');
     const microareaDropdownContent = document.getElementById('hiperdia-microarea-dropdown-content');
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Variáveis de Estado ---
     let todasEquipesComMicroareas = [];
     let equipeSelecionadaAtual = 'Todas';
-    let microareaSelecionadaAtual = 'Todas';
+    let microareaSelecionadaAtual = 'Todas as áreas'; // Alterado para consistência
     let currentPage = 1;
     let currentSearchTerm = '';
     let currentSort = 'nome_asc'; // Exemplo: 'nome_asc', 'idade_desc'
@@ -49,18 +50,48 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateAcompanhamentoTitle() {
         if (!acompanhamentoHipertensosTitle) return;
         let title = "Acompanhamento de Pacientes com Hipertensão";
-        if (equipeSelecionadaAtual !== 'Todas') {
+        if (equipeSelecionadaAtual && equipeSelecionadaAtual !== 'Todas') {
             title += ` - Equipe: ${equipeSelecionadaAtual}`;
-            if (microareaSelecionadaAtual !== 'Todas') {
-                title += ` - Microárea: ${microareaSelecionadaAtual}`;
+            if (microareaSelecionadaAtual && microareaSelecionadaAtual !== 'Todas as áreas' && microareaSelecionadaAtual !== 'Todas') {
+                title += ` - ${microareaSelecionadaAtual}`; // Ajustado para exibir "Área X - Agente Y"
             }
         }
         acompanhamentoHipertensosTitle.textContent = title;
     }
 
+    function fetchTotalHipertensos() {
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual,
+            microarea: microareaSelecionadaAtual
+        });
+
+        fetch(`/api/get_total_hipertensos?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    console.error('Erro ao buscar total de hipertensos:', data.erro);
+                    hipertensosCard.textContent = '-';
+                    return;
+                }
+                hipertensosCard.textContent = data.total_pacientes !== undefined ? data.total_pacientes : '-';
+
+            })
+            .catch(error => {
+                console.error('Erro ao carregar pacientes com hipertensão:', error);
+                hipertensosCard.textContent = `Erro`;
+            });
+    }
+
+
+
+
+
+
+
+
     function fetchPacientesHiperdia() {
         if (!tabelaPacientesBody) return;
-        tabelaPacientesBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Ajuste colspan conforme as colunas
+        tabelaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Ajuste colspan para 5 colunas
 
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual,
@@ -75,34 +106,61 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 tabelaPacientesBody.innerHTML = '';
                 if (data.pacientes && data.pacientes.length > 0) {
+                    // Adiciona evento de clique genérico para os botões "Registrar Ações"
+                    // A lógica completa do modal precisaria ser portada do adolescentes_script.js
+                    // Certifique-se de que este event listener seja adicionado apenas uma vez ou gerenciado adequadamente
+                    // para evitar múltiplos listeners se fetchPacientesHiperdia for chamado várias vezes.
+                    // Uma abordagem seria remover um listener antigo antes de adicionar um novo,
+                    // ou usar delegação de eventos em um elemento pai estável.
+                    // Por simplicidade, estamos adicionando diretamente aqui.
+                    tabelaPacientesBody.addEventListener('click', function (event) {
+                        const target = event.target;
+                        if (target.classList.contains('hiperdia-ver-detalhes-btn') || target.closest('.hiperdia-ver-detalhes-btn')) {
+                            const button = target.classList.contains('hiperdia-ver-detalhes-btn') ? target : target.closest('.hiperdia-ver-detalhes-btn');
+                            const codPaciente = button.dataset.codPaciente;
+                            if (codPaciente) {
+                                // TODO: Implementar a função abrirModalTimelineHiperdia(codPaciente)
+                                alert('Funcionalidade de modal ainda não implementada para Hiperdia. Paciente: ' + codPaciente);
+                            }
+                        }
+                    });
+
                     data.pacientes.forEach(paciente => {
                         const row = tabelaPacientesBody.insertRow();
                         row.className = 'hover:bg-gray-50';
-                        // Adapte as colunas conforme os dados da mv_hiperdia_hipertensao
+                        // Adapta as colunas conforme a nova estrutura e dados disponíveis
                         row.innerHTML = `
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || 'N/A'}</div>
+                                <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || 'N/A'}, ${paciente.idade_calculada || 'N/A'} anos</div>
                                 <div class="text-xs text-gray-500">CNS: ${paciente.cartao_sus || 'N/A'}</div>
+                                <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'} - Agente: ${paciente.nome_agente || 'A definir'}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.idade_calculada || 'N/A'} anos</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.dt_nascimento || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.nome_equipe || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.microarea || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.ciap_cronico || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.cid10_cronico || 'N/A'}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.situacao_problema || 'N/A'}</td>
-                            <!-- Adicione mais colunas conforme necessário -->
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${paciente.ciap_cronico ? `CIAP: ${paciente.ciap_cronico}` : ''}
+                                ${paciente.ciap_cronico && paciente.cid10_cronico ? '<br>' : ''}
+                                ${paciente.cid10_cronico ? `CID10: ${paciente.cid10_cronico}` : ''}
+                                ${!paciente.ciap_cronico && !paciente.cid10_cronico ? 'N/A' : ''}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">A definir</td> <!-- Próxima Ação - Data não disponível na API atual -->
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button class="hiperdia-ver-detalhes-btn text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap"
+                                        data-cod-paciente="${paciente.cod_paciente}">
+                                    Registrar Ações
+                                </button>
+                            </td>
                         `;
+                        tabelaPacientesBody.appendChild(row);
                     });
                 } else {
-                    tabelaPacientesBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`;
+                    tabelaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`; // Colspan ajustado para 5 colunas
                 }
                 renderPaginacaoHiperdia(data.total, data.page, data.limit, data.pages);
                 updateAcompanhamentoTitle();
             })
             .catch(error => {
                 console.error('Erro ao carregar pacientes com hipertensão:', error);
-                tabelaPacientesBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`;
+                tabelaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`; // Colspan ajustado para 5 colunas
             });
     }
 
@@ -141,32 +199,50 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function popularDropdownMicroareasHiperdia(microareas) {
-        // Implementação similar à popularDropdownAgentes do plafam_script.js
-        // mas usando 'microareas' diretamente.
+    // Renomeado e adaptado de popularDropdownMicroareasHiperdia para popularDropdownAgentesHiperdia
+    function popularDropdownAgentesHiperdia(agentesDaEquipe) {
         if (!microareaDropdownContent || !microareaButtonText) return;
         microareaDropdownContent.innerHTML = '';
+
         const todasOption = document.createElement('div');
         todasOption.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
-        todasOption.textContent = 'Todas as Microáreas';
+        todasOption.textContent = 'Todas as áreas';
         todasOption.addEventListener('click', () => {
-            microareaButtonText.textContent = 'Todas as Microáreas';
-            microareaSelecionadaAtual = 'Todas';
+            microareaButtonText.textContent = 'Todas as áreas';
+            microareaSelecionadaAtual = 'Todas as áreas';
             if (microareaDropdown) microareaDropdown.classList.add('hidden');
             currentPage = 1; fetchPacientesHiperdia();
+            updateAcompanhamentoTitle();
         });
         microareaDropdownContent.appendChild(todasOption);
 
-        if (microareas && microareas.length > 0) {
-            microareas.forEach(ma => {
+        if (agentesDaEquipe && agentesDaEquipe.length > 0) {
+            // Agrupar por microárea para listar agentes ou apenas a área
+            const microareasUnicas = {};
+            agentesDaEquipe.forEach(ag => {
+                if (!microareasUnicas[ag.micro_area]) {
+                    microareasUnicas[ag.micro_area] = [];
+                }
+                if (ag.nome_agente) { // Adiciona agente apenas se existir
+                    microareasUnicas[ag.micro_area].push(ag.nome_agente);
+                }
+            });
+
+            Object.keys(microareasUnicas).sort().forEach(ma => {
                 const option = document.createElement('div');
                 option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
-                option.textContent = `Microárea ${ma}`;
+                // Se houver agentes, mostra o primeiro. Se não, só a área.
+                // Idealmente, se houvesse múltiplos agentes por microárea, precisaria de uma lógica mais complexa
+                // ou exibir cada combinação "Área X - Agente Y". Por simplicidade, pegamos o primeiro agente.
+                const nomeAgente = microareasUnicas[ma].length > 0 ? microareasUnicas[ma][0] : null;
+                const displayText = nomeAgente ? `Área ${ma} - ${nomeAgente}` : `Área ${ma}`;
+                option.textContent = displayText;
                 option.addEventListener('click', () => {
-                    microareaButtonText.textContent = `Microárea ${ma}`;
-                    microareaSelecionadaAtual = ma;
+                    microareaButtonText.textContent = displayText;
+                    microareaSelecionadaAtual = displayText; // Armazena "Área X - Agente Y" ou "Área X"
                     if (microareaDropdown) microareaDropdown.classList.add('hidden');
                     currentPage = 1; fetchPacientesHiperdia();
+                    updateAcompanhamentoTitle();
                 });
                 microareaDropdownContent.appendChild(option);
             });
@@ -192,28 +268,35 @@ document.addEventListener('DOMContentLoaded', function () {
                     equipeButtonText.textContent = 'Todas as Equipes';
                     equipeSelecionadaAtual = 'Todas';
                     if (equipeDropdown) equipeDropdown.classList.add('hidden');
-                    popularDropdownMicroareasHiperdia([]);
-                    if (microareaButtonText) microareaButtonText.textContent = 'Todas as Microáreas';
-                    microareaSelecionadaAtual = 'Todas';
+                    popularDropdownAgentesHiperdia([]); // Limpa agentes
+                    if (microareaButtonText) microareaButtonText.textContent = 'Todas as áreas';
+                    microareaSelecionadaAtual = 'Todas as áreas';
                     currentPage = 1; fetchPacientesHiperdia();
                 });
                 equipeDropdownContent.appendChild(todasEquipesOption);
 
-                todasEquipesComMicroareas.forEach(equipe => {
-                    const option = document.createElement('div');
-                    option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
-                    option.textContent = `${equipe.nome_equipe} (${equipe.num_pacientes || 0})`;
-                    option.addEventListener('click', () => {
-                        equipeButtonText.textContent = equipe.nome_equipe;
-                        equipeSelecionadaAtual = equipe.nome_equipe;
-                        if (equipeDropdown) equipeDropdown.classList.add('hidden');
-                        popularDropdownMicroareasHiperdia(equipe.microareas);
-                        if (microareaButtonText) microareaButtonText.textContent = 'Todas as Microáreas';
-                        microareaSelecionadaAtual = 'Todas';
-                        currentPage = 1; fetchPacientesHiperdia();
+                if (todasEquipesComMicroareas.length === 0) {
+                    const noEquipesOption = document.createElement('div');
+                    noEquipesOption.className = 'p-2 text-gray-500';
+                    noEquipesOption.textContent = 'Nenhuma equipe encontrada.';
+                    equipeDropdownContent.appendChild(noEquipesOption);
+                } else {
+                    todasEquipesComMicroareas.forEach(equipe => {
+                        const option = document.createElement('div');
+                        option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
+                        option.textContent = `${equipe.nome_equipe} (${equipe.num_pacientes || 0} pacientes)`;
+                        option.addEventListener('click', () => {
+                            equipeButtonText.textContent = equipe.nome_equipe;
+                            equipeSelecionadaAtual = equipe.nome_equipe;
+                            if (equipeDropdown) equipeDropdown.classList.add('hidden');
+                            popularDropdownAgentesHiperdia(equipe.agentes); // Passa a lista de agentes da equipe
+                            if (microareaButtonText) microareaButtonText.textContent = 'Todas as áreas';
+                            microareaSelecionadaAtual = 'Todas as áreas';
+                            currentPage = 1; fetchPacientesHiperdia();
+                        });
+                        equipeDropdownContent.appendChild(option);
                     });
-                    equipeDropdownContent.appendChild(option);
-                });
+                }
             })
             .catch(error => console.error('Erro de rede ao buscar equipes/microáreas para Hiperdia:', error));
     }
@@ -234,4 +317,5 @@ document.addEventListener('DOMContentLoaded', function () {
     setupDropdown(microareaButton, microareaDropdown);
     fetchEquipesMicroareasHiperdia();
     fetchPacientesHiperdia(); // Carga inicial
+    fetchTotalHipertensos();
 });

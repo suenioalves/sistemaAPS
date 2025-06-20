@@ -1062,26 +1062,46 @@ def api_equipes_microareas_hiperdia():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Busca equipes e suas microáreas distintas da tabela de hipertensão
-        # e conta o número de pacientes hipertensos por equipe
+        
+        # Etapa 1: Buscar equipes, suas microáreas distintas e contagem de pacientes
         cur.execute("""
             SELECT 
                 nome_equipe, 
-                array_agg(DISTINCT microarea ORDER BY microarea ASC) as microareas,
+                array_agg(DISTINCT microarea ORDER BY microarea ASC) as microareas_list,
                 COUNT(DISTINCT cod_paciente) as total_pacientes_hipertensos
             FROM sistemaaps.mv_hiperdia_hipertensao
             WHERE nome_equipe IS NOT NULL AND microarea IS NOT NULL
             GROUP BY nome_equipe
             ORDER BY total_pacientes_hipertensos DESC, nome_equipe ASC;
         """)
-        equipes_data = []
-        for row in cur.fetchall():
-            equipes_data.append({
-                "nome_equipe": row["nome_equipe"],
-                "microareas": row["microareas"] if row["microareas"] else [],
-                "num_pacientes": row["total_pacientes_hipertensos"]
+        equipes_com_microareas = cur.fetchall()
+
+        resultado_final = []
+        for equipe_row in equipes_com_microareas:
+            equipe_nome = equipe_row["nome_equipe"]
+            
+            # Etapa 2: Para cada equipe, buscar os agentes associados às suas microáreas
+            # Usamos as microáreas da mv_hiperdia_hipertensao para garantir que só listamos agentes
+            # de microáreas que de fato têm pacientes hipertensos naquela equipe.
+            cur.execute("""
+                SELECT DISTINCT ta.micro_area, ta.nome_agente
+                FROM sistemaaps.tb_agentes ta
+                WHERE ta.nome_equipe = %s AND ta.micro_area IN (
+                    SELECT DISTINCT mh.microarea 
+                    FROM sistemaaps.mv_hiperdia_hipertensao mh 
+                    WHERE mh.nome_equipe = %s AND mh.microarea IS NOT NULL
+                )
+                ORDER BY ta.micro_area, ta.nome_agente;
+            """, (equipe_nome, equipe_nome))
+            agentes_db = cur.fetchall()
+            agentes_formatados = [{"micro_area": ag["micro_area"], "nome_agente": ag["nome_agente"]} for ag in agentes_db]
+
+            resultado_final.append({
+                "nome_equipe": equipe_nome,
+                "agentes": agentes_formatados, # Similar ao painel adolescentes
+                "num_pacientes": equipe_row["total_pacientes_hipertensos"]
             })
-        return jsonify(equipes_data)
+        return jsonify(resultado_final)
     except Exception as e:
         print(f"Erro ao buscar equipes e microáreas para Hiperdia HAS: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
@@ -1099,16 +1119,22 @@ def build_hiperdia_has_filters(args):
     where_clauses = []
 
     if equipe != 'Todas':
-        where_clauses.append("nome_equipe = %(equipe)s")
+        where_clauses.append("m.nome_equipe = %(equipe)s") # Adicionado alias 'm.'
         query_params['equipe'] = equipe
 
-    if microarea_selecionada != 'Todas' and microarea_selecionada:
-        # Assumindo que microarea é um campo numérico ou texto que pode ser comparado diretamente
-        where_clauses.append("microarea = %(microarea)s")
-        query_params['microarea'] = microarea_selecionada
+    # Tratamento para microarea_selecionada (pode ser "Área X - Agente Y" ou "Área X")
+    if microarea_selecionada != 'Todas' and microarea_selecionada and microarea_selecionada != 'Todas as áreas':
+        if ' - ' in microarea_selecionada:
+            micro_area_str = microarea_selecionada.split(' - ')[0].replace('Área ', '').strip()
+        else:
+            micro_area_str = microarea_selecionada.replace('Área ', '').strip()
+        
+        if micro_area_str:
+            where_clauses.append("m.microarea = %(microarea)s") # Adicionado alias 'm.'
+            query_params['microarea'] = micro_area_str
 
     if search_term:
-        where_clauses.append("unaccent(nome_paciente) ILIKE unaccent(%(search)s)")
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)") # Adicionado alias 'm.'
         query_params['search'] = f"%{search_term}%"
 
     # Mapeamento de ordenação (pode ser expandido)
@@ -1119,7 +1145,7 @@ def build_hiperdia_has_filters(args):
         'idade_desc': 'idade_calculada DESC',
         # Adicione mais opções de ordenação conforme necessário
     }
-    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'nome_paciente ASC')
+    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC') # Adicionado alias 'm.'
     
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     return where_clause_str, order_by_clause, query_params
@@ -1138,7 +1164,7 @@ def api_pacientes_hiperdia_has():
 
         where_clause, order_by_clause, query_params = build_hiperdia_has_filters(request.args)
         
-        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao"
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area" # Adicionado JOIN com tb_agentes
         
         count_query = "SELECT COUNT(*) " + base_query + where_clause
         cur.execute(count_query, query_params)
@@ -1148,7 +1174,7 @@ def api_pacientes_hiperdia_has():
         query_params_paginated['limit'] = limit
         query_params_paginated['offset'] = offset
         
-        fields = "cod_paciente, nome_paciente, cartao_sus, idade_calculada, nome_equipe, microarea, dt_nascimento, ciap_cronico, cid10_cronico, situacao_problema"
+        fields = "m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.nome_equipe, m.microarea, m.dt_nascimento, m.ciap_cronico, m.cid10_cronico, m.situacao_problema, ag.nome_agente" # Adicionado ag.nome_agente e aliases
         final_query = f"SELECT {fields} {base_query} {where_clause} {order_by_clause} LIMIT %(limit)s OFFSET %(offset)s"
         cur.execute(final_query, query_params_paginated)
         
