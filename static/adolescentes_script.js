@@ -578,7 +578,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            const shouldHideActions = isGestante || isMetodoEmDia;
+            const isDIU = ado.metodo && ado.metodo.toLowerCase().includes('diu');
+            let shouldHideActions;
+
+            if (isDIU) {
+                shouldHideActions = false; // Sempre mostrar ações para DIU
+            } else {
+                shouldHideActions = isGestante || isMetodoEmDia;
+            }
 
             let registrarAcoesHtml = '';
             if (!shouldHideActions) {

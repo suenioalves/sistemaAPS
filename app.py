@@ -127,6 +127,10 @@ def painel_plafam():
 def painel_adolescentes():
     return render_template('painel-adolescentes.html')
 
+@app.route('/painel-hiperdia-has')
+def painel_hiperdia_has():
+    return render_template('painel-hiperdia-has.html')
+
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
     conn = None
@@ -1044,6 +1048,124 @@ def api_graficos_painel_adolescentes():
 
     except Exception as e:
         print(f"Erro ao buscar dados para gráficos de adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+# --- Funções e Rotas para o Painel Hiperdia HAS ---
+
+@app.route('/api/equipes_microareas_hiperdia')
+def api_equipes_microareas_hiperdia():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Busca equipes e suas microáreas distintas da tabela de hipertensão
+        # e conta o número de pacientes hipertensos por equipe
+        cur.execute("""
+            SELECT 
+                nome_equipe, 
+                array_agg(DISTINCT microarea ORDER BY microarea ASC) as microareas,
+                COUNT(DISTINCT cod_paciente) as total_pacientes_hipertensos
+            FROM sistemaaps.mv_hiperdia_hipertensao
+            WHERE nome_equipe IS NOT NULL AND microarea IS NOT NULL
+            GROUP BY nome_equipe
+            ORDER BY total_pacientes_hipertensos DESC, nome_equipe ASC;
+        """)
+        equipes_data = []
+        for row in cur.fetchall():
+            equipes_data.append({
+                "nome_equipe": row["nome_equipe"],
+                "microareas": row["microareas"] if row["microareas"] else [],
+                "num_pacientes": row["total_pacientes_hipertensos"]
+            })
+        return jsonify(equipes_data)
+    except Exception as e:
+        print(f"Erro ao buscar equipes e microáreas para Hiperdia HAS: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+def build_hiperdia_has_filters(args):
+    equipe = args.get('equipe', 'Todas')
+    microarea_selecionada = args.get('microarea', 'Todas') # 'Todas' ou o número da microárea
+    search_term = args.get('search', None)
+    sort_by = args.get('sort_by', 'nome_asc') # Exemplo de ordenação padrão
+
+    query_params = {}
+    where_clauses = []
+
+    if equipe != 'Todas':
+        where_clauses.append("nome_equipe = %(equipe)s")
+        query_params['equipe'] = equipe
+
+    if microarea_selecionada != 'Todas' and microarea_selecionada:
+        # Assumindo que microarea é um campo numérico ou texto que pode ser comparado diretamente
+        where_clauses.append("microarea = %(microarea)s")
+        query_params['microarea'] = microarea_selecionada
+
+    if search_term:
+        where_clauses.append("unaccent(nome_paciente) ILIKE unaccent(%(search)s)")
+        query_params['search'] = f"%{search_term}%"
+
+    # Mapeamento de ordenação (pode ser expandido)
+    sort_mapping = {
+        'nome_asc': 'nome_paciente ASC',
+        'nome_desc': 'nome_paciente DESC',
+        'idade_asc': 'idade_calculada ASC',
+        'idade_desc': 'idade_calculada DESC',
+        # Adicione mais opções de ordenação conforme necessário
+    }
+    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'nome_paciente ASC')
+    
+    where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    return where_clause_str, order_by_clause, query_params
+
+@app.route('/api/pacientes_hiperdia_has')
+def api_pacientes_hiperdia_has():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        page = int(request.args.get('page', 1))
+        limit = 15 # Número de pacientes por página, ajuste conforme necessário
+        offset = (page - 1) * limit
+
+        where_clause, order_by_clause, query_params = build_hiperdia_has_filters(request.args)
+        
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao"
+        
+        count_query = "SELECT COUNT(*) " + base_query + where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+        
+        query_params_paginated = query_params.copy()
+        query_params_paginated['limit'] = limit
+        query_params_paginated['offset'] = offset
+        
+        fields = "cod_paciente, nome_paciente, cartao_sus, idade_calculada, nome_equipe, microarea, dt_nascimento, ciap_cronico, cid10_cronico, situacao_problema"
+        final_query = f"SELECT {fields} {base_query} {where_clause} {order_by_clause} LIMIT %(limit)s OFFSET %(offset)s"
+        cur.execute(final_query, query_params_paginated)
+        
+        pacientes = [dict(row) for row in cur.fetchall()]
+        for p in pacientes: # Formatar datas se necessário
+            if p.get('dt_nascimento') and isinstance(p['dt_nascimento'], date):
+                p['dt_nascimento'] = p['dt_nascimento'].strftime('%d/%m/%Y')
+
+        return jsonify({
+            'pacientes': pacientes,
+            'total': total_pacientes,
+            'page': page,
+            'limit': limit,
+            'pages': (total_pacientes + limit - 1) // limit if total_pacientes > 0 else 0
+        })
+    except Exception as e:
+        print(f"Erro na API /api/pacientes_hiperdia_has: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
