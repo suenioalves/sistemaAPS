@@ -1114,6 +1114,10 @@ def build_hiperdia_has_filters(args):
     microarea_selecionada = args.get('microarea', 'Todas') # 'Todas' ou o número da microárea
     search_term = args.get('search', None)
     sort_by = args.get('sort_by', 'nome_asc') # Exemplo de ordenação padrão
+    status_filter = args.get('status', 'Todos') # Novo filtro de status
+
+    # Mapeamento de status para condições SQL
+    status_map_hiperdia = { 'Controlado': "m.status_controle = 'Controlado'", 'Descompensado': "m.status_controle = 'Descompensado'", 'SemMRPA': "m.status_controle = 'Sem MRPA recente'" }
 
     query_params = {}
     where_clauses = []
@@ -1136,6 +1140,10 @@ def build_hiperdia_has_filters(args):
     if search_term:
         where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)") # Adicionado alias 'm.'
         query_params['search'] = f"%{search_term}%"
+    
+    # Adicionar filtro de status
+    if status_filter != 'Todos' and status_filter in status_map_hiperdia:
+        where_clauses.append(status_map_hiperdia[status_filter])
 
     # Mapeamento de ordenação (pode ser expandido)
     sort_mapping = {
@@ -1143,7 +1151,8 @@ def build_hiperdia_has_filters(args):
         'nome_desc': 'nome_paciente DESC',
         'idade_asc': 'idade_calculada ASC',
         'idade_desc': 'idade_calculada DESC',
-        # Adicione mais opções de ordenação conforme necessário
+        'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC', # Adicionado para consistência
+        'proxima_acao_desc': 'data_proxima_acao_ordenacao DESC NULLS FIRST, m.nome_paciente DESC'
     }
     order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC') # Adicionado alias 'm.'
     
@@ -1173,15 +1182,36 @@ def api_pacientes_hiperdia_has():
         query_params_paginated = query_params.copy()
         query_params_paginated['limit'] = limit
         query_params_paginated['offset'] = offset
-        
-        fields = "m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.nome_equipe, m.microarea, m.dt_nascimento, m.ciap_cronico, m.cid10_cronico, m.situacao_problema, ag.nome_agente" # Adicionado ag.nome_agente e aliases
-        final_query = f"SELECT {fields} {base_query} {where_clause} {order_by_clause} LIMIT %(limit)s OFFSET %(offset)s"
+
+        fields = """
+            m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.nome_equipe, m.microarea, 
+            m.dt_nascimento, m.ciap_cronico, m.cid10_cronico, m.situacao_problema, ag.nome_agente,
+            m.status_controle, m.ultima_pa, m.risco_cv,
+            pa_futura.data_acao AS data_proxima_acao_ordenacao,
+            pa_futura.tipo_acao AS tipo_proxima_acao_ordenacao
+        """
+        from_join_clause = """
+        FROM sistemaaps.mv_hiperdia_hipertensao m
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+        LEFT JOIN LATERAL (SELECT data_acao, tipo_acao FROM sistemaaps.tb_hiperdia_acompanhamento WHERE co_cidadao = m.cod_paciente AND data_acao >= CURRENT_DATE ORDER BY data_acao ASC LIMIT 1) pa_futura ON TRUE
+        """
+        final_query = f"SELECT {fields} {from_join_clause} {where_clause} {order_by_clause} LIMIT %(limit)s OFFSET %(offset)s"
         cur.execute(final_query, query_params_paginated)
         
         pacientes = [dict(row) for row in cur.fetchall()]
         for p in pacientes: # Formatar datas se necessário
             if p.get('dt_nascimento') and isinstance(p['dt_nascimento'], date):
                 p['dt_nascimento'] = p['dt_nascimento'].strftime('%d/%m/%Y')
+
+            # Formatar próxima ação para o frontend
+            if p.get('data_proxima_acao_ordenacao') and isinstance(p['data_proxima_acao_ordenacao'], date):
+                p['proxima_acao_data_formatada'] = p['data_proxima_acao_ordenacao'].strftime('%d/%m/%Y')
+                tipo_acao_map_py = {1: "MRPA", 2: "Ajuste de medicação", 3: "Exames laboratoriais", 4: "Exames de imagem", 5: "Consulta com nutrição", 6: "Consulta com cardiologia", 7: "Avaliação de risco cardiovascular", 8: "Consulta médica"}
+                p['proxima_acao_descricao'] = tipo_acao_map_py.get(p['tipo_proxima_acao_ordenacao'], 'Ação futura')
+            else:
+                p['proxima_acao_data_formatada'] = None
+                p['proxima_acao_descricao'] = None
+
 
         return jsonify({
             'pacientes': pacientes,

@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const paginationContainer = document.getElementById('hiperdia-pagination-container');
     const paginationInfo = document.getElementById('hiperdia-pagination-info');
     const searchInput = document.getElementById('hiperdia-search-input');
+
+    let currentPacienteForModal = null; // Variável para armazenar o paciente atual do modal
+
     const acompanhamentoHipertensosTitle = document.getElementById('acompanhamentoHipertensosTitle'); // Crie este elemento no HTML
 
     // --- Variáveis de Estado ---
