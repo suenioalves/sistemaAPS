@@ -16,12 +16,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const paginationInfo = document.getElementById('hiperdia-pagination-info');
     const searchInput = document.getElementById('hiperdia-search-input');
 
-    let currentPacienteForModal = null; // Variável para armazenar o paciente atual do modal
+       // --- Elementos dos Modais ---
+    const timelineModal = document.getElementById('hiperdia-timelineModal');
+    const closeTimelineModal = document.getElementById('hiperdia-closeTimelineModal');
+    const closeTimelineModalBtn = document.getElementById('hiperdia-closeTimelineModalBtn');
+    const timelineRegisterBtn = document.getElementById('hiperdia-timelineRegisterBtn');
+    const timelineModalTitle = document.getElementById('hiperdia-timelineModalTitle');
+    const timelineModalAvatarIniciais = document.getElementById('hiperdia-timelineModalAvatarIniciais');
+    const timelineModalPacienteNome = document.getElementById('hiperdia-timelineModalPacienteNome');
+    const timelineModalPacienteIdade = document.getElementById('hiperdia-timelineModalPacienteIdade');
+    const timelineModalMicroarea = document.getElementById('hiperdia-timelineModalMicroarea');
+    const timelineModalEquipe = document.getElementById('hiperdia-timelineModalEquipe');
+    const timelineModalStatus = document.getElementById('hiperdia-timelineModalStatus');
+    const timelineModalUltimaPA = document.getElementById('hiperdia-timelineModalUltimaPA');
+    const timelineModalRiscoCV = document.getElementById('hiperdia-timelineModalRiscoCV');
+    const timelineModalProximaAcao = document.getElementById('hiperdia-timelineModalProximaAcao');
+    const timelineModalContentArea = document.getElementById('hiperdia-timelineModalContentArea');
+
+    const registerModal = document.getElementById('hiperdia-registerModal');
+    const closeRegisterModal = document.getElementById('hiperdia-closeRegisterModal');
+    const cancelRegisterBtn = document.getElementById('hiperdia-cancelRegisterBtn');
+    const saveRegisterModalBtn = document.getElementById('hiperdia-saveRegisterModalBtn');
+    const registerModalTitle = document.getElementById('hiperdia-registerModalTitle');
 
     const acompanhamentoHipertensosTitle = document.getElementById('acompanhamentoHipertensosTitle'); // Crie este elemento no HTML
 
     // --- Variáveis de Estado ---
-    let todasEquipesComMicroareas = [];
+     let currentFetchedPacientes = [];
+     let todasEquipesComMicroareas = [];
+    let currentPacienteForModal = null; // Variável para armazenar o paciente atual do modal
     let equipeSelecionadaAtual = 'Todas';
     let microareaSelecionadaAtual = 'Todas as áreas'; // Alterado para consistência
     let currentPage = 1;
@@ -73,25 +96,23 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.erro) {
                     console.error('Erro ao buscar total de hipertensos:', data.erro);
-                    hipertensosCard.textContent = '-';
+                   if (hipertensosCard) { // Adiciona verificação de nulidade
+                        hipertensosCard.textContent = '-';
+                   }
+
                     return;
                 }
-                hipertensosCard.textContent = data.total_pacientes !== undefined ? data.total_pacientes : '-';
-
+                 if (hipertensosCard) { // Adiciona verificação de nulidade
+                    hipertensosCard.textContent = data.total_pacientes !== undefined ? data.total_pacientes : '-';
+                }
             })
             .catch(error => {
                 console.error('Erro ao carregar pacientes com hipertensão:', error);
-                hipertensosCard.textContent = `Erro`;
+                if (hipertensosCard) { // Adiciona verificação de nulidade
+                    hipertensosCard.textContent = `Erro`;
+                }            
             });
     }
-
-
-
-
-
-
-
-
     function fetchPacientesHiperdia() {
         if (!tabelaPacientesBody) return;
         tabelaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Ajuste colspan para 5 colunas
@@ -107,30 +128,26 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(`/api/pacientes_hiperdia_has?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
+                currentFetchedPacientes = data.pacientes || [];
                 tabelaPacientesBody.innerHTML = '';
-                if (data.pacientes && data.pacientes.length > 0) {
-                    // Adiciona evento de clique genérico para os botões "Registrar Ações"
-                    // A lógica completa do modal precisaria ser portada do adolescentes_script.js
-                    // Certifique-se de que este event listener seja adicionado apenas uma vez ou gerenciado adequadamente
-                    // para evitar múltiplos listeners se fetchPacientesHiperdia for chamado várias vezes.
-                    // Uma abordagem seria remover um listener antigo antes de adicionar um novo,
-                    // ou usar delegação de eventos em um elemento pai estável.
-                    // Por simplicidade, estamos adicionando diretamente aqui.
-                    tabelaPacientesBody.addEventListener('click', function (event) {
-                        const target = event.target;
-                        if (target.classList.contains('hiperdia-ver-detalhes-btn') || target.closest('.hiperdia-ver-detalhes-btn')) {
-                            const button = target.classList.contains('hiperdia-ver-detalhes-btn') ? target : target.closest('.hiperdia-ver-detalhes-btn');
-                            const codPaciente = button.dataset.codPaciente;
-                            if (codPaciente) {
-                                // TODO: Implementar a função abrirModalTimelineHiperdia(codPaciente)
-                                alert('Funcionalidade de modal ainda não implementada para Hiperdia. Paciente: ' + codPaciente);
-                            }
-                        }
-                    });
+                
+    const situacaoProblemaMap = {
+                    0: '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>',
+                    1: '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Compensado</span>'
+                };
 
-                    data.pacientes.forEach(paciente => {
+                if (currentFetchedPacientes.length > 0) {
+                    currentFetchedPacientes.forEach(paciente => {
                         const row = tabelaPacientesBody.insertRow();
                         row.className = 'hover:bg-gray-50';
+                        
+                        let proximaAcaoDisplay = 'A definir';
+                        if (paciente.proxima_acao_descricao) {
+                            proximaAcaoDisplay = `${paciente.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${paciente.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                        }
+
+                        
+                        const situacaoDisplay = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';
                         // Adapta as colunas conforme a nova estrutura e dados disponíveis
                         row.innerHTML = `
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -138,14 +155,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="text-xs text-gray-500">CNS: ${paciente.cartao_sus || 'N/A'}</div>
                                 <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'} - Agente: ${paciente.nome_agente || 'A definir'}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${paciente.situacao_problema || 'N/A'}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${situacaoDisplay}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 ${paciente.ciap_cronico ? `CIAP: ${paciente.ciap_cronico}` : ''}
                                 ${paciente.ciap_cronico && paciente.cid10_cronico ? '<br>' : ''}
                                 ${paciente.cid10_cronico ? `CID10: ${paciente.cid10_cronico}` : ''}
                                 ${!paciente.ciap_cronico && !paciente.cid10_cronico ? 'N/A' : ''}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">A definir</td> <!-- Próxima Ação - Data não disponível na API atual -->
+                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${proximaAcaoDisplay}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <button class="hiperdia-ver-detalhes-btn text-primary hover:text-indigo-900 !rounded-button whitespace-nowrap"
                                         data-cod-paciente="${paciente.cod_paciente}">
@@ -305,6 +322,100 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Event Listeners ---
+
+    // --- Funções dos Modais ---
+    function getIniciais(nome) {
+        if (!nome) return '--';
+        const partes = nome.split(' ');
+        if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+        return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : partes[0][1] || '')).toUpperCase();
+    }
+
+    function abrirModalTimelineHiperdia(paciente) {
+        if (!paciente || !timelineModal) return;
+
+        currentPacienteForModal = paciente;
+
+        // Preenche o cabeçalho do modal com os dados do paciente
+        if (timelineModalTitle) timelineModalTitle.textContent = `Linha do Tempo - ${paciente.nome_paciente || 'Paciente'}`;
+        if (timelineModalAvatarIniciais) timelineModalAvatarIniciais.textContent = getIniciais(paciente.nome_paciente);
+        if (timelineModalPacienteNome) timelineModalPacienteNome.textContent = paciente.nome_paciente || 'N/A';
+        if (timelineModalPacienteIdade) timelineModalPacienteIdade.textContent = `${paciente.idade_calculada || 'N/A'} anos`;
+        if (timelineModalMicroarea) timelineModalMicroarea.textContent = paciente.microarea || 'N/A';
+        if (timelineModalEquipe) timelineModalEquipe.textContent = paciente.nome_equipe || 'N/A';
+
+        // Preenche os campos de status (usando dados da tabela, pois não temos API de detalhes ainda)
+        const situacaoProblemaMap = { 0: 'Ativo', 1: 'Compensado' };
+        if (timelineModalStatus) timelineModalStatus.textContent = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';
+        if (timelineModalUltimaPA) timelineModalUltimaPA.textContent = paciente.ultima_pa || 'N/A'; // Coluna não existe, será N/A
+        if (timelineModalRiscoCV) timelineModalRiscoCV.textContent = paciente.risco_cv || 'N/A'; // Coluna não existe, será N/A
+
+        if (timelineModalProximaAcao) {
+            timelineModalProximaAcao.textContent = paciente.proxima_acao_descricao ? `${paciente.proxima_acao_descricao} (${paciente.proxima_acao_data_formatada})` : 'A definir';
+        }
+
+        // Por enquanto, o conteúdo da timeline é estático no HTML.
+        // No futuro, aqui seria o local para fazer um fetch dos eventos da timeline do paciente.
+
+        timelineModal.classList.remove('hidden');
+    }
+
+    function abrirModalRegistroHiperdia() {
+        if (!currentPacienteForModal || !registerModal) return;
+
+        if (registerModalTitle) registerModalTitle.textContent = `Registrar Nova Ação - ${currentPacienteForModal.nome_paciente}`;
+
+        // Limpa o formulário (opcional, mas boa prática)
+        const form = document.getElementById('hiperdia-registerForm');
+        if (form) form.reset();
+
+        // Define a data atual como padrão
+        const dataInput = document.getElementById('hiperdia-data-acao-atual');
+        if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
+
+        timelineModal.classList.add('hidden');
+        registerModal.classList.remove('hidden');
+    }
+
+    // --- Event Listeners ---
+    if (tabelaPacientesBody) {
+        tabelaPacientesBody.addEventListener('click', function (event) {
+            const target = event.target;
+            if (target.classList.contains('hiperdia-ver-detalhes-btn') || target.closest('.hiperdia-ver-detalhes-btn')) {
+                const button = target.closest('.hiperdia-ver-detalhes-btn');
+                const codPaciente = button.dataset.codPaciente;
+                const paciente = currentFetchedPacientes.find(p => String(p.cod_paciente) === codPaciente);
+                if (paciente) {
+                    abrirModalTimelineHiperdia(paciente);
+                } else {
+                    console.error("Paciente não encontrado no cache:", codPaciente);
+                    alert("Erro: não foi possível encontrar os dados do paciente.");
+                }
+            }
+        });
+    }
+
+    // Listeners para fechar os modais
+    if (closeTimelineModal) closeTimelineModal.addEventListener('click', () => timelineModal.classList.add('hidden'));
+    if (closeTimelineModalBtn) closeTimelineModalBtn.addEventListener('click', () => timelineModal.classList.add('hidden'));
+    if (closeRegisterModal) closeRegisterModal.addEventListener('click', () => registerModal.classList.add('hidden'));
+    if (cancelRegisterBtn) cancelRegisterBtn.addEventListener('click', () => registerModal.classList.add('hidden'));
+
+    // Listener para abrir o modal de registro a partir do modal da timeline
+    if (timelineRegisterBtn) {
+        timelineRegisterBtn.addEventListener('click', abrirModalRegistroHiperdia);
+    }
+
+    // Listener para o botão de salvar (ainda sem lógica de API)
+    if (saveRegisterModalBtn) {
+        saveRegisterModalBtn.addEventListener('click', function() {
+            // Por enquanto, apenas fecha o modal
+            alert('Ação salva (simulação). A lógica de envio para a API ainda não foi implementada.');
+            registerModal.classList.add('hidden');
+            // No futuro, aqui iria a lógica de fetch para a API de registro
+        });
+    }
+
     if (searchInput) {
         searchInput.addEventListener('keyup', (event) => {
             if (event.key === 'Enter') {

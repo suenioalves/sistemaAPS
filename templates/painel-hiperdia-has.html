@@ -6,217 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HIPERDIA - Sistema de Monitoramento de Pacientes Hipertensos</title>
     <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-    <script>tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#10b981' }, borderRadius: { 'none': '0px', 'sm': '4px', DEFAULT: '8px', 'md': '12px', 'lg': '16px', 'xl': '20px', '2xl': '24px', '3xl': '32px', 'full': '9999px', 'button': '8px' } } } }</script>
+    <script>tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#10b981' }, borderRadius: { 'none': '0px', 'sm': '4px', DEFAULT: '8px', 'md': '12px', 'xl': '20px', '2xl': '24px', '3xl': '32px', 'full': '9999px', 'button': '8px' } } } }</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
-    <style>
-        :where([class^="ri-"])::before {
-            content: "\f3c2";
-        }
-
-        @keyframes highlightBorder {
-            from {
-                box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
-                border-color: rgba(79, 70, 229, 0.3);
-            }
-
-            to {
-                box-shadow: 0 0 0 4px rgba(79, 70, 229, 0);
-                border-color: rgba(79, 70, 229, 0.1);
-            }
-        }
-
-        .highlight-section {
-            animation: highlightBorder 1s ease-out;
-            border: 2px solid rgba(79, 70, 229, 0.1);
-            border-radius: 8px;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-
-        .timeline-line {
-            position: absolute;
-            left: 24px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #e5e7eb;
-            z-index: 0;
-        }
-
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        input[type="number"] {
-            -moz-appearance: textfield;
-        }
-
-        .custom-switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 24px;
-        }
-
-        .custom-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #e5e7eb;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: #4f46e5;
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(20px);
-        }
-
-        .custom-radio {
-            display: inline-flex;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .custom-radio input {
-            display: none;
-        }
-
-        .radio-mark {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: 2px solid #d1d5db;
-            display: inline-block;
-            position: relative;
-            margin-right: 8px;
-        }
-
-        .radio-mark:after {
-            content: "";
-            position: absolute;
-            display: none;
-            top: 3px;
-            left: 3px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4f46e5;
-        }
-
-        .custom-radio input:checked~.radio-mark {
-            border-color: #4f46e5;
-        }
-
-        .custom-radio input:checked~.radio-mark:after {
-            display: block;
-        }
-
-        .custom-checkbox {
-            display: inline-flex;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .custom-checkbox input {
-            display: none;
-        }
-
-        .checkbox-mark {
-            width: 18px;
-            height: 18px;
-            border-radius: 4px;
-            border: 2px solid #d1d5db;
-            display: inline-block;
-            position: relative;
-            margin-right: 8px;
-        }
-
-        .checkbox-mark:after {
-            content: "";
-            position: absolute;
-            display: none;
-            left: 5px;
-            top: 1px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-
-        .custom-checkbox input:checked~.checkbox-mark {
-            background-color: #4f46e5;
-            border-color: #4f46e5;
-        }
-
-        .custom-checkbox input:checked~.checkbox-mark:after {
-            display: block;
-        }
-
-        .range-slider {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 5px;
-            background: #e5e7eb;
-            outline: none;
-        }
-
-        .range-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #4f46e5;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
-        }
-
-        .range-slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #4f46e5;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
-        }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body class="bg-gray-50 min-h-screen">
@@ -236,7 +32,7 @@
                             <i class="ri-user-line"></i>
                         </div>
                         <span>Dr. Carlos Mendes</span>
-                        <div class="w-4 h-4 flex items-center justify-center ml-1">
+                        <div class="w-4 h-4 flex items-center justify-center">
                             <i class="ri-arrow-down-s-line"></i>
                         </div>
                     </button>
@@ -249,10 +45,8 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="col-span-2">
                     <div class="flex items-center mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">Painel de Controle</h2>
-                        <span
-                            class="ml-3 text-sm border-2 border-primary rounded-md px-2 py-0.5 text-primary font-medium">Equipe
-                            PSF 1</span>
+                        <h2 id="acompanhamentoHipertensosTitle" class="text-xl font-semibold text-gray-800">Painel de
+                            Controle</h2>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -273,13 +67,13 @@
                                 <div id="hiperdia-equipe-dropdown"
                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                     <div id="hiperdia-equipe-dropdown-content" class="p-2">
-                                        <div class="p-2 text-gray-500">Carregando equipes...</div>
+                                        <!-- Conteúdo populado via JS -->
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Área - Agente</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Área - Agente:</label>
                             <div class="relative">
                                 <button id="hiperdia-microarea-button"
                                     class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
@@ -291,7 +85,7 @@
                                 <div id="hiperdia-microarea-dropdown"
                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                     <div id="hiperdia-microarea-dropdown-content" class="p-2">
-                                        <div class="p-2 text-gray-500">Carregando áreas/agentes...</div>
+                                        <!-- Conteúdo populado via JS -->
                                     </div>
                                 </div>
                             </div>
@@ -301,18 +95,22 @@
                             <div class="relative">
                                 <button id="hiperdia-status-button"
                                     class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                    <span>Todos os status</span>
+                                    <span id="hiperdia-status-button-text">Todos os status</span>
                                     <div class="w-4 h-4 flex items-center justify-center">
                                         <i class="ri-arrow-down-s-line"></i>
                                     </div>
                                 </button>
                                 <div id="hiperdia-status-dropdown"
                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                    <div class="p-2">
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Todos os status</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Controlado</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Descompensado</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Sem MRPA recente</div>
+                                    <div id="hiperdia-status-dropdown-content" class="p-2">
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-status="Todos">
+                                            Todos os status</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                            data-status="Controlado">Controlado</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                            data-status="Descompensado">Descompensado</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-status="SemMRPA">
+                                            Sem MRPA recente</div>
                                     </div>
                                 </div>
                             </div>
@@ -323,14 +121,14 @@
                     <div class="flex flex-col h-full justify-between">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="bg-indigo-50 rounded p-4 text-center">
-                                <p class="text-sm text-gray-600 mb-1">Equipe PSF 1</p>
+                                <p class="text-sm text-gray-600 mb-1">Total de</p>
                                 <p class="text-sm text-gray-600 mb-1">Hipertensos</p>
-                                <p class="text-2xl font-bold text-primary">183</p>
+                                <p id="hipertensosCard" class="text-2xl font-bold text-primary">0</p>
                             </div>
                             <div class="bg-green-50 rounded p-4 text-center">
-                                <p class="text-sm text-gray-600 mb-1">Equipe PSF 1</p>
-                                <p class="text-sm text-gray-600 mb-1">Pendentes/semana</p>
-                                <p class="text-2xl font-bold text-secondary">8</p>
+                                <p class="text-sm text-gray-600 mb-1">Pendentes</p>
+                                <p class="text-sm text-gray-600 mb-1">por semana</p>
+                                <p class="text-2xl font-bold text-secondary">0</p>
                             </div>
                         </div>
                     </div>
@@ -339,8 +137,7 @@
         </div>
         <div class="bg-white rounded shadow-sm p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 id="acompanhamentoHipertensosTitle" class="text-xl font-semibold text-gray-800">Linha do Tempo de
-                    Acompanhamento</h2>
+                <h2 class="text-xl font-semibold text-gray-800">Linha do Tempo de Acompanhamento</h2>
                 <div class="relative">
                     <div class="flex items-center border border-gray-300 rounded-full px-3 py-1">
                         <div class="w-4 h-4 flex items-center justify-center text-gray-500 mr-2">
@@ -354,20 +151,36 @@
             <div class="overflow-hidden">
                 <div class="flex space-x-2 mb-4">
                     <button
-                        class="bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap">Todos</button>
+                        class="hiperdia-status-tab-btn bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap"
+                        data-status-filter="Todos" data-active-bg="bg-primary" data-active-text="text-white"
+                        data-active-border="border-primary" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Todos</button>
                     <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Controlados</button>
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="Controlado" data-active-bg="bg-green-500" data-active-text="text-white"
+                        data-active-border="border-green-500" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Controlados</button>
                     <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Descompensados</button>
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="Descompensado" data-active-bg="bg-red-500" data-active-text="text-white"
+                        data-active-border="border-red-500" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700"
+                        data-inactive-border="border-gray-300">Descompensados</button>
                     <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">MRPA
-                        pendente</button>
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="MRPAPendente" data-active-bg="bg-yellow-400"
+                        data-active-text="text-yellow-800" data-active-border="border-yellow-400"
+                        data-inactive-bg="bg-white" data-inactive-text="text-gray-700"
+                        data-inactive-border="border-gray-300">MRPA pendente</button>
                     <button
-                        class="bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap">Exames
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="ExamesPendentes" data-active-bg="bg-blue-500" data-active-text="text-white"
+                        data-active-border="border-blue-500" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Exames
                         pendentes</button>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 hi">
+                    <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col"
@@ -375,370 +188,244 @@
                                     Paciente</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status</th>
+                                    Situação Problema</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Diagnósticos</th>
+                                    Diagnóstico</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Próxima Ação</th>
+                                    Próxima ação</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ações</th>
                             </tr>
                         </thead>
                         <tbody id="hiperdia-tabela-pacientes-body" class="bg-white divide-y divide-gray-200">
-                            <!-- Rows will be inserted here by JS -->
-                            <tr><td colspan="5" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
+                            <!-- Conteúdo populado via JS -->
                         </tbody>
                     </table>
                 </div>
                 <div class="flex justify-between items-center mt-4">
                     <div id="hiperdia-pagination-info" class="text-sm text-gray-700">
-                        Mostrando <span class="font-medium">1</span> a <span class="font-medium">5</span> de <span
-                            class="font-medium">183</span> resultados
+                        <!-- Informações de paginação via JS -->
                     </div>
                     <div id="hiperdia-pagination-container" class="flex space-x-2">
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm disabled:opacity-50 !rounded-button whitespace-nowrap"
-                            disabled>
-                            Anterior
-                        </button>
-                        <button
-                            class="bg-primary text-white rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">1</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">2</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">3</button>
-                        <button
-                            class="border border-gray-300 rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap">
-                            Próximo
-                        </button>
+                        <!-- Botões de paginação via JS -->
                     </div>
                 </div>
             </div>
-        </div>
-        <div id="timelineModal"
-            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                <div class="flex justify-between items-center p-6 border-b">
-                    <h3 class="text-xl font-semibold text-gray-900">Linha do Tempo - Antônio Moreira</h3>
-                    <button id="closeTimelineModal" class="text-gray-400 hover:text-gray-500">
-                        <div class="w-6 h-6 flex items-center justify-center">
-                            <i class="ri-close-line"></i>
-                        </div>
-                    </button>
-                </div>
-                <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                    <div class="flex mb-6">
-                        <div class="w-1/3 pr-4">
-                            <div class="bg-white rounded-lg shadow p-4">
-                                <div class="flex items-center justify-center mb-4">
-                                    <div
-                                        class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
-                                        <span>AM</span>
-                                    </div>
-                                </div>
-                                <h4 class="text-lg font-medium text-center mb-2">Antônio Moreira</h4>
-                                <div class="text-sm text-gray-500 text-center mb-4">68 anos</div>
-                                <div class="space-y-2">
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Micro-área:</span>
-                                        <span class="text-sm font-medium">01</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Equipe:</span>
-                                        <span class="text-sm font-medium">Azul</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Status:</span>
-                                        <span class="text-sm font-medium text-red-600">Descompensado</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Última PA:</span>
-                                        <span class="text-sm font-medium">150/95 mmHg</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Risco CV:</span>
-                                        <span class="text-sm font-medium text-orange-600">Moderado</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-sm text-gray-600">Próxima ação:</span>
-                                        <span class="text-sm font-medium">20/06/2025</span>
-                                    </div>
-                                </div>
-                                <div class="mt-6">
-                                    <button id="timelineRegisterBtn"
-                                        class="w-full bg-primary text-white py-2 px-4 rounded flex items-center justify-center !rounded-button whitespace-nowrap">
-                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
-                                            <i class="ri-add-line"></i>
-                                        </div>
-                                        Registrar ação
-                                    </button>
-                                </div>
+
+            <!-- Modal da Linha do Tempo (Timeline Modal) -->
+            <div id="hiperdia-timelineModal"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <div class="flex justify-between items-center p-6 border-b">
+                        <h3 id="hiperdia-timelineModalTitle" class="text-xl font-semibold text-gray-900">Linha do Tempo
+                            - Paciente</h3>
+                        <button id="hiperdia-closeTimelineModal" class="text-gray-400 hover:text-gray-500">
+                            <div class="w-6 h-6 flex items-center justify-center">
+                                <i class="ri-close-line"></i>
                             </div>
-                        </div>
-                        <div class="w-2/3 pl-4">
-                            <div class="relative">
-                                <div class="timeline-line"></div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-primary z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-home-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">Cadastro inicial</h5>
-                                            <span class="text-sm text-gray-500">10/01/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            Paciente cadastrado no sistema de monitoramento. Diagnóstico de hipertensão
-                                            há 8 anos. Em uso de Losartana 50mg 1x/dia.
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">ACS Fernanda Oliveira</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-heart-pulse-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">MRPA realizado</h5>
-                                            <span class="text-sm text-gray-500">15/02/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            MRPA realizado por 7 dias. Média das medidas: 145/90 mmHg. Paciente com
-                                            pressão não controlada. Necessária reavaliação do tratamento.
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">Enf. Marcelo Santos</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-medicine-bottle-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">Ajuste de medicação</h5>
-                                            <span class="text-sm text-gray-500">20/02/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            Aumentada dose de Losartana para 100mg 1x/dia. Adicionado Hidroclorotiazida
-                                            25mg 1x/dia. Solicitado novo MRPA após 30 dias.
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">Dr. Carlos Mendes</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-test-tube-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">Exames laboratoriais</h5>
-                                            <span class="text-sm text-gray-500">15/03/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            Colesterol total: 240 mg/dL (alto)<br>
-                                            HDL: 38 mg/dL (baixo)<br>
-                                            LDL: 162 mg/dL (alto)<br>
-                                            Triglicerídeos: 180 mg/dL (alto)<br>
-                                            Glicemia: 105 mg/dL (normal)<br>
-                                            Creatinina: 1.1 mg/dL (normal)
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">Laboratório Municipal</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-heart-pulse-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">MRPA de controle</h5>
-                                            <span class="text-sm text-gray-500">25/03/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            MRPA realizado por 7 dias. Média das medidas: 138/85 mmHg. Melhora do
-                                            controle pressórico, mas ainda não ideal. Mantido tratamento atual.
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">Enf. Marcelo Santos</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex mb-8 relative">
-                                    <div
-                                        class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 z-10 flex-shrink-0">
-                                        <div class="w-6 h-6 flex items-center justify-center">
-                                            <i class="ri-calendar-line"></i>
-                                        </div>
-                                    </div>
-                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow border-2 border-primary">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <h5 class="font-medium">Próxima reavaliação agendada</h5>
-                                            <span class="text-sm text-primary font-medium">20/06/2025</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 mb-2">
-                                            Agendada reavaliação do tratamento após novo MRPA que mostrou PA média de
-                                            150/95 mmHg. Paciente descompensado, necessário ajuste medicamentoso.
-                                        </p>
-                                        <div class="text-sm text-gray-500">
-                                            Responsável: <span class="font-medium">Dr. Carlos Mendes</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        </button>
                     </div>
-                </div>
-                <div class="p-6 border-t flex justify-end">
-                    <button id="closeTimelineModalBtn"
-                        class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Fechar</button>
-                </div>
-            </div>
-        </div>
-        <div id="registerModal"
-            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-                <div class="flex justify-between items-center p-6 border-b">
-                    <h3 class="text-xl font-semibold text-gray-900">Registrar Nova Ação</h3>
-                    <button id="closeRegisterModal" class="text-gray-400 hover:text-gray-500">
-                        <div class="w-6 h-6 flex items-center justify-center">
-                            <i class="ri-close-line"></i>
-                        </div>
-                    </button>
-                </div>
-                <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
-                            <div class="space-y-2">
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type" checked>
-                                    <span class="radio-mark"></span>
-                                    MRPA (Monitoramento Residencial da Pressão Arterial)
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Ajuste de medicação
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Exames laboratoriais
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Exames de imagem
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Consulta com nutrição
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Consulta com cardiologia
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type">
-                                    <span class="radio-mark"></span>
-                                    Avaliação de risco cardiovascular
-                                </label>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
-                            <input type="date"
-                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                value="2025-06-18">
-                        </div>
-                        <div id="mrpaSection">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Resultados do MRPA (7
-                                dias)</label>
-                            <div class="space-y-3">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs text-gray-500 mb-1">Média sistólica (mmHg)</label>
-                                        <input type="number"
-                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                            placeholder="Ex: 140">
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <div class="flex mb-6">
+                            <div class="w-1/3 pr-4">
+                                <div class="bg-white rounded-lg shadow p-4">
+                                    <div class="flex items-center justify-center mb-4">
+                                        <div id="hiperdia-timelineModalAvatarIniciais"
+                                            class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
+                                            <span>AM</span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 mb-1">Média diastólica (mmHg)</label>
-                                        <input type="number"
-                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                            placeholder="Ex: 90">
+                                    <h4 id="hiperdia-timelineModalPacienteNome"
+                                        class="text-lg font-medium text-center mb-2">Nome do Paciente</h4>
+                                    <div id="hiperdia-timelineModalPacienteIdade"
+                                        class="text-sm text-gray-500 text-center mb-4">Idade</div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Micro-área:</span>
+                                            <span id="hiperdia-timelineModalMicroarea"
+                                                class="text-sm font-medium">00</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Equipe:</span>
+                                            <span id="hiperdia-timelineModalEquipe" class="text-sm font-medium">Nome da
+                                                Equipe</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Status:</span>
+                                            <span id="hiperdia-timelineModalStatus"
+                                                class="text-sm font-medium text-red-600">Status</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Última PA:</span>
+                                            <span id="hiperdia-timelineModalUltimaPA"
+                                                class="text-sm font-medium">N/A</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Risco CV:</span>
+                                            <span id="hiperdia-timelineModalRiscoCV"
+                                                class="text-sm font-medium text-orange-600">N/A</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Próxima ação:</span>
+                                            <span id="hiperdia-timelineModalProximaAcao"
+                                                class="text-sm font-medium">N/A</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Status do controle</label>
-                                    <div class="relative">
-                                        <button id="controlStatusButton"
-                                            class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                            <span>Selecione o status</span>
-                                            <div class="w-4 h-4 flex items-center justify-center">
-                                                <i class="ri-arrow-down-s-line"></i>
+                                    <div class="mt-6">
+                                        <button id="hiperdia-timelineRegisterBtn"
+                                            class="w-full bg-primary text-white py-2 px-4 rounded flex items-center justify-center !rounded-button whitespace-nowrap">
+                                            <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                                <i class="ri-add-line"></i>
                                             </div>
+                                            Registrar ação
                                         </button>
-                                        <div id="controlStatusDropdown"
-                                            class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                            <div class="p-2">
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Controlado (<
-                                                        135/85 mmHg)</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                            Descompensado (≥ 135/85 mmHg)</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-2/3 pl-4">
+                                <div class="relative">
+                                    <div class="timeline-line"></div>
+                                    <div id="hiperdia-timelineModalContentArea">
+                                        <!-- Conteúdo da linha do tempo populado via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6 border-t flex justify-end">
+                        <button id="hiperdia-closeTimelineModalBtn"
+                            class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Fechar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal de Registro de Ação (Register Modal) -->
+            <div id="hiperdia-registerModal"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                    <div class="flex justify-between items-center p-6 border-b">
+                        <h3 id="hiperdia-registerModalTitle" class="text-xl font-semibold text-gray-900">Registrar Nova
+                            Ação</h3>
+                        <button id="hiperdia-closeRegisterModal" class="text-gray-400 hover:text-gray-500">
+                            <div class="w-6 h-6 flex items-center justify-center">
+                                <i class="ri-close-line"></i>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <form id="hiperdia-registerForm" class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
+                                <div class="space-y-2">
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="1" checked>
+                                        <span class="radio-mark"></span>
+                                        MRPA (Monitoramento Residencial da Pressão Arterial)
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="2">
+                                        <span class="radio-mark"></span>
+                                        Ajuste de medicação
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="3">
+                                        <span class="radio-mark"></span>
+                                        Exames laboratoriais
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="4">
+                                        <span class="radio-mark"></span>
+                                        Exames de imagem
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="5">
+                                        <span class="radio-mark"></span>
+                                        Consulta com nutrição
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="6">
+                                        <span class="radio-mark"></span>
+                                        Consulta com cardiologia
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="7">
+                                        <span class="radio-mark"></span>
+                                        Avaliação de risco cardiovascular
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
+                                <input type="date" id="hiperdia-data-acao-atual"
+                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+
+                            <!-- Seções dinâmicas -->
+                            <div id="hiperdia-mrpaSection">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Resultados do MRPA (7
+                                    dias)</label>
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Média sistólica
+                                                (mmHg)</label>
+                                            <input type="number" id="hiperdia-mrpa-sistolica"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                placeholder="Ex: 140">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Média diastólica
+                                                (mmHg)</label>
+                                            <input type="number" id="hiperdia-mrpa-diastolica"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                placeholder="Ex: 90">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Status do controle</label>
+                                        <div class="relative">
+                                            <button id="hiperdia-controlStatusButton"
+                                                class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                                <span id="hiperdia-controlStatusButton-text">Selecione o status</span>
+                                                <div class="w-4 h-4 flex items-center justify-center">
+                                                    <i class="ri-arrow-down-s-line"></i>
+                                                </div>
+                                            </button>
+                                            <div id="hiperdia-controlStatusDropdown"
+                                                class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                                <div class="p-2">
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Controlado">Controlado (&lt; 135/85 mmHg)</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Descompensado">Descompensado (≥ 135/85 mmHg)</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div id="medicationSection" class="hidden">
+                            <div id="hiperdia-medicationSection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Ajuste de medicação</label>
                                 <div class="space-y-3">
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Tipo de ajuste</label>
                                         <div class="space-y-2">
                                             <label class="custom-radio">
-                                                <input type="radio" name="medication-type">
+                                                <input type="radio" name="medication-type" value="Aumento de dose">
                                                 <span class="radio-mark"></span>
                                                 Aumento de dose
                                             </label>
                                             <label class="custom-radio">
-                                                <input type="radio" name="medication-type">
+                                                <input type="radio" name="medication-type" value="Troca de medicamento">
                                                 <span class="radio-mark"></span>
                                                 Troca de medicamento
                                             </label>
                                             <label class="custom-radio">
-                                                <input type="radio" name="medication-type">
+                                                <input type="radio" name="medication-type"
+                                                    value="Adição de novo medicamento">
                                                 <span class="radio-mark"></span>
                                                 Adição de novo medicamento
                                             </label>
@@ -746,32 +433,32 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Medicamentos atuais</label>
-                                        <textarea
+                                        <textarea id="hiperdia-medicamentos-atuais"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-16"
                                             placeholder="Ex: Losartana 100mg 1x/dia, Hidroclorotiazida 25mg 1x/dia"></textarea>
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Novos medicamentos</label>
-                                        <textarea
+                                        <textarea id="hiperdia-novos-medicamentos"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-16"
                                             placeholder="Ex: Anlodipino 5mg 1x/dia"></textarea>
                                     </div>
                                 </div>
                             </div>
-                            <div id="labExamsSection" class="hidden">
+                            <div id="hiperdia-labExamsSection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Exames laboratoriais</label>
                                 <div class="space-y-3">
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Colesterol total
                                                 (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-colesterol-total"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 200">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">HDL (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-hdl"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 45">
                                         </div>
@@ -779,14 +466,14 @@
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">LDL (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-ldl"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 130">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Triglicerídeos
                                                 (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-triglicerideos"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 150">
                                         </div>
@@ -795,14 +482,14 @@
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Glicemia de jejum
                                                 (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-glicemia-jejum"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 95">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Hemoglobina glicada
                                                 (%)</label>
-                                            <input type="number" step="0.1"
+                                            <input type="number" step="0.1" id="hiperdia-hemoglobina-glicada"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 5.7">
                                         </div>
@@ -810,13 +497,13 @@
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Ureia (mg/dL)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-ureia"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 40">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Creatinina (mg/dL)</label>
-                                            <input type="number" step="0.1"
+                                            <input type="number" step="0.1" id="hiperdia-creatinina"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 1.0">
                                         </div>
@@ -824,52 +511,52 @@
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Sódio (mEq/L)</label>
-                                            <input type="number"
+                                            <input type="number" id="hiperdia-sodio"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 140">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Potássio (mEq/L)</label>
-                                            <input type="number" step="0.1"
+                                            <input type="number" step="0.1" id="hiperdia-potassio"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 4.5">
                                         </div>
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Ácido Úrico (mg/dL)</label>
-                                        <input type="number" step="0.1"
+                                        <input type="number" step="0.1" id="hiperdia-acido-urico"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                             placeholder="Ex: 5.5">
                                     </div>
                                 </div>
                             </div>
-                            <div id="imageExamsSection" class="hidden">
+                            <div id="hiperdia-imageExamsSection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Exames de imagem</label>
                                 <div class="space-y-3">
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Tipo de exame</label>
                                         <div class="relative">
-                                            <button id="examTypeButton"
+                                            <button id="hiperdia-examTypeButton"
                                                 class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                                <span>Selecione o tipo</span>
+                                                <span id="hiperdia-examTypeButton-text">Selecione o tipo</span>
                                                 <div class="w-4 h-4 flex items-center justify-center">
                                                     <i class="ri-arrow-down-s-line"></i>
                                                 </div>
                                             </button>
-                                            <div id="examTypeDropdown"
+                                            <div id="hiperdia-examTypeDropdown"
                                                 class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                                 <div class="p-2">
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                        Eletrocardiograma</div>
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                        Ecocardiograma</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Eletrocardiograma">Eletrocardiograma</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Ecocardiograma">Ecocardiograma</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Resultado</label>
-                                        <textarea
+                                        <textarea id="hiperdia-resultado-exame-imagem"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                             placeholder="Descreva os resultados do exame..."></textarea>
                                     </div>
@@ -877,22 +564,25 @@
                                         <label class="block text-xs text-gray-500 mb-1">Alterações encontradas</label>
                                         <div class="space-y-2">
                                             <label class="custom-checkbox">
-                                                <input type="checkbox">
+                                                <input type="checkbox" name="alteracoes-imagem"
+                                                    value="Hipertrofia ventricular esquerda">
                                                 <span class="checkbox-mark"></span>
                                                 Hipertrofia ventricular esquerda
                                             </label>
                                             <label class="custom-checkbox">
-                                                <input type="checkbox">
+                                                <input type="checkbox" name="alteracoes-imagem"
+                                                    value="Alterações isquêmicas">
                                                 <span class="checkbox-mark"></span>
                                                 Alterações isquêmicas
                                             </label>
                                             <label class="custom-checkbox">
-                                                <input type="checkbox">
+                                                <input type="checkbox" name="alteracoes-imagem" value="Arritmias">
                                                 <span class="checkbox-mark"></span>
                                                 Arritmias
                                             </label>
                                             <label class="custom-checkbox">
-                                                <input type="checkbox">
+                                                <input type="checkbox" name="alteracoes-imagem"
+                                                    value="Sem alterações significativas">
                                                 <span class="checkbox-mark"></span>
                                                 Sem alterações significativas
                                             </label>
@@ -900,20 +590,20 @@
                                     </div>
                                 </div>
                             </div>
-                            <div id="nutritionSection" class="hidden">
+                            <div id="hiperdia-nutritionSection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Consulta com
                                     nutrição</label>
                                 <div class="space-y-3">
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Peso (kg)</label>
-                                            <input type="number" step="0.1"
+                                            <input type="number" step="0.1" id="hiperdia-peso"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 75.5">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">IMC (kg/m²)</label>
-                                            <input type="number" step="0.1"
+                                            <input type="number" step="0.1" id="hiperdia-imc"
                                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Ex: 27.5">
                                         </div>
@@ -921,19 +611,19 @@
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Circunferência abdominal
                                             (cm)</label>
-                                        <input type="number"
+                                        <input type="number" id="hiperdia-circunferencia-abdominal"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                             placeholder="Ex: 95">
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Orientações nutricionais</label>
-                                        <textarea
+                                        <textarea id="hiperdia-orientacoes-nutricionais"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                             placeholder="Descreva as orientações nutricionais..."></textarea>
                                     </div>
                                 </div>
                             </div>
-                            <div id="cardiologySection" class="hidden">
+                            <div id="hiperdia-cardiologySection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Consulta com
                                     cardiologia</label>
                                 <div class="space-y-3">
@@ -941,12 +631,12 @@
                                         <label class="block text-xs text-gray-500 mb-1">Tipo de consulta</label>
                                         <div class="space-y-2">
                                             <label class="custom-radio">
-                                                <input type="radio" name="cardiology-type">
+                                                <input type="radio" name="cardiology-type" value="Presencial">
                                                 <span class="radio-mark"></span>
                                                 Presencial
                                             </label>
                                             <label class="custom-radio">
-                                                <input type="radio" name="cardiology-type">
+                                                <input type="radio" name="cardiology-type" value="Telemedicina">
                                                 <span class="radio-mark"></span>
                                                 Telemedicina
                                             </label>
@@ -954,19 +644,19 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Avaliação cardiológica</label>
-                                        <textarea
+                                        <textarea id="hiperdia-avaliacao-cardiologica"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                             placeholder="Descreva a avaliação cardiológica..."></textarea>
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Recomendações</label>
-                                        <textarea
+                                        <textarea id="hiperdia-recomendacoes-cardiologia"
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                             placeholder="Descreva as recomendações do cardiologista..."></textarea>
                                     </div>
                                 </div>
                             </div>
-                            <div id="riskSection" class="hidden">
+                            <div id="hiperdia-riskSection" class="hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Avaliação de risco
                                     cardiovascular</label>
                                 <div class="space-y-3">
@@ -978,7 +668,7 @@
                                                 <div class="grid grid-cols-2 gap-4">
                                                     <div>
                                                         <label class="block text-xs text-gray-500 mb-1">Idade</label>
-                                                        <input type="number"
+                                                        <input type="number" id="hiperdia-risco-idade"
                                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                             value="68">
                                                     </div>
@@ -986,12 +676,13 @@
                                                         <label class="block text-xs text-gray-500 mb-1">Sexo</label>
                                                         <div class="space-y-2">
                                                             <label class="custom-radio">
-                                                                <input type="radio" name="gender" checked>
+                                                                <input type="radio" name="gender" value="Masculino"
+                                                                    checked>
                                                                 <span class="radio-mark"></span>
                                                                 Masculino
                                                             </label>
                                                             <label class="custom-radio">
-                                                                <input type="radio" name="gender">
+                                                                <input type="radio" name="gender" value="Feminino">
                                                                 <span class="radio-mark"></span>
                                                                 Feminino
                                                             </label>
@@ -1002,12 +693,12 @@
                                                     <label class="block text-xs text-gray-500 mb-1">Tabagismo</label>
                                                     <div class="space-y-2">
                                                         <label class="custom-radio">
-                                                            <input type="radio" name="smoking">
+                                                            <input type="radio" name="smoking" value="Sim">
                                                             <span class="radio-mark"></span>
                                                             Sim
                                                         </label>
                                                         <label class="custom-radio">
-                                                            <input type="radio" name="smoking" checked>
+                                                            <input type="radio" name="smoking" value="Não" checked>
                                                             <span class="radio-mark"></span>
                                                             Não
                                                         </label>
@@ -1017,12 +708,12 @@
                                                     <label class="block text-xs text-gray-500 mb-1">Diabetes</label>
                                                     <div class="space-y-2">
                                                         <label class="custom-radio">
-                                                            <input type="radio" name="diabetes">
+                                                            <input type="radio" name="diabetes" value="Sim">
                                                             <span class="radio-mark"></span>
                                                             Sim
                                                         </label>
                                                         <label class="custom-radio">
-                                                            <input type="radio" name="diabetes" checked>
+                                                            <input type="radio" name="diabetes" value="Não" checked>
                                                             <span class="radio-mark"></span>
                                                             Não
                                                         </label>
@@ -1032,14 +723,14 @@
                                                     <div>
                                                         <label class="block text-xs text-gray-500 mb-1">Colesterol total
                                                             (mg/dL)</label>
-                                                        <input type="number"
+                                                        <input type="number" id="hiperdia-risco-colesterol-total"
                                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                             value="240">
                                                     </div>
                                                     <div>
                                                         <label class="block text-xs text-gray-500 mb-1">PAS
                                                             (mmHg)</label>
-                                                        <input type="number"
+                                                        <input type="number" id="hiperdia-risco-pas"
                                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                                             value="150">
                                                     </div>
@@ -1050,519 +741,412 @@
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Resultado do risco</label>
                                         <div class="relative">
-                                            <button id="riskResultButton"
+                                            <button id="hiperdia-riskResultButton"
                                                 class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                                <span>Selecione o resultado</span>
+                                                <span id="hiperdia-riskResultButton-text">Selecione o resultado</span>
                                                 <div class="w-4 h-4 flex items-center justify-center">
                                                     <i class="ri-arrow-down-s-line"></i>
                                                 </div>
                                             </button>
-                                            <div id="riskResultDropdown"
+                                            <div id="hiperdia-riskResultDropdown"
                                                 class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                                 <div class="p-2">
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Baixo
-                                                        risco (< 10%)</div>
-                                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                                Risco moderado (10-20%)</div>
-                                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                                Alto risco (> 20%)</div>
-                                                    </div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Baixo risco">Baixo risco (&lt; 10%)</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Risco moderado">Risco moderado (10-20%)</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                        data-value="Alto risco">Alto risco (&gt; 20%)</div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Campo de Observações (comum a todas as ações) -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                                    <textarea
+                                    <textarea id="hiperdia-observacoes"
                                         class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                         placeholder="Registre informações adicionais relevantes..."></textarea>
                                 </div>
+
+                                <!-- Campo de Próxima Ação (comum a todas as ações) -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Próxima ação</label>
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Data</label>
-                                            <input type="date"
-                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                value="2025-07-18">
+                                            <input type="date" id="hiperdia-proxima-acao-data"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                                         </div>
                                         <div>
                                             <label class="block text-xs text-gray-500 mb-1">Tipo</label>
                                             <div class="relative">
-                                                <button id="nextActionButton"
+                                                <button id="hiperdia-nextActionButton"
                                                     class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                                    <span>Selecione o tipo</span>
+                                                    <span id="hiperdia-nextActionButton-text">Selecione o tipo</span>
                                                     <div class="w-4 h-4 flex items-center justify-center">
                                                         <i class="ri-arrow-down-s-line"></i>
                                                     </div>
                                                 </button>
-                                                <div id="nextActionDropdown"
+                                                <div id="hiperdia-nextActionDropdown"
                                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                                     <div class="p-2">
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">MRPA
-                                                        </div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                            Consulta médica</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Exames
-                                                            laboratoriais</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Exames
-                                                            de imagem</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                            Consulta com nutrição</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">
-                                                            Consulta com cardiologia</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="1">MRPA</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="8">Consulta médica</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="3">Exames laboratoriais</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="4">Exames de imagem</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="5">Consulta com nutrição</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="6">Consulta com cardiologia</div>
+                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                            data-value="7">Avaliação de risco cardiovascular</div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Campo de Responsável pela Ação (comum a todas as ações) -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela
                                         ação</label>
                                     <div class="relative">
-                                        <button id="responsibleButton"
+                                        <button id="hiperdia-responsibleButton"
                                             class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                            <span>Selecione o responsável</span>
+                                            <span id="hiperdia-responsibleButton-text">Selecione o responsável</span>
                                             <div class="w-4 h-4 flex items-center justify-center">
                                                 <i class="ri-arrow-down-s-line"></i>
                                             </div>
                                         </button>
-                                        <div id="responsibleDropdown"
+                                        <div id="hiperdia-responsibleDropdown"
                                             class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                             <div class="p-2">
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">ACS Fernanda
-                                                    Oliveira</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Enf. Marcelo
-                                                    Santos</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Dr. Carlos
-                                                    Mendes</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Nutri. Camila
-                                                    Rodrigues</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded">Dr. Roberto
-                                                    Cardoso (Cardiologia)</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                    data-value="ACS Fernanda Oliveira">ACS Fernanda Oliveira</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                    data-value="Enf. Marcelo Santos">Enf. Marcelo Santos</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                    data-value="Dr. Carlos Mendes">Dr. Carlos Mendes</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                    data-value="Nutri. Camila Rodrigues">Nutri. Camila Rodrigues</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
+                                                    data-value="Dr. Roberto Cardoso (Cardiologia)">Dr. Roberto Cardoso
+                                                    (Cardiologia)</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+
                                 <div>
                                     <label class="custom-checkbox">
-                                        <input type="checkbox">
+                                        <input type="checkbox" id="hiperdia-lembrete-automatico">
                                         <span class="checkbox-mark"></span>
                                         Enviar lembrete automático para a próxima ação
                                     </label>
                                 </div>
+                        </form>
+                    </div>
+                    <div class="p-6 border-t flex justify-end">
+                        <button id="hiperdia-cancelRegisterBtn"
+                            class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Cancelar</button>
+                        <button id="hiperdia-saveRegisterModalBtn"
+                            class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">Salvar
+                            registro</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal da Linha do Tempo (Timeline Modal) -->
+            <div id="hiperdia-timelineModal"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <div class="flex justify-between items-center p-6 border-b">
+                        <h3 id="hiperdia-timelineModalTitle" class="text-xl font-semibold text-gray-900">Linha do Tempo
+                            - Paciente</h3>
+                        <button id="hiperdia-closeTimelineModal" class="text-gray-400 hover:text-gray-500">
+                            <div class="w-6 h-6 flex items-center justify-center">
+                                <i class="ri-close-line"></i>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <div class="flex mb-6">
+                            <div class="w-1/3 pr-4">
+                                <div class="bg-white rounded-lg shadow p-4">
+                                    <div class="flex items-center justify-center mb-4">
+                                        <div id="hiperdia-timelineModalAvatarIniciais"
+                                            class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
+                                            <span>AM</span>
+                                        </div>
+                                    </div>
+                                    <h4 id="hiperdia-timelineModalPacienteNome"
+                                        class="text-lg font-medium text-center mb-2">Nome do Paciente</h4>
+                                    <div id="hiperdia-timelineModalPacienteIdade"
+                                        class="text-sm text-gray-500 text-center mb-4">Idade</div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Micro-área:</span>
+                                            <span id="hiperdia-timelineModalMicroarea"
+                                                class="text-sm font-medium">00</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Equipe:</span>
+                                            <span id="hiperdia-timelineModalEquipe" class="text-sm font-medium">Nome da
+                                                Equipe</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Status:</span>
+                                            <span id="hiperdia-timelineModalStatus"
+                                                class="text-sm font-medium text-red-600">Status</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Última PA:</span>
+                                            <span id="hiperdia-timelineModalUltimaPA"
+                                                class="text-sm font-medium">N/A</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Risco CV:</span>
+                                            <span id="hiperdia-timelineModalRiscoCV"
+                                                class="text-sm font-medium text-orange-600">N/A</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Próxima ação:</span>
+                                            <span id="hiperdia-timelineModalProximaAcao"
+                                                class="text-sm font-medium">N/A</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6">
+                                        <button id="hiperdia-timelineRegisterBtn"
+                                            class="w-full bg-primary text-white py-2 px-4 rounded flex items-center justify-center !rounded-button whitespace-nowrap">
+                                            <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                                <i class="ri-add-line"></i>
+                                            </div>
+                                            Registrar ação
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-2/3 pl-4">
+                                <div class="relative">
+                                    <div class="timeline-line"></div>
+                                    <div id="hiperdia-timelineModalContentArea">
+                                        <!-- Conteúdo da linha do tempo (estático por enquanto) -->
+                                        <div class="flex mb-8 relative">
+                                            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 z-10 flex-shrink-0">
+                                                <div class="w-6 h-6 flex items-center justify-center"><i class="ri-heart-pulse-line text-xl"></i></div>
+                                            </div>
+                                            <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <h5 class="font-medium">MRPA realizado</h5><span class="text-sm text-gray-500">15/02/2025</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mb-2">MRPA com média de 145/90 mmHg. Pressão não controlada.</p>
+                                                <div class="text-sm text-gray-500">Responsável: <span class="font-medium">Enf. Marcelo Santos</span></div>
+                                            </div>
+                                        </div>
+                                        <div class="flex mb-8 relative">
+                                            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 z-10 flex-shrink-0">
+                                                <div class="w-6 h-6 flex items-center justify-center"><i class="ri-medicine-bottle-line text-xl"></i></div>
+                                            </div>
+                                            <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <h5 class="font-medium">Ajuste de medicação</h5><span class="text-sm text-gray-500">20/02/2025</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mb-2">Aumentada dose de Losartana para 100mg.</p>
+                                                <div class="text-sm text-gray-500">Responsável: <span class="font-medium">Dr. Carlos Mendes</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="p-6 border-t flex justify-end">
-                            <button id="cancelRegisterBtn"
-                                class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Cancelar</button>
-                            <button
-                                class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">Salvar
-                                registro</button>
-                        </div>
+                    </div>
+                    <div class="p-6 border-t flex justify-end">
+                        <button id="hiperdia-closeTimelineModalBtn"
+                            class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Fechar</button>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="col-span-2 bg-white rounded shadow-sm p-6">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Status</h2>
-                        <div id="chartStatus" class="h-80"></div>
+            </div>
+
+            <!-- Modal de Registro de Ação (Register Modal) -->
+            <div id="hiperdia-registerModal"
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                    <div class="flex justify-between items-center p-6 border-b">
+                        <h3 id="hiperdia-registerModalTitle" class="text-xl font-semibold text-gray-900">Registrar Nova
+                            Ação</h3>
+                        <button id="hiperdia-closeRegisterModal" class="text-gray-400 hover:text-gray-500">
+                            <div class="w-6 h-6 flex items-center justify-center">
+                                <i class="ri-close-line"></i>
+                            </div>
+                        </button>
                     </div>
-                    <div class="col-span-1 bg-white rounded shadow-sm p-6">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Risco Cardiovascular</h2>
-                        <div id="chartRisk" class="h-80"></div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <form id="hiperdia-registerForm" class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
+                                <div class="space-y-2">
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="1" checked>
+                                        <span class="radio-mark"></span>
+                                        MRPA (Monitoramento Residencial da Pressão Arterial)
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="2">
+                                        <span class="radio-mark"></span>
+                                        Ajuste de medicação
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="3">
+                                        <span class="radio-mark"></span>
+                                        Exames laboratoriais
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="4">
+                                        <span class="radio-mark"></span>
+                                        Exames de imagem
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="5">
+                                        <span class="radio-mark"></span>
+                                        Consulta com nutrição
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="6">
+                                        <span class="radio-mark"></span>
+                                        Consulta com cardiologia
+                                    </label>
+                                    <label class="custom-radio">
+                                        <input type="radio" name="action-type" value="7">
+                                        <span class="radio-mark"></span>
+                                        Avaliação de risco cardiovascular
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
+                                <input type="date" id="hiperdia-data-acao-atual"
+                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+
+                            <!-- Seções dinâmicas (exemplo estático) -->
+                            <div id="hiperdia-mrpaSection">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Resultados do MRPA (7
+                                    dias)</label>
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Média sistólica
+                                                (mmHg)</label>
+                                            <input type="number" id="hiperdia-mrpa-sistolica"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                placeholder="Ex: 140">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-1">Média diastólica
+                                                (mmHg)</label>
+                                            <input type="number" id="hiperdia-mrpa-diastolica"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                placeholder="Ex: 90">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Campo de Observações (comum a todas as ações) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                                <textarea id="hiperdia-observacoes"
+                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
+                                    placeholder="Registre informações adicionais relevantes..."></textarea>
+                            </div>
+
+                            <!-- Campo de Próxima Ação (comum a todas as ações) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Agendar Próxima ação</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Data</label>
+                                        <input type="date" id="hiperdia-proxima-acao-data"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Tipo</label>
+                                        <div class="relative">
+                                            <button type="button" id="hiperdia-nextActionButton"
+                                                class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                                <span id="hiperdia-nextActionButton-text">Selecione o tipo</span>
+                                                <div class="w-4 h-4 flex items-center justify-center">
+                                                    <i class="ri-arrow-down-s-line"></i>
+                                                </div>
+                                            </button>
+                                            <div id="hiperdia-nextActionDropdown"
+                                                class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                                <div class="p-2">
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Consulta</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Exame</div>
+                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">MRPA</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Campo de Responsável pela Ação (comum a todas as ações) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela
+                                    ação</label>
+                                <div class="relative">
+                                    <button type="button" id="hiperdia-responsibleButton"
+                                        class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                        <span id="hiperdia-responsibleButton-text">Selecione o responsável</span>
+                                        <div class="w-4 h-4 flex items-center justify-center">
+                                            <i class="ri-arrow-down-s-line"></i>
+                                        </div>
+                                    </button>
+                                    <div id="hiperdia-responsibleDropdown"
+                                        class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                        <div class="p-2">
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="ACS Fernanda Oliveira">ACS Fernanda Oliveira</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="Enf. Marcelo Santos">Enf. Marcelo Santos</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="Dr. Carlos Mendes">Dr. Carlos Mendes</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="p-6 border-t flex justify-end">
+                        <button id="hiperdia-cancelRegisterBtn"
+                            class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Cancelar</button>
+                        <button id="hiperdia-saveRegisterModalBtn"
+                            class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">Salvar
+                            registro</button>
                     </div>
                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="col-span-2 bg-white rounded shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Status</h2>
+                    <div id="chartStatus" class="h-80"></div>
+                </div>
+                <div class="col-span-1 bg-white rounded shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Risco Cardiovascular</h2>
+                    <div id="chartRisk" class="h-80"></div>
+                </div>
+            </div>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
-    <script id="dropdownHandlers">
-        document.addEventListener('DOMContentLoaded', function () {
-            const dropdowns = [
-                { button: 'microareaButton', dropdown: 'microareaDropdown' },
-                { button: 'equipeButton', dropdown: 'equipeDropdown' },
-                { button: 'statusButton', dropdown: 'statusDropdown' },
-                { button: 'controlStatusButton', dropdown: 'controlStatusDropdown' },
-                { button: 'examTypeButton', dropdown: 'examTypeDropdown' },
-                { button: 'riskResultButton', dropdown: 'riskResultDropdown' },
-                { button: 'nextActionButton', dropdown: 'nextActionDropdown' },
-                { button: 'responsibleButton', dropdown: 'responsibleDropdown' }
-            ];
-            dropdowns.forEach(item => {
-                const button = document.getElementById(item.button);
-                const dropdown = document.getElementById(item.dropdown);
-                if (button && dropdown) {
-                    button.addEventListener('click', function () {
-                        dropdown.classList.toggle('hidden');
-                    });
-                    const options = dropdown.querySelectorAll('.cursor-pointer');
-                    options.forEach(option => {
-                        option.addEventListener('click', function () {
-                            button.querySelector('span').textContent = this.textContent;
-                            dropdown.classList.add('hidden');
-                        });
-                    });
-                }
-            });
-            document.addEventListener('click', function (e) {
-                dropdowns.forEach(item => {
-                    const button = document.getElementById(item.button);
-                    const dropdown = document.getElementById(item.dropdown);
-                    if (button && dropdown && !button.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.add('hidden');
-                    }
-                });
-            });
-        });
-    </script>
-    <script id="modalHandlers">
-        document.addEventListener('DOMContentLoaded', function () {
-            const timelineModal = document.getElementById('timelineModal');
-            const registerModal = document.getElementById('registerModal');
-            const detailButtons = document.querySelectorAll('button.text-primary');
-            const closeTimelineModal = document.getElementById('closeTimelineModal');
-            const closeTimelineModalBtn = document.getElementById('closeTimelineModalBtn');
-            const closeRegisterModal = document.getElementById('closeRegisterModal');
-            const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
-            const timelineRegisterBtn = document.getElementById('timelineRegisterBtn');
-            // Toggle sections based on action type
-            const actionTypeRadios = document.querySelectorAll('input[name="action-type"]');
-            const mrpaSection = document.getElementById('mrpaSection');
-            const medicationSection = document.getElementById('medicationSection');
-            const labExamsSection = document.getElementById('labExamsSection');
-            const imageExamsSection = document.getElementById('imageExamsSection');
-            const nutritionSection = document.getElementById('nutritionSection');
-            const cardiologySection = document.getElementById('cardiologySection');
-            const riskSection = document.getElementById('riskSection');
-            function toggleSections(actionType) {
-                mrpaSection.classList.add('hidden');
-                medicationSection.classList.add('hidden');
-                labExamsSection.classList.add('hidden');
-                imageExamsSection.classList.add('hidden');
-                nutritionSection.classList.add('hidden');
-                cardiologySection.classList.add('hidden');
-                riskSection.classList.add('hidden');
-                switch (actionType) {
-                    case 'MRPA (Monitoramento Residencial da Pressão Arterial)':
-                        mrpaSection.classList.remove('hidden');
-                        mrpaSection.classList.add('highlight-section');
-                        setTimeout(() => {
-                            mrpaSection.classList.remove('highlight-section');
-                        }, 1000);
-                        break;
-                    case 'Ajuste de medicação':
-                        medicationSection.classList.remove('hidden');
-                        break;
-                    case 'Exames laboratoriais':
-                        labExamsSection.classList.remove('hidden');
-                        break;
-                    case 'Exames de imagem':
-                        imageExamsSection.classList.remove('hidden');
-                        break;
-                    case 'Consulta com nutrição':
-                        nutritionSection.classList.remove('hidden');
-                        break;
-                    case 'Consulta com cardiologia':
-                        cardiologySection.classList.remove('hidden');
-                        break;
-                    case 'Avaliação de risco cardiovascular':
-                        riskSection.classList.remove('hidden');
-                        break;
-                }
-            }
-            actionTypeRadios.forEach(radio => {
-                radio.addEventListener('change', function () {
-                    if (this.checked) {
-                        toggleSections(this.parentElement.textContent.trim());
-                    }
-                });
-            });
-            // Initial section display
-            toggleSections('MRPA (Monitoramento Residencial da Pressão Arterial)');
-            function openRegisterModalForPatient() {
-                const modalTitle = registerModal.querySelector('h3');
-                modalTitle.textContent = 'Registrar Nova Ação - Antônio Moreira';
-                registerModal.classList.remove('hidden');
-            }
-            function handleRegisterSave() {
-                const saveBtn = registerModal.querySelector('button.bg-primary');
-                if (!saveBtn.hasEventListener) {
-                    saveBtn.addEventListener('click', function () {
-                        const date = registerModal.querySelector('input[type="date"]').value;
-                        const actionType = registerModal.querySelector('input[name="action-type"]:checked').parentElement.textContent.trim();
-                        const responsible = document.getElementById('responsibleButton').querySelector('span').textContent;
-                        const newAction = document.createElement('div');
-                        newAction.className = 'flex mb-8 relative';
-                        let iconClass = 'ri-calendar-line';
-                        let bgColor = 'bg-blue-100';
-                        let textColor = 'text-blue-600';
-                        switch (actionType) {
-                            case 'MRPA (Monitoramento Residencial da Pressão Arterial)':
-                                iconClass = 'ri-heart-pulse-line';
-                                bgColor = 'bg-blue-100';
-                                textColor = 'text-blue-600';
-                                break;
-                            case 'Ajuste de medicação':
-                                iconClass = 'ri-medicine-bottle-line';
-                                bgColor = 'bg-red-100';
-                                textColor = 'text-red-600';
-                                break;
-                            case 'Exames laboratoriais':
-                                iconClass = 'ri-test-tube-line';
-                                bgColor = 'bg-purple-100';
-                                textColor = 'text-purple-600';
-                                break;
-                            case 'Exames de imagem':
-                                iconClass = 'ri-heart-line';
-                                bgColor = 'bg-green-100';
-                                textColor = 'text-green-600';
-                                break;
-                        }
-                        newAction.innerHTML = `
-<div class="w-12 h-12 rounded-full ${bgColor} flex items-center justify-center ${textColor} z-10 flex-shrink-0">
-<div class="w-6 h-6 flex items-center justify-center">
-<i class="${iconClass}"></i>
-</div>
-</div>
-<div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
-<div class="flex justify-between items-center mb-2">
-<h5 class="font-medium">${actionType}</h5>
-<span class="text-sm text-gray-500">${date}</span>
-</div>
-<p class="text-sm text-gray-600 mb-2">
-Nova ação registrada no acompanhamento.
-</p>
-<div class="text-sm text-gray-500">
-Responsável: <span class="font-medium">${responsible}</span>
-</div>
-</div>
-`;
-                        const timelineContainer = document.querySelector('.timeline-line').parentElement;
-                        timelineContainer.insertBefore(newAction, timelineContainer.firstChild);
-                        registerModal.classList.add('hidden');
-                    });
-                    saveBtn.hasEventListener = true;
-                }
-            }
-            if (timelineRegisterBtn) {
-                timelineRegisterBtn.addEventListener('click', function () {
-                    openRegisterModalForPatient();
-                    handleRegisterSave();
-                });
-            }
-            detailButtons.forEach(button => {
-                button.addEventListener('click', function () {
-                    timelineModal.classList.remove('hidden');
-                });
-            });
-            if (closeTimelineModal) {
-                closeTimelineModal.addEventListener('click', function () {
-                    timelineModal.classList.add('hidden');
-                });
-            }
-            if (closeTimelineModalBtn) {
-                closeTimelineModalBtn.addEventListener('click', function () {
-                    timelineModal.classList.add('hidden');
-                });
-            }
-            if (closeRegisterModal) {
-                closeRegisterModal.addEventListener('click', function () {
-                    registerModal.classList.add('hidden');
-                });
-            }
-            if (cancelRegisterBtn) {
-                cancelRegisterBtn.addEventListener('click', function () {
-                    registerModal.classList.add('hidden');
-                });
-            }
-        });
-    </script>
-    <script id="chartsInit">
-        document.addEventListener('DOMContentLoaded', function () {
-            // Status Chart
-            const statusChart = echarts.init(document.getElementById('chartStatus'));
-            const statusOption = {
-                animation: false,
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: {
-                        type: 'shadow'
-                    },
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    borderColor: '#e5e7eb',
-                    borderWidth: 1,
-                    textStyle: {
-                        color: '#1f2937'
-                    }
-                },
-                legend: {
-                    data: ['Controlados', 'Descompensados', 'MRPA pendente', 'Exames pendentes'],
-                    bottom: 0,
-                    textStyle: {
-                        color: '#1f2937'
-                    }
-                },
-                grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '15%',
-                    top: '3%',
-                    containLabel: true
-                },
-                xAxis: {
-                    type: 'category',
-                    data: ['Micro-área 01', 'Micro-área 02', 'Micro-área 03', 'Micro-área 04', 'Micro-área 05'],
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e5e7eb'
-                        }
-                    },
-                    axisLabel: {
-                        color: '#1f2937'
-                    }
-                },
-                yAxis: {
-                    type: 'value',
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e5e7eb'
-                        }
-                    },
-                    axisLabel: {
-                        color: '#1f2937'
-                    },
-                    splitLine: {
-                        lineStyle: {
-                            color: '#f3f4f6'
-                        }
-                    }
-                },
-                series: [
-                    {
-                        name: 'Controlados',
-                        type: 'bar',
-                        stack: 'total',
-                        itemStyle: {
-                            color: 'rgba(141, 211, 199, 1)',
-                            borderRadius: [4, 4, 0, 0]
-                        },
-                        emphasis: {
-                            itemStyle: {
-                                color: 'rgba(141, 211, 199, 0.8)'
-                            }
-                        },
-                        data: [18, 15, 20, 17, 14]
-                    },
-                    {
-                        name: 'Descompensados',
-                        type: 'bar',
-                        stack: 'total',
-                        itemStyle: {
-                            color: 'rgba(252, 141, 98, 1)'
-                        },
-                        emphasis: {
-                            itemStyle: {
-                                color: 'rgba(252, 141, 98, 0.8)'
-                            }
-                        },
-                        data: [10, 8, 12, 9, 11]
-                    },
-                    {
-                        name: 'MRPA pendente',
-                        type: 'bar',
-                        stack: 'total',
-                        itemStyle: {
-                            color: 'rgba(251, 191, 114, 1)'
-                        },
-                        emphasis: {
-                            itemStyle: {
-                                color: 'rgba(251, 191, 114, 0.8)'
-                            }
-                        },
-                        data: [5, 7, 4, 6, 5]
-                    },
-                    {
-                        name: 'Exames pendentes',
-                        type: 'bar',
-                        stack: 'total',
-                        itemStyle: {
-                            color: 'rgba(87, 181, 231, 1)'
-                        },
-                        emphasis: {
-                            itemStyle: {
-                                color: 'rgba(87, 181, 231, 0.8)'
-                            }
-                        },
-                        data: [3, 4, 2, 5, 3]
-                    }
-                ]
-            };
-            statusChart.setOption(statusOption);
-            // Risk Chart
-            const riskChart = echarts.init(document.getElementById('chartRisk'));
-            const riskOption = {
-                animation: false,
-                tooltip: {
-                    trigger: 'item',
-                    formatter: '{b}: {c} ({d}%)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    borderColor: '#e5e7eb',
-                    borderWidth: 1,
-                    textStyle: {
-                        color: '#1f2937'
-                    }
-                },
-                legend: {
-                    orient: 'vertical',
-                    right: 10,
-                    top: 'center',
-                    data: ['Baixo risco', 'Risco moderado', 'Alto risco'],
-                    textStyle: {
-                        color: '#1f2937'
-                    }
-                },
-                series: [
-                    {
-                        type: 'pie',
-                        radius: ['40%', '70%'],
-                        center: ['40%', '50%'],
-                        avoidLabelOverlap: false,
-                        itemStyle: {
-                            borderRadius: 8,
-                            borderColor: '#fff',
-                            borderWidth: 2
-                        },
-                        label: {
-                            show: false
-                        },
-                        emphasis: {
-                            label: {
-                                show: true,
-                                fontSize: '12',
-                                fontWeight: 'bold'
-                            }
-                        },
-                        labelLine: {
-                            show: false
-                        },
-                        data: [
-                            { value: 95, name: 'Baixo risco', itemStyle: { color: 'rgba(141, 211, 199, 1)' } },
-                            { value: 65, name: 'Risco moderado', itemStyle: { color: 'rgba(251, 191, 114, 1)' } },
-                            { value: 23, name: 'Alto risco', itemStyle: { color: 'rgba(252, 141, 98, 1)' } }
-                        ]
-                    }
-                ]
-            };
-            riskChart.setOption(riskOption);
-            // Resize charts when window size changes
-            window.addEventListener('resize', function () {
-                statusChart.resize();
-                riskChart.resize();
-            });
-        });
-    </script>
-    <script src="{{ url_for('static', filename='hiperdia_has_script.js') }}" defer></script>
-
+    <script src="/static/hiperdia_has_script.js"></script>
 </body>
 
 </html>

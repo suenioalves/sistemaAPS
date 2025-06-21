@@ -1116,11 +1116,9 @@ def build_hiperdia_has_filters(args):
     sort_by = args.get('sort_by', 'nome_asc') # Exemplo de ordenação padrão
     status_filter = args.get('status', 'Todos') # Novo filtro de status
 
-    # Mapeamento de status para condições SQL
-    status_map_hiperdia = { 'Controlado': "m.status_controle = 'Controlado'", 'Descompensado': "m.status_controle = 'Descompensado'", 'SemMRPA': "m.status_controle = 'Sem MRPA recente'" }
-
     query_params = {}
     where_clauses = []
+    # O filtro de status foi removido pois a coluna 'status_controle' não existe na view.
 
     if equipe != 'Todas':
         where_clauses.append("m.nome_equipe = %(equipe)s") # Adicionado alias 'm.'
@@ -1140,10 +1138,7 @@ def build_hiperdia_has_filters(args):
     if search_term:
         where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)") # Adicionado alias 'm.'
         query_params['search'] = f"%{search_term}%"
-    
-    # Adicionar filtro de status
-    if status_filter != 'Todos' and status_filter in status_map_hiperdia:
-        where_clauses.append(status_map_hiperdia[status_filter])
+
 
     # Mapeamento de ordenação (pode ser expandido)
     sort_mapping = {
@@ -1186,14 +1181,20 @@ def api_pacientes_hiperdia_has():
         fields = """
             m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.nome_equipe, m.microarea, 
             m.dt_nascimento, m.ciap_cronico, m.cid10_cronico, m.situacao_problema, ag.nome_agente,
-            m.status_controle, m.ultima_pa, m.risco_cv,
-            pa_futura.data_acao AS data_proxima_acao_ordenacao,
-            pa_futura.tipo_acao AS tipo_proxima_acao_ordenacao
+            pa_futura.data_proxima_acao AS data_proxima_acao_ordenacao,
+            pa_futura.cod_proxima_acao AS tipo_proxima_acao_ordenacao
         """
         from_join_clause = """
         FROM sistemaaps.mv_hiperdia_hipertensao m
         LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
-        LEFT JOIN LATERAL (SELECT data_acao, tipo_acao FROM sistemaaps.tb_hiperdia_acompanhamento WHERE co_cidadao = m.cod_paciente AND data_acao >= CURRENT_DATE ORDER BY data_acao ASC LIMIT 1) pa_futura ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT data_proxima_acao, cod_proxima_acao 
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento 
+            WHERE cod_cidadao = m.cod_paciente 
+              AND data_proxima_acao >= CURRENT_DATE 
+            ORDER BY data_proxima_acao ASC 
+            LIMIT 1
+        ) pa_futura ON TRUE
         """
         final_query = f"SELECT {fields} {from_join_clause} {where_clause} {order_by_clause} LIMIT %(limit)s OFFSET %(offset)s"
         cur.execute(final_query, query_params_paginated)
@@ -1206,7 +1207,8 @@ def api_pacientes_hiperdia_has():
             # Formatar próxima ação para o frontend
             if p.get('data_proxima_acao_ordenacao') and isinstance(p['data_proxima_acao_ordenacao'], date):
                 p['proxima_acao_data_formatada'] = p['data_proxima_acao_ordenacao'].strftime('%d/%m/%Y')
-                tipo_acao_map_py = {1: "MRPA", 2: "Ajuste de medicação", 3: "Exames laboratoriais", 4: "Exames de imagem", 5: "Consulta com nutrição", 6: "Consulta com cardiologia", 7: "Avaliação de risco cardiovascular", 8: "Consulta médica"}
+                # Mapa de ações alinhado com os tipos inseridos em 'CRIA TABELAS - SISTEMA HIPERDIA - HIPERTENSAO.sql'
+                tipo_acao_map_py = {1: "Consulta", 2: "Exame", 3: "MRPA"}
                 p['proxima_acao_descricao'] = tipo_acao_map_py.get(p['tipo_proxima_acao_ordenacao'], 'Ação futura')
             else:
                 p['proxima_acao_data_formatada'] = None
@@ -1227,6 +1229,32 @@ def api_pacientes_hiperdia_has():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/get_total_hipertensos')
+def api_get_total_hipertensos():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Reutiliza a mesma lógica de filtro do painel principal
+        where_clause, _, query_params = build_hiperdia_has_filters(request.args)
+
+        # A query de contagem é mais simples, não precisa de JOINs complexos se não forem usados no WHERE
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        
+        count_query = "SELECT COUNT(*) " + base_query + where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        print(f"Erro na API /api/get_total_hipertensos: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')
