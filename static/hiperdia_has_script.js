@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const microareaButton = document.getElementById('hiperdia-microarea-button');
     const hipertensosCard = document.getElementById('hipertensosCard');
+    const compensadosCard = document.getElementById('compensadosCard');
+    const descompensadosCard = document.getElementById('descompensadosCard');
+    const revisaoCard = document.getElementById('revisaoCard');
     const microareaButtonText = document.getElementById('hiperdia-microarea-button-text');
     const microareaDropdown = document.getElementById('hiperdia-microarea-dropdown');
     const microareaDropdownContent = document.getElementById('hiperdia-microarea-dropdown-content');
@@ -38,6 +41,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const cancelRegisterBtn = document.getElementById('hiperdia-cancelRegisterBtn');
     const saveRegisterModalBtn = document.getElementById('hiperdia-saveRegisterModalBtn');
     const registerModalTitle = document.getElementById('hiperdia-registerModalTitle');
+    const actionTypeRadios = document.querySelectorAll('input[name="action-type"]');
+    const mrpaSection = document.getElementById('hiperdia-mrpaSection');
+    const medicationSection = document.getElementById('hiperdia-medicationSection');
+    const labExamsSection = document.getElementById('hiperdia-labExamsSection');
+    const imageExamsSection = document.getElementById('hiperdia-imageExamsSection');
+    const nutritionSection = document.getElementById('hiperdia-nutritionSection');
+    const cardiologySection = document.getElementById('hiperdia-cardiologySection');
+    const riskSection = document.getElementById('hiperdia-riskSection');
+
 
     const acompanhamentoHipertensosTitle = document.getElementById('acompanhamentoHipertensosTitle'); // Crie este elemento no HTML
 
@@ -84,6 +96,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         acompanhamentoHipertensosTitle.textContent = title;
     }
+
+    function updateSummaryCards() {
+        fetchTotalHipertensos();
+        // Futuramente, buscar os dados dos outros cards aqui
+        if (compensadosCard) compensadosCard.textContent = '0';
+        if (descompensadosCard) descompensadosCard.textContent = '0';
+        if (revisaoCard) revisaoCard.textContent = '0';
+    }
+
 
     function fetchTotalHipertensos() {
         const params = new URLSearchParams({
@@ -231,7 +252,9 @@ document.addEventListener('DOMContentLoaded', function () {
             microareaButtonText.textContent = 'Todas as áreas';
             microareaSelecionadaAtual = 'Todas as áreas';
             if (microareaDropdown) microareaDropdown.classList.add('hidden');
-            currentPage = 1; fetchPacientesHiperdia();
+            currentPage = 1;
+            fetchPacientesHiperdia();
+            updateSummaryCards();
             updateAcompanhamentoTitle();
         });
         microareaDropdownContent.appendChild(todasOption);
@@ -259,9 +282,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 option.textContent = displayText;
                 option.addEventListener('click', () => {
                     microareaButtonText.textContent = displayText;
-                    microareaSelecionadaAtual = displayText; // Armazena "Área X - Agente Y" ou "Área X"
+                    microareaSelecionadaAtual = ma; // Armazena apenas a microárea para o backend
                     if (microareaDropdown) microareaDropdown.classList.add('hidden');
-                    currentPage = 1; fetchPacientesHiperdia();
+                    currentPage = 1;
+                    fetchPacientesHiperdia();
+                    updateSummaryCards();
                     updateAcompanhamentoTitle();
                 });
                 microareaDropdownContent.appendChild(option);
@@ -291,7 +316,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     popularDropdownAgentesHiperdia([]); // Limpa agentes
                     if (microareaButtonText) microareaButtonText.textContent = 'Todas as áreas';
                     microareaSelecionadaAtual = 'Todas as áreas';
-                    currentPage = 1; fetchPacientesHiperdia();
+                    currentPage = 1;
+                    fetchPacientesHiperdia();
+                    updateSummaryCards();
                 });
                 equipeDropdownContent.appendChild(todasEquipesOption);
 
@@ -312,7 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             popularDropdownAgentesHiperdia(equipe.agentes); // Passa a lista de agentes da equipe
                             if (microareaButtonText) microareaButtonText.textContent = 'Todas as áreas';
                             microareaSelecionadaAtual = 'Todas as áreas';
-                            currentPage = 1; fetchPacientesHiperdia();
+                            currentPage = 1;
+                            fetchPacientesHiperdia();
+                            updateSummaryCards();
                         });
                         equipeDropdownContent.appendChild(option);
                     });
@@ -360,6 +389,41 @@ document.addEventListener('DOMContentLoaded', function () {
         timelineModal.classList.remove('hidden');
     }
 
+    function handleActionTypeChange() {
+        const selectedValue = document.querySelector('input[name="action-type"]:checked')?.value;
+        if (!selectedValue) return;
+
+        // Oculta todas as seções dinâmicas primeiro
+        const sections = [
+            mrpaSection, medicationSection, labExamsSection, imageExamsSection,
+            nutritionSection, cardiologySection, riskSection
+        ];
+        sections.forEach(section => {
+            if (section) section.classList.add('hidden');
+        });
+
+        // Mostra a seção relevante com base no tipo de ação selecionado
+        switch (selectedValue) {
+            case '2': // Avaliar MRPA
+                if (mrpaSection) mrpaSection.classList.remove('hidden');
+                break;
+            case '3': // Modificar tratamento
+                if (medicationSection) medicationSection.classList.remove('hidden');
+                break;
+            case '5': // Avaliar Exames
+                if (labExamsSection) labExamsSection.classList.remove('hidden');
+                if (imageExamsSection) imageExamsSection.classList.remove('hidden');
+                break;
+            case '6': // Avaliar RCV (Risco Cardiovascular)
+                if (riskSection) riskSection.classList.remove('hidden');
+                break;
+            case '8': // Registrar consulta nutrição
+                if (nutritionSection) nutritionSection.classList.remove('hidden');
+                break;
+            // Para '1', '4', '7', '9', nenhuma seção específica é mostrada.
+        }
+    }
+
     function abrirModalRegistroHiperdia() {
         if (!currentPacienteForModal || !registerModal) return;
 
@@ -373,8 +437,61 @@ document.addEventListener('DOMContentLoaded', function () {
         const dataInput = document.getElementById('hiperdia-data-acao-atual');
         if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
 
-        timelineModal.classList.add('hidden');
+        handleActionTypeChange(); // Garante que a visibilidade das seções esteja correta ao abrir
         registerModal.classList.remove('hidden');
+    }
+
+    function saveHiperdiaAction() {
+        if (!currentPacienteForModal) {
+            alert('Erro: Paciente não selecionado.');
+            return;
+        }
+
+        const codAcaoAtual = document.querySelector('input[name="action-type"]:checked')?.value;
+        const dataAcaoAtual = document.getElementById('hiperdia-data-acao-atual')?.value;
+
+        if (!codAcaoAtual || !dataAcaoAtual) {
+            alert('Por favor, preencha o tipo e a data da ação.');
+            return;
+        }
+
+        // Payload base
+        const payload = {
+            cod_cidadao: currentPacienteForModal.cod_paciente,
+            cod_acao_atual: parseInt(codAcaoAtual),
+            data_acao_atual: dataAcaoAtual,
+        };
+
+        // Desabilita o botão para evitar cliques duplos
+        saveRegisterModalBtn.disabled = true;
+        saveRegisterModalBtn.textContent = 'Salvando...';
+
+        fetch('/api/hiperdia/registrar_acao', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.sucesso) {
+                alert('Ação registrada com sucesso!');
+                registerModal.classList.add('hidden');
+                fetchPacientesHiperdia(); // Atualiza a tabela para refletir a nova "Próxima Ação"
+                if (timelineModal && !timelineModal.classList.contains('hidden')) {
+                    timelineModal.classList.add('hidden');
+                }
+            } else {
+                alert(`Erro ao registrar ação: ${data.erro}`);
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            alert('Ocorreu um erro de comunicação com o servidor.');
+        })
+        .finally(() => {
+            saveRegisterModalBtn.disabled = false;
+            saveRegisterModalBtn.textContent = 'Salvar registro';
+        });
     }
 
     // --- Event Listeners ---
@@ -389,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     abrirModalTimelineHiperdia(paciente);
                 } else {
                     console.error("Paciente não encontrado no cache:", codPaciente);
-                    alert("Erro: não foi possível encontrar os dados do paciente.");
+                    alert("Erro: não foi possível encontrar os damodidos do paciente.");
                 }
             }
         });
@@ -406,14 +523,16 @@ document.addEventListener('DOMContentLoaded', function () {
         timelineRegisterBtn.addEventListener('click', abrirModalRegistroHiperdia);
     }
 
-    // Listener para o botão de salvar (ainda sem lógica de API)
-    if (saveRegisterModalBtn) {
-        saveRegisterModalBtn.addEventListener('click', function() {
-            // Por enquanto, apenas fecha o modal
-            alert('Ação salva (simulação). A lógica de envio para a API ainda não foi implementada.');
-            registerModal.classList.add('hidden');
-            // No futuro, aqui iria a lógica de fetch para a API de registro
+    // Listener para mudanças no tipo de ação no modal de registro
+    if (actionTypeRadios) {
+        actionTypeRadios.forEach(radio => {
+            radio.addEventListener('change', handleActionTypeChange);
         });
+    }
+
+    // Listener para o botão de salvar
+    if (saveRegisterModalBtn) {
+        saveRegisterModalBtn.addEventListener('click', saveHiperdiaAction);
     }
 
     if (searchInput) {
@@ -430,6 +549,6 @@ document.addEventListener('DOMContentLoaded', function () {
     setupDropdown(equipeButton, equipeDropdown);
     setupDropdown(microareaButton, microareaDropdown);
     fetchEquipesMicroareasHiperdia();
-    fetchPacientesHiperdia(); // Carga inicial
-    fetchTotalHipertensos();
+    fetchPacientesHiperdia();
+    updateSummaryCards(); // Carga inicial dos cards
 });

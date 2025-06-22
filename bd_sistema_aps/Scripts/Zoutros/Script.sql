@@ -22,4 +22,3 @@ WHERE
     AND DATE_PART('year', AGE(CURRENT_DATE, c.dt_nascimento)) <= 45)
 GROUP BY
     c.co_seq_cidadao -- Agrupa por ID do cidadão, garantindo um único ID por grupo
-;

@@ -1,0 +1,108 @@
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (1,'A definir','PSF-01',0,NULL),
+	 (2,'Carlos','PSF-01',1,NULL),
+	 (3,'Manoel','PSF-01',2,NULL),
+	 (4,'Bium','PSF-01',3,NULL),
+	 (5,'Cleuda','PSF-01',4,NULL),
+	 (6,'Elizangela','PSF-01',5,NULL),
+	 (7,'Raiane','PSF-01',6,NULL),
+	 (8,'A definir','PSF-01',7,NULL),
+	 (9,'A definir','PSF-01',8,NULL),
+	 (10,'A definir','PSF-02',0,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (11,'Elizete','PSF-02',1,NULL),
+	 (12,'Yasmin','PSF-02',2,NULL),
+	 (13,'Larisse','PSF-02',3,NULL),
+	 (14,'Natanael','PSF-02',4,NULL),
+	 (15,'Angela','PSF-02',5,NULL),
+	 (16,'Terezinha','PSF-02',6,NULL),
+	 (17,'A definir','PSF-02',7,NULL),
+	 (18,'A definir','PSF-02',8,NULL),
+	 (27,'A definir','URBANA I',0,NULL),
+	 (28,'Neire','URBANA I',1,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (29,'Sandoval','URBANA I',2,NULL),
+	 (30,'Elves','URBANA I',3,NULL),
+	 (31,'Francisca','URBANA I',4,NULL),
+	 (32,'Isidora','URBANA I',5,NULL),
+	 (33,'Cosmo','URBANA I',6,NULL),
+	 (34,'A definir','URBANA I',7,NULL),
+	 (35,'A definir','URBANA II',0,NULL),
+	 (36,'Frank','URBANA II',1,NULL),
+	 (37,'Robson','URBANA II',2,NULL),
+	 (38,'Jardel','URBANA II',3,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (39,'Jociane','URBANA II',4,NULL),
+	 (40,'Cleberson','URBANA II',5,NULL),
+	 (41,'Raler','URBANA II',6,NULL),
+	 (42,'A definir','URBANA II',7,NULL),
+	 (43,'A definir','URBANA III',0,NULL),
+	 (44,'Raimunda Sangama','URBANA III',1,NULL),
+	 (45,'Francisca Cruz','URBANA III',2,NULL),
+	 (46,'Larisse','URBANA III',3,NULL),
+	 (47,'Marjory','URBANA III',4,NULL),
+	 (48,'Antonia Edna','URBANA III',5,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (49,'Thayna Castilho','URBANA III',6,NULL),
+	 (50,'Antonio Elves','URBANA III',7,NULL),
+	 (51,'A definir','RIO JAVARI',0,NULL),
+	 (52,'A definir','RIO JAVARI',1,NULL),
+	 (53,'A definir','RIO JAVARI',2,NULL),
+	 (54,'A definir','RIO JAVARI',3,NULL),
+	 (55,'A definir','RIO JAVARI',4,NULL),
+	 (56,'A definir','RIO JAVARI',5,NULL),
+	 (57,'A definir','RIO JAVARI',6,NULL),
+	 (58,'A definir','RIO JAVARI',7,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (59,'A definir','RIBEIRINHA I',0,NULL),
+	 (60,'A definir','RIBEIRINHA I',1,NULL),
+	 (61,'A definir','RIBEIRINHA I',2,NULL),
+	 (62,'A definir','RIBEIRINHA I',3,NULL),
+	 (63,'A definir','RIBEIRINHA I',4,NULL),
+	 (64,'A definir','RIBEIRINHA I',5,NULL),
+	 (65,'A definir','RIBEIRINHA I',6,NULL),
+	 (66,'A definir','RIBEIRINHA I',7,NULL),
+	 (67,'A definir','RIBEIRINHA II',0,NULL),
+	 (68,'A definir','RIBEIRINHA II',1,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (69,'A definir','RIBEIRINHA II',2,NULL),
+	 (70,'A definir','RIBEIRINHA II',3,NULL),
+	 (71,'A definir','RIBEIRINHA II',4,NULL),
+	 (72,'A definir','RIBEIRINHA II',5,NULL),
+	 (73,'A definir','RIBEIRINHA II',6,NULL),
+	 (74,'A definir','RIBEIRINHA II',7,NULL),
+	 (75,'A definir','E-MULTI 01',0,NULL),
+	 (76,'A definir','E-MULTI 01',1,NULL),
+	 (77,'A definir','E-MULTI 01',2,NULL),
+	 (78,'A definir','E-MULTI 01',3,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (79,'A definir','E-MULTI 01',4,NULL),
+	 (80,'A definir','E-MULTI 01',5,NULL),
+	 (81,'A definir','E-MULTI 01',6,NULL),
+	 (82,'A definir','E-MULTI 01',7,NULL),
+	 (83,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',0,NULL),
+	 (84,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',1,NULL),
+	 (85,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',2,NULL),
+	 (86,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',3,NULL),
+	 (87,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',4,NULL),
+	 (88,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',5,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (89,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',6,NULL),
+	 (90,'A definir','SAUDE BUCAL BALSA MULTIPROFISS',7,NULL),
+	 (91,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',0,NULL),
+	 (92,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',1,NULL),
+	 (93,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',2,NULL),
+	 (94,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',3,NULL),
+	 (95,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',4,NULL),
+	 (96,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',5,NULL),
+	 (97,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',6,NULL),
+	 (98,'A definir','Equipe SAUDE BUCAL ANTONIO MARIANO I',7,NULL);
+INSERT INTO sistemaaps.tb_agentes (cod_agente,nome_agente,nome_equipe,micro_area,data_inicio) VALUES
+	 (19,'A definir','PSF - 03',0,NULL),
+	 (20,'Julio Cesar','PSF - 03',1,NULL),
+	 (21,'Ingrid','PSF - 03',2,NULL),
+	 (22,'Joana','PSF - 03',3,NULL),
+	 (23,'Clauderis','PSF - 03',4,NULL),
+	 (24,'Clovis','PSF - 03',5,NULL),
+	 (25,'Neirilene','PSF - 03',6,NULL),
+	 (26,'A definir','PSF - 03',7,NULL);

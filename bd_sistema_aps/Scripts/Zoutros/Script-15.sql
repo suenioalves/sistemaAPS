@@ -1,3 +1,5 @@
+-- retorna nome e se gravidez planejada ou nao
+
 -- Extensões (já devem estar ativas)
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

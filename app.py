@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 app = Flask(__name__)
 
@@ -1252,6 +1252,68 @@ def api_get_total_hipertensos():
     except Exception as e:
         print(f"Erro na API /api/get_total_hipertensos: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/registrar_acao', methods=['POST'])
+def api_registrar_acao_hiperdia():
+    data = request.get_json()
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cod_cidadao = data.get('cod_cidadao')
+        cod_acao_atual = data.get('cod_acao_atual')
+        data_acao_atual_str = data.get('data_acao_atual')
+
+        if not all([cod_cidadao, cod_acao_atual, data_acao_atual_str]):
+            return jsonify({"sucesso": False, "erro": "Dados incompletos."}), 400
+
+        # Converte a data string (YYYY-MM-DD) para um objeto date
+        data_acao_atual = datetime.strptime(data_acao_atual_str, '%Y-%m-%d').date()
+
+        # --- Lógica específica para "Solicitar MRPA" (cod_acao_atual = 1) ---
+        if int(cod_acao_atual) == 1:
+            cod_proxima_acao = 2  # Código para "Avaliar MRPA"
+            data_proxima_acao = data_acao_atual + timedelta(days=7)
+            
+            # Insere um novo registro de acompanhamento
+            sql_insert = """
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao_atual, data_acao_atual, cod_proxima_acao, data_proxima_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao_atual)s, %(data_acao_atual)s, %(cod_proxima_acao)s, %(data_proxima_acao)s);
+            """
+            cur.execute(sql_insert, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao_atual': cod_acao_atual,
+                'data_acao_atual': data_acao_atual,
+                'cod_proxima_acao': cod_proxima_acao,
+                'data_proxima_acao': data_proxima_acao
+            })
+        else:
+            # Lógica para outras ações que ainda não foram implementadas
+            # Por enquanto, apenas registra a ação atual sem agendar uma próxima
+            sql_insert_simples = """
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao_atual, data_acao_atual)
+                VALUES (%(cod_cidadao)s, %(cod_acao_atual)s, %(data_acao_atual)s);
+            """
+            cur.execute(sql_insert_simples, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao_atual': cod_acao_atual,
+                'data_acao_atual': data_acao_atual
+            })
+
+        conn.commit()
+        return jsonify({"sucesso": True, "mensagem": "Ação registrada com sucesso!"})
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao registrar ação do Hiperdia: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

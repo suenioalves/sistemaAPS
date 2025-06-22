@@ -7,11 +7,21 @@ CREATE TABLE sistemaaps.tb_hiperdia_tipos_acao (
     dsc_detalhada TEXT
 );
 
--- Inserção dos tipos de ação iniciais para referência
-INSERT INTO sistemaaps.tb_hiperdia_tipos_acao (dsc_acao, dsc_detalhada) VALUES
-('Consulta', 'Consulta médica ou de enfermagem para acompanhamento.'),
-('Exame', 'Solicitação ou resultado de exames laboratoriais.'),
-('MRPA', 'Monitorização Residencial da Pressão Arterial.');
+-- Inserção dos tipos de ação para o Hiperdia
+-- Limpa a tabela antes de inserir para garantir que os códigos estejam corretos.
+DELETE FROM sistemaaps.tb_hiperdia_tipos_acao;
+ALTER SEQUENCE sistemaaps.tb_hiperdia_tipos_acao_cod_acao_seq RESTART WITH 1;
+
+INSERT INTO sistemaaps.tb_hiperdia_tipos_acao (cod_acao, dsc_acao, dsc_detalhada) VALUES
+(1, 'Solicitar MRPA', 'Solicitação para que o paciente realize a Monitorização Residencial da Pressão Arterial.'),
+(2, 'Avaliar MRPA', 'Análise dos resultados da MRPA enviada pelo paciente.'),
+(3, 'Modificar tratamento', 'Ajuste na medicação ou terapia do paciente.'),
+(4, 'Solicitar Exames', 'Solicitação de exames laboratoriais ou de imagem (ECG).'),
+(5, 'Avaliar Exames', 'Análise dos resultados dos exames solicitados.'),
+(6, 'Avaliar RCV', 'Avaliação do Risco Cardiovascular do paciente.'),
+(7, 'Encaminhar para nutrição', 'Encaminhamento do paciente para consulta com nutricionista.'),
+(8, 'Registrar consulta nutrição', 'Registro dos dados e orientações da consulta nutricional.'),
+(9, 'Agendar novo acompanhamento', 'Agendamento de uma nova ação ou consulta de rotina.');
 
 -- Criação da tabela de acompanhamento geral para os pacientes do HiperDia
 -- O comando 'DROP TABLE' garante que o script possa ser executado várias vezes sem erro, removendo a tabela antiga antes de criar a nova.
@@ -71,8 +81,3 @@ CREATE TABLE sistemaaps.tb_hiperdia_mrpa (
 
 -- Cria um índice na chave estrangeira para otimizar as consultas que juntam as duas tabelas.
 CREATE INDEX idx_mrpa_cod_acompanhamento ON sistemaaps.tb_hiperdia_mrpa (cod_acompanhamento);
-
-
-
-
-

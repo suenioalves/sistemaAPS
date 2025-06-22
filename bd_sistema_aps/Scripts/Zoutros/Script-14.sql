@@ -1,3 +1,4 @@
+-- retorna o numero de gestantes por quadrimestre
 SELECT 
     EXTRACT(YEAR FROM ultima_dum) AS ano,
     CASE 
