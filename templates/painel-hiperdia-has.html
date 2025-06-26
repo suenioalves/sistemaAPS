@@ -207,7 +207,7 @@
                                     Paciente</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Situação Problema</th>
+                                    Status</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Diagnóstico</th>
@@ -305,6 +305,13 @@
                                 </div>
                             </div>
                             <div class="w-2/3 pl-4">
+                                <div class="flex space-x-2 mb-4">
+                                    <button class="timeline-period-filter-btn bg-primary text-white py-1 px-3 rounded-full text-sm !rounded-button whitespace-nowrap" data-period-filter="all">Todos</button>
+                                    <button class="timeline-period-filter-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap" data-period-filter="30d">30 dias</button>
+                                    <button class="timeline-period-filter-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap" data-period-filter="90d">90 dias</button>
+                                    <button class="timeline-period-filter-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap" data-period-filter="180d">180 dias</button>
+                                    <button class="timeline-period-filter-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap" data-period-filter="365d">365 dias</button>
+                                </div>
                                 <div class="relative">
                                     <div class="timeline-line"></div>
                                     <div id="hiperdia-timelineModalContentArea">
@@ -337,45 +344,45 @@
                     <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                         <form id="hiperdia-registerForm" class="space-y-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
-                                <div class="space-y-2">
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="1" checked>
-                                        <span class="radio-mark"></span> Solicitar MRPA
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="2">
-                                        <span class="radio-mark"></span> Avaliar MRPA
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="3">
-                                        <span class="radio-mark"></span> Modificar tratamento
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="4">
-                                        <span class="radio-mark"></span> Solicitar Exames (laboratorial + ECG)
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="5">
-                                        <span class="radio-mark"></span> Avaliar Exames
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="6">
-                                        <span class="radio-mark"></span> Avaliar RCV (Risco Cardiovascular)
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="7">
-                                        <span class="radio-mark"></span> Encaminhar para nutrição
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="8">
-                                        <span class="radio-mark"></span> Registrar consulta nutrição
-                                    </label>
-                                    <label class="custom-radio">
-                                        <input type="radio" name="action-type" value="9">
-                                        <span class="radio-mark"></span> Agendar novo acompanhamento
-                                    </label>
-                                </div>
+                                 <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de ação</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="1">
+                                        <i class="ri-file-add-line text-2xl mb-1 text-blue-500"></i>
+                                        <span class="text-xs font-medium">Solicitar MRPA</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="2">
+                                        <i class="ri-stethoscope-line text-2xl mb-1 text-cyan-500"></i>
+                                        <span class="text-xs font-medium">Avaliar MRPA</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="3">
+                                        <i class="ri-capsule-line text-2xl mb-1 text-purple-500"></i>
+                                        <span class="text-xs font-medium">Modificar tratamento</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="4">
+                                        <i class="ri-test-tube-line text-2xl mb-1 text-orange-500"></i>
+                                        <span class="text-xs font-medium">Solicitar Exames</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="5">
+                                        <i class="ri-file-search-line text-2xl mb-1 text-yellow-500"></i>
+                                        <span class="text-xs font-medium">Avaliar Exames</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="6">
+                                        <i class="ri-heart-pulse-line text-2xl mb-1 text-red-500"></i>
+                                        <span class="text-xs font-medium">Avaliar RCV</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="7">
+                                        <i class="ri-arrow-right-up-line text-2xl mb-1 text-indigo-500"></i>
+                                        <span class="text-xs font-medium">Encaminhar Nutrição</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="8">
+                                        <i class="ri-apple-line text-2xl mb-1 text-green-500"></i>
+                                        <span class="text-xs font-medium">Registrar Nutrição</span>
+                                    </button>
+                                    <button type="button" class="action-type-tab flex flex-col items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200" data-action-value="9">
+                                        <i class="ri-calendar-check-line text-2xl mb-1 text-gray-500"></i>
+                                        <span class="text-xs font-medium">Agendar Acompanhamento</span>
+                                    </button>
+                            </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
@@ -710,6 +717,13 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                            <!-- Campo de Profissional Responsável -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Profissional Responsável</label>
+                                <input type="text" id="hiperdia-responsavel-acao"
+                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    placeholder="Nome do profissional">
                             </div>
                             <!-- Campo de Observações (comum a todas as ações) -->
                             <div>

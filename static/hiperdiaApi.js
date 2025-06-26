@@ -63,8 +63,8 @@ export const hiperdiaApi = {
      * @param {number} codCidadao - Código do cidadão.
      * @returns {Promise<Array<object>>} Lista de eventos da linha do tempo.
      */
-    fetchTimelineEvents: async (codCidadao) => {
-        const response = await fetch(`${API_BASE_URL}/api/hiperdia/timeline/${codCidadao}`);
+    fetchTimelineEvents: async (codCidadao, periodFilter = 'all') => {
+        const response = await fetch(`${API_BASE_URL}/api/hiperdia/timeline/${codCidadao}?period=${periodFilter}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }

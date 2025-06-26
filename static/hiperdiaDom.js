@@ -27,6 +27,7 @@ export const hiperdiaDom = {
         _elements.paginationContainer = document.getElementById('hiperdia-pagination-container');
         _elements.paginationInfo = document.getElementById('hiperdia-pagination-info');
         _elements.searchInput = document.getElementById('hiperdia-search-input');
+        _elements.hiperdiaTimelineTitle = document.getElementById('hiperdiaTimelineTitle');
         _elements.acompanhamentoHipertensosTitle = document.getElementById('acompanhamentoHipertensosTitle');
         _elements.statusFilterButtons = document.querySelectorAll('.hiperdia-status-tab-btn');
 
@@ -53,7 +54,7 @@ export const hiperdiaDom = {
         _elements.cancelRegisterBtn = document.getElementById('hiperdia-cancelRegisterBtn');
         _elements.saveRegisterModalBtn = document.getElementById('hiperdia-saveRegisterModalBtn');
         _elements.registerModalTitle = document.getElementById('hiperdia-registerModalTitle');
-        _elements.actionTypeRadios = document.querySelectorAll('input[name="action-type"]');
+        _elements.actionTypeTabs = document.querySelectorAll('.action-type-tab');
         _elements.mrpaSection = document.getElementById('hiperdia-mrpaSection');
         _elements.medicationSection = document.getElementById('hiperdia-medicationSection');
         _elements.labExamsSection = document.getElementById('hiperdia-labExamsSection');
@@ -101,6 +102,7 @@ export const hiperdiaDom = {
         _elements.imc = document.getElementById('hiperdia-imc');
         _elements.circunferenciaAbdominal = document.getElementById('hiperdia-circunferencia-abdominal');
         _elements.orientacoesNutricionais = document.getElementById('hiperdia-orientacoes-nutricionais');
+        _elements.hiperdiaResponsavelAcao = document.getElementById('hiperdia-responsavel-acao');
 
         // Próxima Ação
         _elements.nextActionDateInput = document.getElementById('hiperdia-proxima-acao-data');
@@ -133,25 +135,34 @@ export const hiperdiaDom = {
      * @param {Array<object>} todasEquipesComMicroareas - Dados de todas as equipes.
      */
     updateAcompanhamentoTitle: (equipe, microarea, todasEquipesComMicroareas) => {
-        if (!_elements.acompanhamentoHipertensosTitle) return;
-        let mainTitleText = "Acompanhamento de Pacientes com Hipertensão";
+        if (!_elements.acompanhamentoHipertensosTitle) return; // Use _elements.acompanhamentoHipertensosTitle
+        // Mantém apenas o título principal, removendo a lógica do subtítulo da equipe/área.
+        _elements.acompanhamentoHipertensosTitle.innerHTML = "Acompanhamento de Pacientes com Hipertensão";
+     },
+
+    /**
+     * Atualiza o título da seção da linha do tempo com base nos filtros.
+     * @param {string} equipe - Nome da equipe selecionada.
+     * @param {string} microarea - Número da microárea selecionada.
+     * @param {Array<object>} todasEquipesComMicroareas - Dados de todas as equipes.
+     */
+    updateTimelineTitle: (equipe, microarea, todasEquipesComMicroareas) => {
+        if (!_elements.hiperdiaTimelineTitle) return;
+        let mainTitleText = "Linha do Tempo de Acompanhamento";
         let subTitleText = "";
 
         if (equipe && equipe !== 'Todas') {
-            subTitleText = `Equipe: ${equipe}`;
+            subTitleText = ` - Equipe: ${equipe}`;
             const equipeAtual = todasEquipesComMicroareas.find(e => e.nome_equipe === equipe);
-            if (equipeAtual && microarea !== 'Todas as áreas' && microarea !== 'Todas') {
+            if (equipeAtual && microarea && microarea !== 'Todas as áreas' && microarea !== 'Todas') {
                 const agenteInfo = equipeAtual.agentes.find(ag => ag.micro_area === microarea);
                 if (agenteInfo) {
-                    subTitleText += ` - Área ${agenteInfo.micro_area} - Agente ${agenteInfo.nome_agente}`;
-                } else {
-                    subTitleText += ` - Área ${microarea}`;
+                    subTitleText += ` - Área: ${agenteInfo.micro_area} - Agente: ${agenteInfo.nome_agente}`;
                 }
             }
-        } // Use _elements.acompanhamentoHipertensosTitle
-        _elements.acompanhamentoHipertensosTitle.innerHTML = mainTitleText + (subTitleText ? `<br><span class="text-base font-normal text-gray-600">${subTitleText}</span>` : '');
-     },
-
+        }
+        _elements.hiperdiaTimelineTitle.textContent = mainTitleText + subTitleText;
+    },
     /**
      * Renderiza a tabela de pacientes.
      * @param {Array<object>} pacientes - Lista de pacientes.
@@ -262,6 +273,7 @@ export const hiperdiaDom = {
         todasOption.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
         todasOption.textContent = 'Todas as áreas';
         todasOption.addEventListener('click', () => {
+            _elements.microareaDropdown.classList.add('hidden'); // Fecha o dropdown
             onSelectCallback('Todas as áreas', 'Todas as áreas');
         });
         _elements.microareaDropdownContent.appendChild(todasOption);
@@ -284,6 +296,7 @@ export const hiperdiaDom = {
                 const displayText = nomeAgente ? `Área ${ma} - ${nomeAgente}` : `Área ${ma}`;
                 option.textContent = displayText;
                 option.addEventListener('click', () => {
+                    _elements.microareaDropdown.classList.add('hidden'); // Fecha o dropdown
                     onSelectCallback(displayText, ma);
                 });
                 _elements.microareaDropdownContent.appendChild(option);
@@ -305,6 +318,7 @@ export const hiperdiaDom = {
         todasEquipesOption.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
         todasEquipesOption.textContent = 'Todas as Equipes';
         todasEquipesOption.addEventListener('click', () => {
+            _elements.equipeDropdown.classList.add('hidden'); // Fecha o dropdown
             onSelectCallback('Todas as Equipes', 'Todas', []); // Passa nome, valor e agentes vazios
         });
          _elements.equipeDropdownContent.appendChild(todasEquipesOption);
@@ -320,6 +334,7 @@ export const hiperdiaDom = {
                 option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
                 option.textContent = `${equipe.nome_equipe} (${equipe.num_pacientes || 0} pacientes)`;
                 option.addEventListener('click', () => {
+                    _elements.equipeDropdown.classList.add('hidden'); // Fecha o dropdown
                     onSelectCallback(equipe.nome_equipe, equipe.nome_equipe, equipe.agentes);
                 });
                 _elements.equipeDropdownContent.appendChild(option);
@@ -345,6 +360,7 @@ export const hiperdiaDom = {
         _elements.timelineModalStatus.textContent = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';
         _elements.timelineModalUltimaPA.textContent = 'N/A'; // Dados não disponíveis na view atual
         _elements.timelineModalRiscoCV.textContent = 'N/A'; // Dados não disponíveis na view atual
+        _elements.timelinePeriodFilterButtons = document.querySelectorAll('.timeline-period-filter-btn');
         _elements.timelineModalProximaAcao.textContent = paciente.proxima_acao_descricao ? `${paciente.proxima_acao_descricao} (${paciente.proxima_acao_data_formatada})` : 'A definir';
 
         _elements.timelineModalContentArea.innerHTML = '<p class="text-center text-gray-500 py-8">Carregando histórico...</p>';
@@ -357,7 +373,20 @@ export const hiperdiaDom = {
     closeTimelineModal: () => {
         if (_elements.timelineModal) _elements.timelineModal.classList.add('hidden');
      },
-
+    /**
+     * Atualiza o estilo dos botões de filtro de período da linha do tempo.
+     * @param {HTMLElement} activeButton - O botão que deve ser marcado como ativo.
+     */
+    updateTimelinePeriodFilterButtons: (activeButton) => {
+        _elements.timelinePeriodFilterButtons.forEach(btn => {
+            btn.classList.remove('bg-primary', 'text-white');
+            btn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-300');
+        });
+        if (activeButton) {
+            activeButton.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-300');
+            activeButton.classList.add('bg-primary', 'text-white');
+        }
+    },
     /**
      * Renderiza os eventos na linha do tempo.
      * @param {Array<object>} events - Lista de eventos da linha do tempo.
@@ -376,26 +405,47 @@ export const hiperdiaDom = {
         timelineLine.className = 'timeline-line';
         _elements.timelineModalContentArea.appendChild(timelineLine);
 
-        const statusConfig = {
-            'PENDENTE': { icon: 'ri-time-line' },
-            'REALIZADA': { icon: 'ri-check-double-line' },
-            'CANCELADA': { icon: 'ri-close-circle-line' }
+        // Mapeamento de ícones para cada tipo de ação quando 'REALIZADA'
+        const actionIcons = {
+            1: 'ri-file-add-line',          // Solicitar MRPA
+            2: 'ri-stethoscope-line',       // Avaliar MRPA
+            3: 'ri-capsule-line',           // Modificar tratamento
+            4: 'ri-test-tube-line',         // Solicitar Exames
+            5: 'ri-file-search-line',       // Avaliar Exames
+            6: 'ri-heart-2-line',           // Avaliar RCV
+            7: 'ri-arrow-right-up-line',    // Encaminhar para nutrição
+            8: 'ri-apple-line',             // Registrar consulta nutrição
+            9: 'ri-calendar-check-line',    // Agendar novo acompanhamento
+            'default': 'ri-check-double-line' // Fallback
         };
     
         events.forEach(evento => {
-            const config = statusConfig[evento.status_acao] || { icon: 'ri-question-line' };
+            let iconClass;
+            let iconColorClass;
+
+            switch (evento.status_acao) {
+                case 'PENDENTE':
+                    iconClass = 'ri-time-line';
+                    iconColorClass = 'bg-yellow-100 text-yellow-600';
+                    break;
+                case 'REALIZADA':
+                    iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
+                    iconColorClass = 'bg-green-100 text-green-600';
+                    break;
+                case 'CANCELADA':
+                    iconClass = 'ri-close-circle-line';
+                    iconColorClass = 'bg-red-100 text-red-600';
+                    break;
+                default:
+                    iconClass = 'ri-question-line';
+                    iconColorClass = 'bg-gray-100 text-gray-600';
+                    break;
+            }
+
             const dataDisplay = evento.data_realizacao || evento.data_agendamento;
             const dataFormatada = dataDisplay ? new Date(dataDisplay + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não informada';
             
             const cardBorderClass = evento.status_acao === 'PENDENTE' ? 'border-2 border-yellow-400' : '';
-            
-            let iconColorClass;
-            switch (evento.status_acao) {
-                case 'PENDENTE': iconColorClass = 'bg-yellow-100 text-yellow-600'; break;
-                case 'REALIZADA': iconColorClass = 'bg-green-100 text-green-600'; break;
-                case 'CANCELADA': iconColorClass = 'bg-red-100 text-red-600'; break;
-                default: iconColorClass = 'bg-gray-100 text-gray-600'; break;
-            }
     
             const cancelButtonHtml = evento.status_acao === 'PENDENTE'
                 ? `<button class="cancel-action-btn text-xs text-red-500 hover:text-red-700 font-medium ml-4" data-cod-acompanhamento="${evento.cod_acompanhamento}">Cancelar</button>`
@@ -480,6 +530,138 @@ export const hiperdiaDom = {
                 riskDetailsHtml += '</div></div>';
             }
 
+            // Tabela de Risco Cardiovascular da OMS/OPAS (HEARTS nas Américas - AMR A, sem colesterol)
+            // Fonte: https://www.paho.org/pt/hearts-americas/ferramentas-tecnicas-para-implementacao/calculadora-risco-cardiovascular
+            const WHO_HEARTS_RISK_TABLE_AMR_A = {
+                'masculino': {
+                    '40-49': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '<10%', '>=180': '<10%' },
+                        'non_smoker_with_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '10-20%', '>=180': '20-30%' },
+                        'smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '10-20%', '>=180': '10-20%' },
+                        'smoker_with_diabetes': { '<140': '10-20%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' }
+                    },
+                    '50-59': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '10-20%', '>=180': '20-30%' },
+                        'non_smoker_with_diabetes': { '<140': '10-20%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' },
+                        'smoker_no_diabetes': { '<140': '10-20%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' },
+                        'smoker_with_diabetes': { '<140': '20-30%', '140-159': '30-40%', '160-179': '>40%', '>=180': '>40%' }
+                    },
+                    '60-69': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' },
+                        'non_smoker_with_diabetes': { '<140': '20-30%', '140-159': '30-40%', '160-179': '>40%', '>=180': '>40%' },
+                        'smoker_no_diabetes': { '<140': '20-30%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' },
+                        'smoker_with_diabetes': { '<140': '30-40%', '140-159': '>40%', '160-179': '>40%', '>=180': '>40%' }
+                    },
+                    '70-74': {
+                        'non_smoker_no_diabetes': { '<140': '10-20%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' },
+                        'non_smoker_with_diabetes': { '<140': '30-40%', '140-159': '>40%', '160-179': '>40%', '>=180': '>40%' },
+                        'smoker_no_diabetes': { '<140': '30-40%', '140-159': '30-40%', '160-179': '>40%', '>=180': '>40%' },
+                        'smoker_with_diabetes': { '<140': '>40%', '140-159': '>40%', '160-179': '>40%', '>=180': '>40%' }
+                    }
+                },
+                'feminino': {
+                    '40-49': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '<10%', '>=180': '<10%' },
+                        'non_smoker_with_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '<10%', '>=180': '10-20%' },
+                        'smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '10-20%', '>=180': '10-20%' },
+                        'smoker_with_diabetes': { '<140': '<10%', '140-159': '10-20%', '160-179': '10-20%', '>=180': '20-30%' }
+                    },
+                    '50-59': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '<10%', '160-179': '10-20%', '>=180': '10-20%' },
+                        'non_smoker_with_diabetes': { '<140': '10-20%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' },
+                        'smoker_no_diabetes': { '<140': '<10%', '140-159': '10-20%', '160-179': '10-20%', '>=180': '20-30%' },
+                        'smoker_with_diabetes': { '<140': '10-20%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' }
+                    },
+                    '60-69': {
+                        'non_smoker_no_diabetes': { '<140': '<10%', '140-159': '10-20%', '160-179': '10-20%', '>=180': '20-30%' },
+                        'non_smoker_with_diabetes': { '<140': '10-20%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' },
+                        'smoker_no_diabetes': { '<140': '10-20%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' },
+                        'smoker_with_diabetes': { '<140': '20-30%', '140-159': '30-40%', '160-179': '>40%', '>=180': '>40%' }
+                    },
+                    '70-74': {
+                        'non_smoker_no_diabetes': { '<140': '10-20%', '140-159': '10-20%', '160-179': '20-30%', '>=180': '30-40%' },
+                        'non_smoker_with_diabetes': { '<140': '20-30%', '140-159': '30-40%', '160-179': '>40%', '>=180': '>40%' },
+                        'smoker_no_diabetes': { '<140': '10-20%', '140-159': '20-30%', '160-179': '30-40%', '>=180': '>40%' },
+                        'smoker_with_diabetes': { '<140': '30-40%', '140-159': '>40%', '160-179': '>40%', '>=180': '>40%' }
+                    }
+                }
+            };
+
+            // Funções auxiliares para mapear valores para as chaves da tabela
+            const getAgeRange = (age) => {
+                if (age < 50) return '40-49';
+                if (age < 60) return '50-59';
+                if (age < 70) return '60-69';
+                return '70-74';
+            };
+            const getSbpRange = (sbp) => {
+                if (sbp < 140) return '<140';
+                if (sbp < 160) return '140-159';
+                if (sbp < 180) return '160-179';
+                return '>=180';
+            };
+
+            // Função principal para calcular o risco com base na tabela da OMS
+            const calculateHeartsRiskScore = (details) => {
+                if (!details || !details.idade || !details.sexo || !details.pressao_sistolica) {
+                    return { percentage: 'Dados insuficientes', level: 'Indeterminado', pointerPosition: '0%' };
+                }
+
+                const sexKey = details.sexo.toLowerCase();
+                const ageKey = getAgeRange(details.idade);
+                const sbpKey = getSbpRange(details.pressao_sistolica);
+                const smokerKey = `${details.tabagismo ? 'smoker' : 'non_smoker'}_${details.diabetes ? 'with_diabetes' : 'no_diabetes'}`;
+
+                const riskPercent = WHO_HEARTS_RISK_TABLE_AMR_A[sexKey]?.[ageKey]?.[smokerKey]?.[sbpKey] || 'N/A';
+
+                let riskLevel = 'Indeterminado';
+                let pointerPosition = '50%';
+
+                if (riskPercent.includes('<10%')) { riskLevel = 'Baixo (<10%)'; pointerPosition = '15%'; }
+                else if (riskPercent.includes('10-20%')) { riskLevel = 'Moderado (10-20%)'; pointerPosition = '38%'; }
+                else if (riskPercent.includes('20-30%')) { riskLevel = 'Alto (20-30%)'; pointerPosition = '62%'; }
+                else if (riskPercent.includes('30-40%')) { riskLevel = 'Muito Alto (30-40%)'; pointerPosition = '85%'; }
+                else if (riskPercent.includes('>40%')) { riskLevel = 'Crítico (>40%)'; pointerPosition = '95%'; }
+
+                return { percentage: riskPercent, level: riskLevel, pointerPosition };
+            };
+
+            let riskBarHtml = '';
+            if (evento.risk_assessment_details) {
+                const riskResult = calculateHeartsRiskScore(evento.risk_assessment_details);
+
+                riskBarHtml = `
+                    <div class="mt-3 pt-3 border-t border-gray-200 text-xs">
+                        <p class="font-medium text-gray-700 mb-2">Risco Cardiovascular (HEARTS):</p>
+                        <div class="relative w-full h-4 rounded-full overflow-hidden bg-gradient-to-r from-green-500 via-yellow-500 to-red-500">
+                            <div class="absolute top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-8 border-l-gray-800" style="left: ${riskResult.pointerPosition}; transform: translateX(-50%) translateY(-50%);"></div>
+                        </div>
+                        <p class="text-center text-gray-600 mt-1">Risco em 10 anos: <span class="font-semibold">${riskResult.level}</span></p>
+                    </div>
+                `;
+            }
+
+            let mrpaDetailsHtml = '';
+            if (evento.mrpa_details) {
+                const details = evento.mrpa_details;
+                mrpaDetailsHtml = `
+                    <div class="mt-3 pt-3 border-t border-gray-200 text-xs">
+                        <p class="font-medium text-gray-700 mb-1">Resultados do MRPA:</p>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Média Sistólica:</span>
+                                <span class="font-medium text-gray-800">${details.media_pa_sistolica || 'N/A'} mmHg</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Média Diastólica:</span>
+                                <span class="font-medium text-gray-800">${details.media_pa_diastolica || 'N/A'} mmHg</span>
+                            </div>
+                        </div>
+                        ${details.analise_mrpa ? `<div class="mt-2"><p class="text-gray-600">Análise:</p><p class="font-medium text-gray-800 whitespace-pre-wrap">${details.analise_mrpa}</p></div>` : ''}
+                    </div>
+                `;
+            }
+
             let nutritionDetailsHtml = '';
             if (evento.nutrition_details) {
                 const details = evento.nutrition_details;
@@ -524,7 +706,7 @@ export const hiperdiaDom = {
             const eventHtml = `
                 <div class="flex mb-8 relative">
                     <div class="w-12 h-12 rounded-full ${iconColorClass} flex items-center justify-center z-10 flex-shrink-0">
-                        <div class="w-6 h-6 flex items-center justify-center"><i class="${config.icon} text-xl"></i></div>
+                        <div class="w-6 h-6 flex items-center justify-center"><i class="${iconClass} text-xl"></i></div>
                     </div>
                     <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow ${cardBorderClass}">
                         <div class="flex justify-between items-center mb-2">
@@ -535,6 +717,11 @@ export const hiperdiaDom = {
                             </div>
                         </div>
                         ${evento.observacoes ? `<p class="text-sm text-gray-600 mb-2">${evento.observacoes.replace(/\n/g, '<br>')}</p>` : ''}
+                        ${riskBarHtml}
+                        ${evento.responsavel_pela_acao ? `
+                            <div class="text-sm text-gray-500 mt-2">Profissional: <span class="font-medium text-gray-800">${evento.responsavel_pela_acao}</span></div>
+                        ` : ''}
+                        ${mrpaDetailsHtml}
                         ${treatmentDetailsHtml}
                         ${nextAccompanimentHtml}
                         ${nutritionDetailsHtml}
@@ -558,6 +745,19 @@ export const hiperdiaDom = {
         _elements.hiperdiaRegisterForm.reset(); // Limpa o formulário
         _elements.dataAcaoAtualInput.value = new Date().toISOString().split('T')[0]; // Data atual
 
+        // Reset period filter to 'all' when opening the register modal
+        // Reseta e ativa a primeira aba de ação
+        if (_elements.actionTypeTabs && _elements.actionTypeTabs.length > 0) {
+            _elements.actionTypeTabs.forEach((tab, index) => {
+                tab.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                tab.classList.add('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                if (index === 0) {
+                    tab.classList.add('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                    tab.classList.remove('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                }
+            });
+        }
+
         // Oculta todas as seções dinâmicas por padrão
         const sections = [
             _elements.mrpaSection, _elements.medicationSection, _elements.labExamsSection, _elements.imageExamsSection,
@@ -566,12 +766,6 @@ export const hiperdiaDom = {
         sections.forEach(section => {
             if (section) section.classList.add('hidden');
         });
-
-        // Define a primeira opção de rádio como selecionada e dispara o evento change
-        if (_elements.actionTypeRadios.length > 0) {
-            _elements.actionTypeRadios[0].checked = true;
-            _elements.actionTypeRadios[0].dispatchEvent(new Event('change'));
-        }
 
         _elements.registerModal.classList.remove('hidden');
     },

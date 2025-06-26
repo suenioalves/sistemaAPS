@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let microareaSelecionadaAtual = 'Todas as áreas';
     let currentPage = 1;
     let currentSearchTerm = '';
+    let currentTimelinePeriodFilter = 'all'; // Novo: Filtro de período para a linha do tempo
     let currentStatusFilter = 'Todos';
     let currentSort = 'nome_asc'; // Exemplo: 'nome_asc', 'idade_desc'
 
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 hiperdiaDom.renderPacientesTable(currentFetchedPacientes, situacaoProblemaMap);
                 renderPaginacaoHiperdia(data.total, data.page, data.limit, data.pages);
                 hiperdiaDom.updateAcompanhamentoTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
+                hiperdiaDom.updateTimelineTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
             })
             .catch(error => {
                 console.error('Erro ao carregar pacientes com hipertensão:', error);
@@ -99,16 +101,24 @@ document.addEventListener('DOMContentLoaded', function () {
         hiperdiaApi.fetchEquipesMicroareasHiperdia()
             .then(data => {
                 todasEquipesComMicroareas = data;
-                hiperdiaDom.populateEquipesDropdown(data, equipeSelecionadaAtual, (nome, valor, agentes) => {
-                    equipeSelecionadaAtual = valor;
+                hiperdiaDom.populateEquipesDropdown(data, equipeSelecionadaAtual, (nomeEquipe, valorEquipe, agentes) => {
+                    // Atualiza o botão e o estado da equipe
+                    elements.equipeButtonText.textContent = nomeEquipe;
+                    equipeSelecionadaAtual = valorEquipe;
+
+                    // Reseta a microárea para "Todas as áreas" ao trocar de equipe
+                    elements.microareaButtonText.textContent = 'Todas as áreas';
+                    microareaSelecionadaAtual = 'Todas as áreas';
+
+                    // Repopula o dropdown de agentes/microáreas para a nova equipe
                     hiperdiaDom.populateAgentesDropdown(agentes, microareaSelecionadaAtual, (texto, valorMicroarea) => {
+                        elements.microareaButtonText.textContent = texto;
                         microareaSelecionadaAtual = valorMicroarea;
                         currentPage = 1;
                         fetchPacientesHiperdia();
                         updateSummaryCards();
                     });
-                    currentPage = 1;
-                    fetchPacientesHiperdia();
+                    fetchPacientesHiperdia(); // Busca inicial para a nova equipe com "Todas as áreas"
                     updateSummaryCards();
                 });
             })
@@ -121,19 +131,22 @@ document.addEventListener('DOMContentLoaded', function () {
     async function abrirModalTimelineHiperdia(paciente) {
         if (!paciente) return;
 
+        currentPacienteForModal = paciente; // Define o paciente atual para o modal de registro
         hiperdiaDom.openTimelineModal(paciente); // Adicionado: Abre o modal e preenche os dados do paciente
+        // Atualiza o botão de filtro de período ativo ao abrir o modal
+        hiperdiaDom.updateTimelinePeriodFilterButtons(document.querySelector(`.timeline-period-filter-btn[data-period-filter="${currentTimelinePeriodFilter}"]`));
         try {
-            const timelineEvents = await hiperdiaApi.fetchTimelineEvents(paciente.cod_paciente);
+            const timelineEvents = await hiperdiaApi.fetchTimelineEvents(paciente.cod_paciente, currentTimelinePeriodFilter);
             hiperdiaDom.renderTimelineEvents(timelineEvents, hiperdiaDom.getIniciais); // Corrected: hiperdiaDom.getIniciais
         } catch (error) {
             console.error("Erro ao buscar linha do tempo:", error);
-            if (hiperdiaDom.timelineModalContentArea) hiperdiaDom.timelineModalContentArea.innerHTML = '<p class="text-center text-red-500 py-8">Não foi possível carregar a linha do tempo.</p>';
+            if (elements.timelineModalContentArea) elements.timelineModalContentArea.innerHTML = '<p class="text-center text-red-500 py-8">Não foi possível carregar a linha do tempo.</p>';
         }
     }
 
     function handleActionTypeChange() {
-        const selectedValue = document.querySelector('input[name="action-type"]:checked')?.value || '1';
-        const dataAcaoAtual = new Date(hiperdiaDom.hiperdiaDataAcaoAtual.value + 'T00:00:00');
+        const selectedValue = document.querySelector('.action-type-tab.active')?.dataset.actionValue || '1';
+        const dataAcaoAtual = new Date(elements.dataAcaoAtualInput.value + 'T00:00:00');
         hiperdiaDom.toggleRegisterSections(selectedValue, dataAcaoAtual);
     }
 
@@ -149,9 +162,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const codAcaoAtual = document.querySelector('input[name="action-type"]:checked')?.value;
+        const codAcaoAtual = document.querySelector('.action-type-tab.active')?.dataset.actionValue;
        const dataAcaoAtual = elements.dataAcaoAtualInput.value;
+       const observacoes = elements.hiperdiaObservacoes.value;
 
+        const responsavelPelaAcao = elements.hiperdiaResponsavelAcao.value;
+        
         if (!codAcaoAtual || !dataAcaoAtual) {
             alert('Por favor, preencha o tipo e a data da ação.');
             return;
@@ -162,7 +178,9 @@ document.addEventListener('DOMContentLoaded', function () {
             cod_cidadao: currentPacienteForModal.cod_paciente,
             cod_acao_atual: parseInt(codAcaoAtual),
             data_acao_atual: dataAcaoAtual,
-            observacoes: elements.hiperdiaObservacoes.value || null // Corrected: elements.hiperdiaObservacoes
+            observacoes: observacoes || null,
+            responsavel_pela_acao: responsavelPelaAcao || null
+        
         };
 
         // Desabilita o botão para evitar cliques duplos
@@ -225,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
         hiperdiaApi.registrarAcao(payload)
             .then(result => {
                 if (result.sucesso) {
-                    alert(result.mensagem || "Ação registrada com sucesso!");
+                    // alert(result.mensagem || "Ação registrada com sucesso!"); // Removido para não exibir pop-up de sucesso
                     hiperdiaDom.closeRegisterModal(); // Use the function to close
                     fetchPacientesHiperdia();
                     // Mantém o modal da timeline aberto e o atualiza
@@ -304,12 +322,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Listener para mudanças no tipo de ação no modal de registro
-    if (elements.actionTypeRadios) {
-        elements.actionTypeRadios.forEach(radio => {
-            radio.addEventListener('change', handleActionTypeChange);
+    if (elements.actionTypeTabs) {
+        elements.actionTypeTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove o estado ativo de todas as abas
+                elements.actionTypeTabs.forEach(t => {
+                    t.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                    t.classList.add('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                });
+                // Adiciona o estado ativo à aba clicada
+                this.classList.add('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                this.classList.remove('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                handleActionTypeChange(); // Chama a função para atualizar as seções do formulário
+            });
         });
     }
-
     // Listener para o botão de salvar
     if (elements.saveRegisterModalBtn) {
         elements.saveRegisterModalBtn.addEventListener('click', saveHiperdiaAction);
@@ -342,6 +369,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Listener para os botões de filtro de período da linha do tempo
+    if (elements.timelinePeriodFilterButtons) {
+        elements.timelinePeriodFilterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const newPeriodFilter = this.dataset.periodFilter;
+                if (newPeriodFilter !== currentTimelinePeriodFilter) {
+                    currentTimelinePeriodFilter = newPeriodFilter;
+                    abrirModalTimelineHiperdia(currentPacienteForModal); // Re-fetch timeline events with the new filter
+                    hiperdiaDom.updateTimelinePeriodFilterButtons(this);
+                }
+            });
+        });
+    }
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);
