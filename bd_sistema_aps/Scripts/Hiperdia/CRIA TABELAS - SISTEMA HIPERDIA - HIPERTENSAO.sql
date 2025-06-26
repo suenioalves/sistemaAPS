@@ -125,3 +125,37 @@ CREATE TABLE sistemaaps.tb_hiperdia_resultados_exames (
 
 -- Cria um índice na chave estrangeira para otimizar as consultas.
 CREATE INDEX idx_resultados_exames_cod_acompanhamento ON sistemaaps.tb_hiperdia_resultados_exames (cod_acompanhamento);
+
+-- Criação da tabela para armazenar os resultados da avaliação de Risco Cardiovascular
+DROP TABLE IF EXISTS sistemaaps.tb_hiperdia_risco_cv;
+
+CREATE TABLE sistemaaps.tb_hiperdia_risco_cv (
+    cod_risco_cv SERIAL PRIMARY KEY,
+    cod_acompanhamento INTEGER NOT NULL REFERENCES sistemaaps.tb_hiperdia_has_acompanhamento(cod_acompanhamento) ON DELETE CASCADE,
+    data_avaliacao DATE NOT NULL,
+    idade INTEGER,
+    sexo VARCHAR(10), -- 'Masculino' ou 'Feminino'
+    tabagismo BOOLEAN,
+    diabetes BOOLEAN,
+    colesterol_total INTEGER,
+    pressao_sistolica INTEGER
+);
+
+-- Cria um índice na chave estrangeira para otimizar as consultas.
+CREATE INDEX idx_risco_cv_cod_acompanhamento ON sistemaaps.tb_hiperdia_risco_cv (cod_acompanhamento);
+
+-- Criação da tabela para armazenar os detalhes da consulta de nutrição
+DROP TABLE IF EXISTS sistemaaps.tb_hiperdia_nutricao;
+
+CREATE TABLE sistemaaps.tb_hiperdia_nutricao (
+    cod_nutricao SERIAL PRIMARY KEY,
+    cod_acompanhamento INTEGER NOT NULL REFERENCES sistemaaps.tb_hiperdia_has_acompanhamento(cod_acompanhamento) ON DELETE CASCADE,
+    data_avaliacao DATE NOT NULL,
+    peso NUMERIC(5, 2),
+    imc NUMERIC(4, 2),
+    circunferencia_abdominal INTEGER,
+    orientacoes_nutricionais TEXT
+);
+
+-- Cria um índice na chave estrangeira para otimizar as consultas.
+CREATE INDEX idx_nutricao_cod_acompanhamento ON sistemaaps.tb_hiperdia_nutricao (cod_acompanhamento);

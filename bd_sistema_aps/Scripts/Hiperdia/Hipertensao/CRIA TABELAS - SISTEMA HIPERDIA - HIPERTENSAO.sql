@@ -143,3 +143,19 @@ CREATE TABLE sistemaaps.tb_hiperdia_risco_cv (
 
 -- Cria um índice na chave estrangeira para otimizar as consultas.
 CREATE INDEX idx_risco_cv_cod_acompanhamento ON sistemaaps.tb_hiperdia_risco_cv (cod_acompanhamento);
+
+-- Criação da tabela para armazenar os detalhes da consulta de nutrição
+DROP TABLE IF EXISTS sistemaaps.tb_hiperdia_nutricao;
+
+CREATE TABLE sistemaaps.tb_hiperdia_nutricao (
+    cod_nutricao SERIAL PRIMARY KEY,
+    cod_acompanhamento INTEGER NOT NULL REFERENCES sistemaaps.tb_hiperdia_has_acompanhamento(cod_acompanhamento) ON DELETE CASCADE,
+    data_avaliacao DATE NOT NULL,
+    peso NUMERIC(5, 2),
+    imc NUMERIC(4, 2),
+    circunferencia_abdominal INTEGER,
+    orientacoes_nutricionais TEXT
+);
+
+-- Cria um índice na chave estrangeira para otimizar as consultas.
+CREATE INDEX idx_nutricao_cod_acompanhamento ON sistemaaps.tb_hiperdia_nutricao (cod_acompanhamento);

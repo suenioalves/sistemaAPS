@@ -12,7 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css"> 
+    <script type="module" src="{{ url_for('static', filename='hiperdia_has_script.js') }}" defer></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
@@ -121,25 +122,28 @@
                 <!-- Coluna da Direita: Cards -->
                 <div>
                     <div class="grid grid-cols-2 gap-4 h-full">
-                        <!-- Top Left: Total de Hipertensos -->
+                         <!-- Top Left: Total de Hipertensos -->
                         <div class="bg-indigo-50 rounded p-4 text-center flex flex-col justify-center">
                             <p class="text-sm font-medium text-gray-700 mb-2">Total de Hipertensos</p>
                             <p id="hipertensosCard" class="text-4xl font-bold text-primary">0</p>
                         </div>
                         <!-- Top Right: Hipertensos Compensados (Green) -->
                         <div class="bg-green-100 rounded p-4 text-center flex flex-col justify-center">
-                            <p class="text-sm font-medium text-green-800 mb-2">Hipertensos Compensados</p>
+                            <p class="text-sm font-medium text-green-800 mb-2">Hipertensos</p>
+                            <p class="text-sm font-medium text-green-800 mb-2">Compensados</p>
                             <p id="compensadosCard" class="text-4xl font-bold text-green-700">0</p>
                         </div>
                         <!-- Bottom Left: Hipertensos Descompensados (Red) -->
                         <div class="bg-red-100 rounded p-4 text-center flex flex-col justify-center">
-                            <p class="text-sm font-medium text-red-800 mb-2">Hipertensos Descompensados</p>
+                            <p class="text-sm font-medium text-red-800 mb-2">Hipertensos</p>
+                            <p class="text-sm font-medium text-red-800 mb-2">Descompensados</p>
                             <p id="descompensadosCard" class="text-4xl font-bold text-red-700">0</p>
                         </div>
-                        <!-- Bottom Right: Hipertensos em Revisão (Yellow) -->
-                        <div class="bg-yellow-100 rounded p-4 text-center flex flex-col justify-center">
-                            <p class="text-sm font-medium text-yellow-800 mb-2">Hipertensos em Revisão</p>
-                            <p id="revisaoCard" class="text-4xl font-bold text-yellow-700">0</p>
+                         <!-- Bottom Right: Hipertensos com Ações Pendentes (Orange) -->
+                        <div class="bg-orange-100 rounded p-4 text-center flex flex-col justify-center">
+                            <p class="text-sm font-medium text-orange-800 mb-2">Hipertensos com</p>
+                            <p class="text-sm font-medium text-orange-800 mb-2">Ações Pendentes</p>
+                            <p id="revisaoCard" class="text-4xl font-bold text-orange-700">0</p>
                         </div>
                     </div>
                 </div>
@@ -188,6 +192,11 @@
                         data-active-border="border-blue-500" data-inactive-bg="bg-white"
                         data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Exames
                         pendentes</button>
+                    <button
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="AcoesPendentes" data-active-bg="bg-orange-500" data-active-text="text-white"
+                        data-active-border="border-orange-500" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Ações Pendentes</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -550,40 +559,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 mb-1">Resultado</label>
-                                        <textarea id="hiperdia-resultado-exame-imagem"
-                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
-                                            placeholder="Descreva os resultados do exame..."></textarea>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 mb-1">Alterações encontradas</label>
-                                        <div class="space-y-2">
-                                            <label class="custom-checkbox">
-                                                <input type="checkbox" name="alteracoes-imagem"
-                                                    value="Hipertrofia ventricular esquerda">
-                                                <span class="checkbox-mark"></span>
-                                                Hipertrofia ventricular esquerda
-                                            </label>
-                                            <label class="custom-checkbox">
-                                                <input type="checkbox" name="alteracoes-imagem"
-                                                    value="Alterações isquêmicas">
-                                                <span class="checkbox-mark"></span>
-                                                Alterações isquêmicas
-                                            </label>
-                                            <label class="custom-checkbox">
-                                                <input type="checkbox" name="alteracoes-imagem" value="Arritmias">
-                                                <span class="checkbox-mark"></span>
-                                                Arritmias
-                                            </label>
-                                            <label class="custom-checkbox">
-                                                <input type="checkbox" name="alteracoes-imagem"
-                                                    value="Sem alterações significativas">
-                                                <span class="checkbox-mark"></span>
-                                                Sem alterações significativas
-                                            </label>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                             <div id="hiperdia-nutritionSection" class="hidden">
@@ -734,120 +709,15 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 mb-1">Resultado do risco</label>
-                                        <div class="relative">
-                                            <button id="hiperdia-riskResultButton"
-                                                class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                                <span id="hiperdia-riskResultButton-text">Selecione o resultado</span>
-                                                <div class="w-4 h-4 flex items-center justify-center">
-                                                    <i class="ri-arrow-down-s-line"></i>
-                                                </div>
-                                            </button>
-                                            <div id="hiperdia-riskResultDropdown"
-                                                class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                                <div class="p-2">
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                        data-value="Baixo risco">Baixo risco (&lt; 10%)</div>
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                        data-value="Risco moderado">Risco moderado (10-20%)</div>
-                                                    <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                        data-value="Alto risco">Alto risco (&gt; 20%)</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-
-                                <!-- Campo de Observações (comum a todas as ações) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                                    <textarea id="hiperdia-observacoes"
-                                        class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
-                                        placeholder="Registre informações adicionais relevantes..."></textarea>
-                                </div>
-
-                                <!-- Campo de Próxima Ação (comum a todas as ações) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Próxima ação</label>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1">Data</label>
-                                            <input type="date" id="hiperdia-proxima-acao-data"
-                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-gray-500 mb-1">Tipo</label>
-                                            <div class="relative">
-                                                <button id="hiperdia-nextActionButton"
-                                                    class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                                    <span id="hiperdia-nextActionButton-text">Selecione o tipo</span>
-                                                    <div class="w-4 h-4 flex items-center justify-center">
-                                                        <i class="ri-arrow-down-s-line"></i>
-                                                    </div>
-                                                </button>
-                                                <div id="hiperdia-nextActionDropdown"
-                                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                                    <div class="p-2">
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="1">MRPA</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="8">Consulta médica</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="3">Exames laboratoriais</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="4">Exames de imagem</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="5">Consulta com nutrição</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="6">Consulta com cardiologia</div>
-                                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                            data-value="7">Avaliação de risco cardiovascular</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Campo de Responsável pela Ação (comum a todas as ações) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela
-                                        ação</label>
-                                    <div class="relative">
-                                        <button id="hiperdia-responsibleButton"
-                                            class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
-                                            <span id="hiperdia-responsibleButton-text">Selecione o responsável</span>
-                                            <div class="w-4 h-4 flex items-center justify-center">
-                                                <i class="ri-arrow-down-s-line"></i>
-                                            </div>
-                                        </button>
-                                        <div id="hiperdia-responsibleDropdown"
-                                            class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
-                                            <div class="p-2">
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                    data-value="ACS Fernanda Oliveira">ACS Fernanda Oliveira</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                    data-value="Enf. Marcelo Santos">Enf. Marcelo Santos</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                    data-value="Dr. Carlos Mendes">Dr. Carlos Mendes</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                    data-value="Nutri. Camila Rodrigues">Nutri. Camila Rodrigues</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                                    data-value="Dr. Roberto Cardoso (Cardiologia)">Dr. Roberto Cardoso
-                                                    (Cardiologia)</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="custom-checkbox">
-                                        <input type="checkbox" id="hiperdia-lembrete-automatico">
-                                        <span class="checkbox-mark"></span>
-                                        Enviar lembrete automático para a próxima ação
-                                    </label>
-                                </div>
+                            </div>
+                            <!-- Campo de Observações (comum a todas as ações) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                                <textarea id="hiperdia-observacoes"
+                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
+                                    placeholder="Registre informações adicionais relevantes..."></textarea>
+                            </div>
                         </form>
                     </div>
                     <div class="p-6 border-t flex justify-end">
@@ -860,7 +730,6 @@
                 </div>
             </div>
     </main>
-    <script src="/static/hiperdia_has_script.js"></script>
 </body>
 
 </html>
