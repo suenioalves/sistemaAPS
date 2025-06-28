@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentSearchTerm = '';
     let currentTimelinePeriodFilter = 'all'; // Novo: Filtro de período para a linha do tempo
     let currentStatusFilter = 'Todos';
+    let currentLimit = 10; // Itens por página
     let currentSort = 'nome_asc'; // Exemplo: 'nome_asc', 'idade_desc'
 
     // Mapa de situação problema para display na tabela
@@ -62,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
             equipe: equipeSelecionadaAtual,
             microarea: microareaSelecionadaAtual,
             page: currentPage,
+            limit: currentLimit, // Adiciona o limite de itens por página
             search: currentSearchTerm,
             sort_by: currentSort,
             status: currentStatusFilter
@@ -240,13 +242,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
         }
+        // Adiciona dados específicos da ação "Agendar Hiperdia"
+        if (parseInt(codAcaoAtual) === 9) {
+            payload.status_acao = "PENDENTE";
+            payload.data_agendamento = dataAcaoAtual; // Data da ação escolhida no calendário
+            payload.data_realizacao = null; // Deixar vazio
+            payload.cod_acao_origem = null; // Deixar vazio
+        }
+
         hiperdiaApi.registrarAcao(payload)
             .then(result => {
                 if (result.sucesso) {
                     // alert(result.mensagem || "Ação registrada com sucesso!"); // Removido para não exibir pop-up de sucesso
                     hiperdiaDom.closeRegisterModal(); // Use the function to close
                     fetchPacientesHiperdia();
-                    // Mantém o modal da timeline aberto e o atualiza
+                    // Mantém o modal da timeline aberto e o atualiza para exibir a última ação inserida
                     abrirModalTimelineHiperdia(currentPacienteForModal);
                 } else {
                     alert(`Erro ao registrar ação: ${result.erro}`);
@@ -294,14 +304,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (elements.tabelaPacientesBody) { // Corrected: elements.tabelaPacientesBody
-        elements.tabelaPacientesBody.addEventListener('click', function (event) { // Corrected: elements.tabelaPacientesBody
+    if (elements.tabelaPacientesBody) {
+        elements.tabelaPacientesBody.addEventListener('click', async function (event) { // Made async
             const button = event.target.closest('.hiperdia-ver-detalhes-btn');
             if (button) {
                 const codPaciente = button.dataset.codPaciente;
                 const paciente = currentFetchedPacientes.find(p => String(p.cod_paciente) === codPaciente);
                 if (paciente) {
-                    abrirModalTimelineHiperdia(paciente);
+                    try {
+                        await abrirModalTimelineHiperdia(paciente); // Await the async function
+                    } catch (error) {
+                        console.error("Erro ao abrir modal da timeline:", error);
+                        alert("Erro ao carregar detalhes do paciente.");
+                    }
                 } else {
                     console.error("Paciente não encontrado no cache:", codPaciente);
                     alert("Erro: não foi possível encontrar os dados do paciente.");
@@ -382,6 +397,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+    if (elements.itemsPerPageSelect) {
+        elements.itemsPerPageSelect.value = currentLimit;
+        elements.itemsPerPageSelect.addEventListener('change', (event) => {
+            currentLimit = parseInt(event.target.value);
+            currentPage = 1; // Reseta para a primeira página ao mudar o limite
+            fetchPacientesHiperdia();
+        });
+    }
+
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);

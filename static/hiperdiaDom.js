@@ -225,22 +225,69 @@ export const hiperdiaDom = {
      */
     renderPagination: (total, page, limit, totalPages) => {
         if (!_elements.paginationInfo || !_elements.paginationContainer) return;
+
+        _elements.paginationInfo.innerHTML = '';
+        _elements.paginationContainer.innerHTML = '';
+
         if (!total || totalPages <= 1) {
-            _elements.paginationInfo.innerHTML = '';
-            _elements.paginationContainer.innerHTML = '';
             return;
         }
+
         const start = (page - 1) * limit + 1;
         const end = Math.min(page * limit, total);
         _elements.paginationInfo.innerHTML = `Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${total}</span> resultados`;
 
-        let paginationHtml = `<button class="pagination-button ${page === 1 ? 'disabled' : ''}" ${page === 1 ? 'disabled' : ''} data-page="${page - 1}"><i class="ri-arrow-left-s-line"></i></button>`;
-        for (let i = 1; i <= totalPages; i++) {
-            paginationHtml += `<button class="pagination-button ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        let paginationHtml = '';
+
+        const createButton = (text, pageNum, isDisabled = false, isActive = false) => {
+            const disabledClasses = isDisabled ? 'disabled:opacity-50' : '';
+            const activeClasses = isActive ? 'bg-primary text-white' : 'border border-gray-300';
+            const pageData = pageNum ? `data-page="${pageNum}"` : '';
+            return `
+                <button 
+                    class="pagination-button ${activeClasses} rounded px-3 py-1 text-sm !rounded-button whitespace-nowrap ${disabledClasses}" 
+                    ${pageData}
+                    ${isDisabled ? 'disabled' : ''}>
+                    ${text}
+                </button>`;
+        };
+        
+        const createEllipsis = () => {
+            return `<span class="flex items-center px-1 py-1 text-sm text-gray-500">...</span>`;
+        };
+
+        // Botão Anterior
+        paginationHtml += createButton('Anterior', page - 1, page === 1);
+
+        const maxButtons = 5;
+        if (totalPages <= maxButtons) {
+            for (let i = 1; i <= totalPages; i++) {
+                paginationHtml += createButton(i, i, false, i === page);
+            }
+        } else {
+            const pageNumbers = [];
+            if (page <= 3) {
+                pageNumbers.push(1, 2, 3, '...', totalPages);
+            } else if (page >= totalPages - 2) {
+                pageNumbers.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+            } else {
+                pageNumbers.push(1, '...', page, '...', totalPages);
+            }
+
+            pageNumbers.forEach(p => {
+                if (p === '...') {
+                    paginationHtml += createEllipsis();
+                } else {
+                    paginationHtml += createButton(p, p, false, p === page);
+                }
+            });
         }
-        paginationHtml += `<button class="pagination-button ${page === totalPages ? 'disabled' : ''}" ${page === totalPages ? 'disabled' : ''} data-page="${page + 1}"><i class="ri-arrow-right-s-line"></i></button>`;
-         _elements.paginationContainer.innerHTML = paginationHtml;
-   },
+
+        // Botão Próximo
+        paginationHtml += createButton('Próximo', page + 1, page === totalPages);
+
+        _elements.paginationContainer.innerHTML = paginationHtml;
+    },
 
     /**
      * Configura o comportamento de um dropdown.
@@ -425,12 +472,24 @@ export const hiperdiaDom = {
 
             switch (evento.status_acao) {
                 case 'PENDENTE':
-                    iconClass = 'ri-time-line';
-                    iconColorClass = 'bg-yellow-100 text-yellow-600';
+                    if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento"
+                        iconClass = 'ri-calendar-check-line';
+                        iconColorClass = 'bg-yellow-100 text-yellow-600';
+                    } else {
+                        iconClass = 'ri-time-line';
+                        iconColorClass = 'bg-yellow-100 text-yellow-600';
+                    }
                     break;
                 case 'REALIZADA':
                     iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
-                    iconColorClass = 'bg-green-100 text-green-600';
+                    if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento" e REALIZADA
+                        iconClass = 'ri-calendar-check-line'; // Manter o ícone de calendário
+                        iconColorClass = 'bg-yellow-100 text-yellow-600'; // Cor amarela
+                    } else if (evento.cod_acao === 3) { // Se for "Modificar tratamento"
+                        iconColorClass = 'bg-red-100 text-red-600'; // Usa a cor vermelha
+                    } else {
+                        iconColorClass = 'bg-green-100 text-green-600'; // Cor verde padrão para outras ações realizadas
+                    }
                     break;
                 case 'CANCELADA':
                     iconClass = 'ri-close-circle-line';
@@ -702,6 +761,21 @@ export const hiperdiaDom = {
                     </div>
                 `;
             }
+            // Modificar o texto da ação e a cor do ícone conforme o status e tipo de ação
+            let displayActionText = evento.dsc_acao;
+            let statusDisplay = `(${evento.status_acao})`;
+
+            if (evento.cod_acao === 9 && evento.status_acao === 'PENDENTE') {
+                displayActionText = "Agendado Hiperdia";
+                statusDisplay = "(Pendente)";
+            } else if (evento.cod_acao === 9 && evento.status_acao === 'REALIZADA') {
+                displayActionText = "Iniciado Hiperdia";
+                statusDisplay = "(REALIZADA)";
+                iconClass = 'ri-calendar-check-line'; // Manter o ícone de calendário
+                iconColorClass = 'bg-green-100 text-green-600'; // Mudar para verde
+            } else if (evento.cod_acao === 9) {
+                displayActionText = "Agendado Hiperdia";
+            }
 
             const eventHtml = `
                 <div class="flex mb-8 relative">
@@ -710,7 +784,7 @@ export const hiperdiaDom = {
                     </div>
                     <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow ${cardBorderClass}">
                         <div class="flex justify-between items-center mb-2">
-                            <h5 class="font-medium">${evento.dsc_acao} (${evento.status_acao})</h5>
+                            <h5 class="font-medium">${displayActionText} ${statusDisplay}</h5>
                             <div class="flex items-center">
                                 <span class="text-sm text-gray-500">${dataFormatada}</span>
                                 ${cancelButtonHtml}
@@ -738,7 +812,7 @@ export const hiperdiaDom = {
      * Abre o modal de registro de ação e preenche os dados iniciais.
      * @param {object} paciente - Objeto do paciente.
      */
-    openRegisterModal: (paciente) => {
+     openRegisterModal: (paciente) => {
         if (!paciente || !_elements.registerModal) return;
 
         _elements.registerModalTitle.textContent = `Registrar Nova Ação - ${paciente.nome_paciente}`;
