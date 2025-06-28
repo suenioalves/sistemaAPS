@@ -430,6 +430,23 @@
                                             class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                             placeholder="Descreva a análise do resultado do MRPA..."></textarea>
                                     </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-2">Decisão Pós-Avaliação</label>
+                                        <div class="flex space-x-3">
+                                            <button type="button"
+                                                class="mrpa-decision-btn flex-1 flex items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                data-decision="maintain">
+                                                <i class="ri-check-line text-2xl mr-2 text-green-500"></i>
+                                                <span class="text-sm font-medium">Manter Tratamento</span>
+                                            </button>
+                                            <button type="button"
+                                                class="mrpa-decision-btn flex-1 flex items-center justify-center p-3 border rounded-lg text-center transition-colors duration-200 border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                data-decision="modify">
+                                                <i class="ri-flask-line text-2xl mr-2 text-red-500"></i>
+                                                <span class="text-sm font-medium">Modificar Tratamento</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div id="hiperdia-medicationSection" class="hidden">
@@ -458,9 +475,7 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Medicamentos atuais</label>
-                                        <textarea id="hiperdia-medicamentos-atuais"
-                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-16"
-                                            placeholder="Ex: Losartana 100mg 1x/dia, Hidroclorotiazida 25mg 1x/dia"></textarea>
+                                        <div id="hiperdia-medicamentos-atuais-cards" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
                                     </div>
                                     <div>
                                         <label class="block text-xs text-gray-500 mb-1">Novos medicamentos</label>

@@ -102,5 +102,13 @@ export const hiperdiaApi = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
+    },
+
+    fetchMedicamentos: async (codCidadao) => {
+        const response = await fetch(`${API_BASE_URL}/api/hiperdia/medicamentos/${codCidadao}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
     }
 };

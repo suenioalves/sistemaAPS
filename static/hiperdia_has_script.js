@@ -156,6 +156,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!currentPacienteForModal) return;
         hiperdiaDom.openRegisterModal(currentPacienteForModal);
         handleActionTypeChange();
+
+        hiperdiaApi.fetchMedicamentos(currentPacienteForModal.cod_paciente)
+            .then(medicamentos => {
+                hiperdiaDom.renderMedicamentosCards(medicamentos);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar medicamentos:', error);
+                hiperdiaDom.renderMedicamentosCards([]); // Renderiza como vazio em caso de erro
+            });
     }
 
     function saveHiperdiaAction() {
@@ -193,23 +202,30 @@ document.addEventListener('DOMContentLoaded', function () {
             const sistolica = elements.mrpaSistolica?.value;
             const diastolica = elements.mrpaDiastolica?.value;
             const analise = elements.mrpaAnalise?.value;
- 
+            const decision = document.querySelector('.mrpa-decision-btn.border-primary')?.dataset.decision;
+
             if (!sistolica || !diastolica) {
                alert('Por favor, preencha os valores de média sistólica e diastólica para avaliar o MRPA.');
                hiperdiaDom.setSaveButtonLoading(false);
                return; // Impede o envio
             }
- 
+
+            if (!decision) {
+                alert('Por favor, selecione se o tratamento será mantido ou modificado.');
+                hiperdiaDom.setSaveButtonLoading(false);
+                return;
+            }
+
             payload.mrpa_results = {
                 media_pa_sistolica: parseInt(sistolica),
                 media_pa_diastolica: parseInt(diastolica),
-                analise_mrpa: analise
+                analise_mrpa: analise,
+                decision: decision
             };
         }
         // Adiciona dados específicos da ação "Modificar Tratamento"
         if (parseInt(codAcaoAtual) === 3) {
             const tipoAjuste = elements.medicationTypeRadios ? document.querySelector('input[name="medication-type"]:checked')?.value : null;
-            const medicamentosAtuais = elements.medicamentosAtuais?.value;
             const novosMedicamentos = elements.novosMedicamentos?.value;
 
             if (!tipoAjuste) {
@@ -220,7 +236,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             payload.treatment_modification = {
                 tipo_ajuste: tipoAjuste,
-                medicamentos_atuais: medicamentosAtuais,
                 medicamentos_novos: novosMedicamentos
             };
         }
@@ -384,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Listener para os botões de filtro de período da linha do tempo
+    """    // Listener para os botões de filtro de período da linha do tempo
     if (elements.timelinePeriodFilterButtons) {
         elements.timelinePeriodFilterButtons.forEach(button => {
             button.addEventListener('click', function() {
@@ -397,7 +412,25 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
-    if (elements.itemsPerPageSelect) {
+
+    // Listener para os botões de decisão do MRPA
+    if (elements.mrpaDecisionBtns) {
+        elements.mrpaDecisionBtns.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove a classe 'active' de todos os botões de decisão
+                elements.mrpaDecisionBtns.forEach(btn => {
+                    btn.classList.remove('border-primary', 'bg-primary/10', 'text-primary');
+                    btn.classList.add('border-gray-300', 'text-gray-600', 'hover:bg-gray-50');
+                });
+
+                // Adiciona a classe 'active' ao botão clicado
+                this.classList.add('border-primary', 'bg-primary/10', 'text-primary');
+                this.classList.remove('border-gray-300', 'text-gray-600', 'hover:bg-gray-50');
+            });
+        });
+    }
+
+    if (elements.itemsPerPageSelect) {""
         elements.itemsPerPageSelect.value = currentLimit;
         elements.itemsPerPageSelect.addEventListener('change', (event) => {
             currentLimit = parseInt(event.target.value);

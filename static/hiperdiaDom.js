@@ -70,10 +70,11 @@ export const hiperdiaDom = {
         _elements.mrpaSistolica = document.getElementById('hiperdia-mrpa-sistolica');
         _elements.mrpaDiastolica = document.getElementById('hiperdia-mrpa-diastolica');
         _elements.mrpaAnalise = document.getElementById('hiperdia-mrpa-analise');
+        _elements.mrpaDecisionBtns = document.querySelectorAll('.mrpa-decision-btn');
 
         // Campos específicos de Modificar Tratamento
         _elements.medicationTypeRadios = document.querySelectorAll('input[name="medication-type"]');
-        _elements.medicamentosAtuais = document.getElementById('hiperdia-medicamentos-atuais');
+        _elements.medicamentosAtuaisCards = document.getElementById('hiperdia-medicamentos-atuais-cards');
         _elements.novosMedicamentos = document.getElementById('hiperdia-novos-medicamentos');
 
         // Campos específicos de Avaliar Exames
@@ -553,7 +554,6 @@ export const hiperdiaDom = {
                             <span class="text-gray-600">Tipo de Ajuste:</span>
                             <span class="font-medium text-gray-800">${details.tipo_ajuste || 'N/A'}</span>
                         </div>
-                        ${details.medicamentos_atuais ? `<div class="mb-1"><span class="text-gray-600">Medicações Atuais:</span><p class="font-medium text-gray-800 whitespace-pre-wrap">${details.medicamentos_atuais}</p></div>` : ''}
                         ${details.medicamentos_novos ? `<div><span class="text-gray-600">Novas Medicações:</span><p class="font-medium text-gray-800 whitespace-pre-wrap">${details.medicamentos_novos}</p></div>` : ''}
                     </div>
                 `;
@@ -851,6 +851,23 @@ export const hiperdiaDom = {
         if (_elements.registerModal) _elements.registerModal.classList.add('hidden');
     },
 
+    renderMedicamentosCards: (medicamentos) => {
+        const container = _elements.medicamentosAtuaisCards;
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (medicamentos && medicamentos.length > 0) {
+            medicamentos.forEach(med => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-100 p-2 rounded-lg text-xs';
+                card.innerHTML = `<p class="font-semibold">${med.medicamento}</p><p>${med.posologia}</p>`;
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<p class="text-xs text-gray-500 col-span-2">Nenhum medicamento atual encontrado.</p>';
+        }
+    },
+
     /**
      * Obtém as iniciais de um nome.
      * @param {string} nome - Nome completo.
@@ -964,7 +981,6 @@ export const hiperdiaDom = {
         const tipoAjuste = document.querySelector('input[name="medication-type"]:checked')?.value || null;
         return {
             tipo_ajuste: tipoAjuste,
-            medicamentos_atuais: _elements.medicamentosAtuais.value || null,
             medicamentos_novos: _elements.novosMedicamentos.value || null
         };
     },
