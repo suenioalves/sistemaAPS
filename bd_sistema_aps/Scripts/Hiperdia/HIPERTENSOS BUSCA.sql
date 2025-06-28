@@ -34,6 +34,7 @@ SELECT DISTINCT ON (c.co_seq_cidadao) -- Garante que cada paciente apareça apen
         ELSE 0
     END AS microarea,
     c.dt_nascimento,
+    c.no_sexo as sexo,
     tprob.co_ciap AS ciap_cronico,
     tprob.co_cid10 AS cid10_cronico,
     tprobevol.co_situacao_problema as situacao_problema
