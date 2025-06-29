@@ -409,8 +409,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             // await createFutureAction(5, 15, "PENDENTE", "Aguardando resultados de exames para avaliação.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                             break;
                         case 5: // Avaliar Exames (e)
-                            // ao avaliar exames cria a funcao futura avaliar RCV como pendente
-                            await createFutureAction(6, 0, "PENDENTE", "Avaliação de RCV após exames.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
+                            // REMOVIDO: O backend já está criando automaticamente a ação "Avaliar RCV" para hoje
+                            // await createFutureAction(6, 0, "PENDENTE", "Avaliação de RCV após exames.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                             break;
                         case 6: // Avaliar RCV (f)
                             // ao avaliar RCV realizada, cria a acao futura encaminhar para a nutrição
