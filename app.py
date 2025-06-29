@@ -1805,7 +1805,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                         'cod_acao_origem': cod_acompanhamento_atualizado,
                         'responsavel_pela_acao': responsavel_pela_acao
                     })
-            elif mrpa_results.get('decision') == 'manter':
+            elif mrpa_results.get('decision') == 'maintain':
                 # Se for manter o tratamento, criar a ação pendente "Solicitar Exames" para a mesma data
                 cod_proxima_acao_pendente = 4 # Solicitar Exames
                 data_agendamento_proxima = data_realizacao_acao # Mesma data da ação atual
@@ -1880,6 +1880,66 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             params = {'cod_acompanhamento': cod_acompanhamento_atualizado, 'data_avaliacao': data_realizacao_acao}
             params.update(nutrition_data)
             cur.execute(sql_upsert_nutricao, params)
+
+        elif int(cod_acao_atual) == 4: # Solicitar Exames
+            # Buscar ação pendente de "Solicitar Exames" para este paciente
+            cur.execute('''
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_cidadao = %(cod_cidadao)s
+                    AND cod_acao = 4
+                    AND status_acao = 'PENDENTE'
+                ORDER BY data_agendamento ASC
+                LIMIT 1;
+            ''', {'cod_cidadao': cod_cidadao})
+            pending_exames = cur.fetchone()
+
+            if pending_exames:
+                # Se existe uma ação pendente, atualizar ela
+                cod_acompanhamento_realizado = pending_exames[0]
+                cur.execute('''
+                    UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                    SET status_acao = 'REALIZADA',
+                        data_realizacao = %(data_realizacao)s,
+                        observacoes = %(observacoes)s,
+                        responsavel_pela_acao = %(responsavel_pela_acao)s
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                ''', {
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acompanhamento': cod_acompanhamento_realizado
+                })
+            else:
+                # Se não existe ação pendente, criar uma nova ação realizada
+                cur.execute('''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                ''', {
+                    'cod_cidadao': cod_cidadao,
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_realizado = cur.fetchone()[0]
+
+            # Criar ação futura "Avaliar Exames" para 15 dias
+            cod_proxima_acao_pendente = 5 # Avaliar Exames
+            data_agendamento_proxima = data_realizacao_acao + timedelta(days=15)
+            sql_insert_pendente = '''
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Aguardando resultados de exames para avaliação.', %(responsavel_pela_acao)s);
+            '''
+            cur.execute(sql_insert_pendente, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao': cod_proxima_acao_pendente,
+                'data_agendamento': data_agendamento_proxima,
+                'cod_acao_origem': cod_acompanhamento_realizado,
+                'responsavel_pela_acao': responsavel_pela_acao
+            })
 
         conn.commit()
         return jsonify({"sucesso": True, "mensagem": "Ação atualizada com sucesso!"})
@@ -2085,7 +2145,7 @@ def api_registrar_acao_hiperdia():
                     'cod_acao_origem': cod_acompanhamento_realizado,
                     'responsavel_pela_acao': responsavel_pela_acao
                 })
-            elif mrpa_results.get('decision') == 'manter':
+            elif mrpa_results.get('decision') == 'maintain':
                 # Se for manter o tratamento, criar a ação pendente "Solicitar Exames" para a mesma data
                 cod_proxima_acao_pendente = 4 # Solicitar Exames
                 data_agendamento_proxima = data_realizacao_acao # Mesma data da ação atual
@@ -2101,6 +2161,175 @@ def api_registrar_acao_hiperdia():
                     'cod_acao_origem': cod_acompanhamento_realizado,
                     'responsavel_pela_acao': responsavel_pela_acao
                 })
+
+        elif int(cod_acao_atual) == 4: # Solicitar Exames
+            # Buscar ação pendente de "Solicitar Exames" para este paciente
+            cur.execute('''
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_cidadao = %(cod_cidadao)s
+                    AND cod_acao = 4
+                    AND status_acao = 'PENDENTE'
+                ORDER BY data_agendamento ASC
+                LIMIT 1;
+            ''', {'cod_cidadao': cod_cidadao})
+            pending_exames = cur.fetchone()
+
+            if pending_exames:
+                # Se existe uma ação pendente, atualizar ela
+                cod_acompanhamento_realizado = pending_exames[0]
+                cur.execute('''
+                    UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                    SET status_acao = 'REALIZADA',
+                        data_realizacao = %(data_realizacao)s,
+                        observacoes = %(observacoes)s,
+                        responsavel_pela_acao = %(responsavel_pela_acao)s
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                ''', {
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acompanhamento': cod_acompanhamento_realizado
+                })
+            else:
+                # Se não existe ação pendente, criar uma nova ação realizada
+                cur.execute('''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                ''', {
+                    'cod_cidadao': cod_cidadao,
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_realizado = cur.fetchone()[0]
+
+            # Criar ação futura "Avaliar Exames" para 15 dias
+            cod_proxima_acao_pendente = 5 # Avaliar Exames
+            data_agendamento_proxima = data_realizacao_acao + timedelta(days=15)
+            sql_insert_pendente = '''
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Aguardando resultados de exames para avaliação.', %(responsavel_pela_acao)s);
+            '''
+            cur.execute(sql_insert_pendente, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao': cod_proxima_acao_pendente,
+                'data_agendamento': data_agendamento_proxima,
+                'cod_acao_origem': cod_acompanhamento_realizado,
+                'responsavel_pela_acao': responsavel_pela_acao
+            })
+
+        elif int(cod_acao_atual) == 5: # Avaliar Exames
+            # Buscar ação pendente de "Avaliar Exames" para este paciente
+            cur.execute('''
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_cidadao = %(cod_cidadao)s
+                    AND cod_acao = 5
+                    AND status_acao = 'PENDENTE'
+                ORDER BY data_agendamento ASC
+                LIMIT 1;
+            ''', {'cod_cidadao': cod_cidadao})
+            pending_avaliar_exames = cur.fetchone()
+
+            if pending_avaliar_exames:
+                # Se existe uma ação pendente, atualizar ela
+                cod_acompanhamento_realizado = pending_avaliar_exames[0]
+                cur.execute('''
+                    UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                    SET status_acao = 'REALIZADA',
+                        data_realizacao = %(data_realizacao)s,
+                        observacoes = %(observacoes)s,
+                        responsavel_pela_acao = %(responsavel_pela_acao)s
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                ''', {
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acompanhamento': cod_acompanhamento_realizado
+                })
+            else:
+                # Se não existe ação pendente, criar uma nova ação realizada
+                cur.execute('''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, 5, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                ''', {
+                    'cod_cidadao': cod_cidadao,
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_realizado = cur.fetchone()[0]
+
+            # Salvar os resultados dos exames
+            lab_exam_results = data.get('lab_exam_results')
+            if lab_exam_results:
+                cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+                exists = cur.fetchone()
+                if exists:
+                    sql_upsert_exames = """
+                        UPDATE sistemaaps.tb_hiperdia_resultados_exames
+                        SET data_avaliacao = %(data_avaliacao)s, colesterol_total = %(colesterol_total)s, hdl = %(hdl)s, 
+                            ldl = %(ldl)s, triglicerideos = %(triglicerideos)s, glicemia_jejum = %(glicemia_jejum)s, 
+                            hemoglobina_glicada = %(hemoglobina_glicada)s, ureia = %(ureia)s, creatinina = %(creatinina)s, 
+                            sodio = %(sodio)s, potassio = %(potassio)s, acido_urico = %(acido_urico)s
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                    """
+                else:
+                    sql_upsert_exames = """
+                        INSERT INTO sistemaaps.tb_hiperdia_resultados_exames
+                        (cod_acompanhamento, data_avaliacao, colesterol_total, hdl, ldl, triglicerideos, glicemia_jejum, hemoglobina_glicada, ureia, creatinina, sodio, potassio, acido_urico)
+                        VALUES (%(cod_acompanhamento)s, %(data_avaliacao)s, %(colesterol_total)s, %(hdl)s, %(ldl)s, %(triglicerideos)s, %(glicemia_jejum)s, %(hemoglobina_glicada)s, %(ureia)s, %(creatinina)s, %(sodio)s, %(potassio)s, %(acido_urico)s);
+                    """
+                params = {'cod_acompanhamento': cod_acompanhamento_realizado, 'data_avaliacao': data_realizacao_acao}
+                params.update(lab_exam_results)
+                cur.execute(sql_upsert_exames, params)
+
+            # Criar ação futura "Avaliar RCV" (pendente)
+            cod_proxima_acao_pendente = 6 # Avaliar RCV
+            data_agendamento_proxima = data_realizacao_acao # pode ser para hoje mesmo
+            sql_insert_pendente = '''
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Avaliação de RCV após exames.', %(responsavel_pela_acao)s);
+            '''
+            cur.execute(sql_insert_pendente, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao': cod_proxima_acao_pendente,
+                'data_agendamento': data_agendamento_proxima,
+                'cod_acao_origem': cod_acompanhamento_realizado,
+                'responsavel_pela_acao': responsavel_pela_acao
+            })
+
+        elif int(cod_acao_atual) == 8: # Registrar consulta nutrição
+            nutrition_data = data.get('nutrition_data')
+            if not nutrition_data:
+                return jsonify({"sucesso": False, "erro": "Dados da consulta de nutrição não fornecidos."}), 400
+            
+            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_nutricao WHERE cod_acompanhamento = %s", (cod_acompanhamento_atualizado,))
+            exists = cur.fetchone()
+
+            if exists:
+                sql_upsert_nutricao = """
+                    UPDATE sistemaaps.tb_hiperdia_nutricao
+                    SET data_avaliacao = %(data_avaliacao)s, peso = %(peso)s, imc = %(imc)s, 
+                        circunferencia_abdominal = %(circunferencia_abdominal)s, orientacoes_nutricionais = %(orientacoes_nutricionais)s
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                """
+            else:
+                sql_upsert_nutricao = """
+                    INSERT INTO sistemaaps.tb_hiperdia_nutricao
+                    (cod_acompanhamento, data_avaliacao, peso, imc, circunferencia_abdominal, orientacoes_nutricionais)
+                    VALUES (%(cod_acompanhamento)s, %(data_avaliacao)s, %(peso)s, %(imc)s, %(circunferencia_abdominal)s, %(orientacoes_nutricionais)s);
+                """
+            params = {'cod_acompanhamento': cod_acompanhamento_atualizado, 'data_avaliacao': data_realizacao_acao}
+            params.update(nutrition_data)
+            cur.execute(sql_upsert_nutricao, params)
 
         conn.commit()
         return jsonify({"sucesso": True, "mensagem": "Ação registrada com sucesso!"})

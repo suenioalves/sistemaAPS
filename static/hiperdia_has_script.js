@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
             observacoes: actionObservacoes,
             responsavel_pela_acao: null
         };
+        
         try {
             const result = await hiperdiaApi.registrarAcao(futurePayload);
             if (!result.sucesso) {
@@ -395,17 +396,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
                             // ############# FIM DA CORREÇÃO #############                        case 2: // Avaliar MRPA (c)
                             const decision = document.querySelector('.mrpa-decision-btn.border-primary')?.dataset.decision;
-                            if (decision === 'modificar') {
+                            if (decision === 'modify') {
                                 // Se for modificar o tratamento, vai criar a acao futura Modificar o tratamento como pendente (para hoje mesmo).
                                 await createFutureAction(3, 0, "PENDENTE", "Tratamento a ser modificado conforme avaliação do MRPA.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
-                            } else if (decision === 'manter') {
+                            } else if (decision === 'maintain') {
                                 // Se for manter o tratamento, criar a acao pendente solictar exames para hoje.
                                 await createFutureAction(4, 0, "PENDENTE", "Solicitação de exames para acompanhamento.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                             }
                             break;
                         case 4: // Solicitar Exames (f)
-                            // ao solicitado exames (torna realizado), criar a acao pendente Avaliar exames para 15 dias
-                            await createFutureAction(5, 15, "PENDENTE", "Aguardando resultados de exames para avaliação.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
+                            // REMOVIDO: O backend já está criando automaticamente a ação "Avaliar Exames" para 15 dias
+                            // await createFutureAction(5, 15, "PENDENTE", "Aguardando resultados de exames para avaliação.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                             break;
                         case 5: // Avaliar Exames (e)
                             // ao avaliar exames cria a funcao futura avaliar RCV como pendente
