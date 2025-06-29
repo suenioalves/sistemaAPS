@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Card: Total de Hipertensos
         hiperdiaApi.fetchTotalHipertensos(params).then(data => {
             hiperdiaDom.updateCard(elements.hipertensosCard, data.total_pacientes); // Corrected: elements.hipertensosCard
-        }).catch(() => {
+        }).catch((error) => {
             console.error('Erro ao buscar total de hipertensos:', error);
             hiperdiaDom.updateCard(elements.hipertensosCard, 'Erro'); // Corrected: elements.hipertensosCard
         });
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Card: Ações Pendentes/Revisão
         hiperdiaApi.fetchHipertensosMRPAPendente(params).then(data => {
             hiperdiaDom.updateCard(elements.revisaoCard, data.total_pacientes); // Corrected: elements.revisaoCard
-        }).catch(() => {
+        }).catch((error) => {
             console.error('Erro ao buscar hipertensos com ações pendentes:', error);
             hiperdiaDom.updateCard(elements.revisaoCard, 'Erro'); // Corrected: elements.revisaoCard
         });
@@ -340,27 +340,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetchPacientesHiperdia();
                     // Create future actions based on the action type
                     switch (parseInt(codAcaoAtual)) {
-                        case 1: // Solicitar MRPA
-                            // 2) E ai quando eu inserir um Solicitar MRPA (pendente) ele tambem vai tornar o Agendar Hiperdia como realizado.
-                            // Cria a acao futura Avaliar MRPA (para daqui 7 dias) pendente.
-                            await createFutureAction(2, 7, "PENDENTE", "Aguardando avaliação do MRPA.");
+                            // ############# INÍCIO DA CORREÇÃO #############
+                            
+                            case 1: // Solicitar MRPA
+                                // A LÓGICA FOI REMOVIDA DAQUI.
+                                // O backend (app.py) já está corretamente:
+                                // 1. Marcando "Agendar Hiperdia" (se houver) como REALIZADA.
+                                // 2. Criando a ação pendente "Avaliar MRPA".
+                                // Não precisamos fazer nada aqui no frontend.
+                                break;
 
-                            // Encontra a ação "Agendar Hiperdia" mais recente e pendente para este paciente
-                            const pendingAgendarHiperdia = await hiperdiaApi.fetchLatestPendingActionByType(currentPacienteForModal.cod_paciente, 9); // 9 é o cod_acao para "Agendar Hiperdia"
-                            if (pendingAgendarHiperdia && pendingAgendarHiperdia.cod_acompanhamento) {
-                                // Atualiza o status da ação "Agendar Hiperdia" para REALIZADA
-                                const updatePayload = {
-                                    status_acao: "REALIZADA",
-                                    data_realizacao: dataAcaoAtual,
-                                    observacoes: (pendingAgendarHiperdia.observacoes || '') + ' Status atualizado automaticamente ao solicitar MRPA.'
-                                };
-                                const updateResult = await hiperdiaApi.updateAcao(pendingAgendarHiperdia.cod_acompanhamento, updatePayload);
-                                if (!updateResult.sucesso) {
-                                    console.error('Erro ao atualizar Agendar Hiperdia para REALIZADA:', updateResult.erro);
-                                }
-                            }
-                            break;
-                        case 2: // Avaliar MRPA (c)
+                            // ############# FIM DA CORREÇÃO #############                        case 2: // Avaliar MRPA (c)
                             const decision = document.querySelector('.mrpa-decision-btn.border-primary')?.dataset.decision;
                             if (decision === 'modificar') {
                                 // Se for modificar o tratamento, vai criar a acao futura Modificar o tratamento como pendente (para hoje mesmo).
