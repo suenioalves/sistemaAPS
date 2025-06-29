@@ -1683,58 +1683,58 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 'data_modificacao': data_realizacao_acao
             })
 
-            # CORREÇÃO: Ao modificar tratamento, criar apenas "Solicitar MRPA" (PENDENTE) para 30 dias depois
-            cod_proxima_acao_pendente = 1 # "Solicitar MRPA"
-            data_agendamento_proxima = data_realizacao_acao + timedelta(days=30)
-            
-            # Remove qualquer ação "Avaliar MRPA" (cod 2) pendente criada automaticamente a partir desta ação
-            cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
-                WHERE cod_acao_origem = %(cod_acao_origem)s
-                  AND cod_acao = 2
-                  AND status_acao = 'PENDENTE';
-            """, {'cod_acao_origem': cod_acompanhamento_atualizado})
-
-            # Check if there's already a pending "Solicitar MRPA" from this action
-            cur.execute("""
-                SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
-                WHERE cod_acao_origem = %(cod_acompanhamento_origem)s
-                  AND cod_acao = 1
-                  AND status_acao = 'PENDENTE'
-            """, {'cod_acompanhamento_origem': cod_acompanhamento_atualizado})
-            existing_next_mrpa = cur.fetchone()
-
-            if existing_next_mrpa:
-                # Update existing pending MRPA
-                sql_update_next_pendente = """
-                    UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
-                    SET data_agendamento = %(data_agendamento)s,
-                        observacoes = 'Agendamento automático pós-modificação de tratamento (atualizado).',
-                        responsavel_pela_acao = %(responsavel_pela_acao)s,
-                        status_acao = 'PENDENTE'
-                    WHERE cod_acompanhamento = %(cod_acompanhamento)s;
-                """
-                cur.execute(sql_update_next_pendente, {
-                    'data_agendamento': data_agendamento_proxima,
-                    'responsavel_pela_acao': responsavel_pela_acao,
-                    'cod_acompanhamento': existing_next_mrpa[0]
-                })
-            else:
-                # Insert new pending MRPA
-                sql_insert_pendente = """
-                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Agendamento automático pós-modificação de tratamento.', %(responsavel_pela_acao)s);
-                """
-                cur.execute(sql_insert_pendente, {
-                    'cod_cidadao': cod_cidadao,
-                    'cod_acao': cod_proxima_acao_pendente,
-                    'data_agendamento': data_agendamento_proxima,
-                    'cod_acao_origem': cod_acompanhamento_atualizado,
-                    'responsavel_pela_acao': responsavel_pela_acao
-                })
-                
+            # REMOVIDO: Não criar ação futura automaticamente aqui
+            # O frontend já está lidando com a criação de ações futuras quando necessário
+            # cod_proxima_acao_pendente = 1 # "Solicitar MRPA"
+            # data_agendamento_proxima = data_realizacao_acao + timedelta(days=30)
+            # 
+            # # Remove qualquer ação "Avaliar MRPA" (cod 2) pendente criada automaticamente a partir desta ação
+            # cur.execute("""
+            #     DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            #     WHERE cod_acao_origem = %(cod_acao_origem)s
+            #       AND cod_acao = 2
+            #       AND status_acao = 'PENDENTE';
+            # """, {'cod_acao_origem': cod_acompanhamento_atualizado})
+            # 
+            # # Check if there's already a pending "Solicitar MRPA" from this action
+            # cur.execute("""
+            #     SELECT cod_acompanhamento
+            #     FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            #     WHERE cod_acao_origem = %(cod_acompanhamento_origem)s
+            #       AND cod_acao = 1
+            #       AND status_acao = 'PENDENTE'
+            # """, {'cod_acompanhamento_origem': cod_acompanhamento_atualizado})
+            # existing_next_mrpa = cur.fetchone()
+            # 
+            # if existing_next_mrpa:
+            #     # Update existing pending MRPA
+            #     sql_update_next_pendente = """
+            #         UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+            #         SET data_agendamento = %(data_agendamento)s,
+            #             observacoes = 'Agendamento automático pós-modificação de tratamento (atualizado).',
+            #             responsavel_pela_acao = %(responsavel_pela_acao)s,
+            #             status_acao = 'PENDENTE'
+            #         WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+            #     """
+            #     cur.execute(sql_update_next_pendente, {
+            #         'data_agendamento': data_agendamento_proxima,
+            #         'responsavel_pela_acao': responsavel_pela_acao,
+            #         'cod_acompanhamento': existing_next_mrpa[0]
+            #     })
+            # else:
+            #     # Insert new pending MRPA
+            #     sql_insert_pendente = """
+            #         INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+            #         (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+            #         VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Agendamento automático pós-modificação de tratamento.', %(responsavel_pela_acao)s);
+            #     """
+            #     cur.execute(sql_insert_pendente, {
+            #         'cod_cidadao': cod_cidadao,
+            #         'cod_acao': cod_proxima_acao_pendente,
+            #         'data_agendamento': data_agendamento_proxima,
+            #         'cod_acao_origem': cod_acompanhamento_atualizado,
+            #         'responsavel_pela_acao': responsavel_pela_acao
+            #     })
         elif int(cod_acao_atual) == 2: # Avaliar MRPA
             mrpa_results = data.get('mrpa_results')
             if not mrpa_results:
@@ -1805,6 +1805,22 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                         'cod_acao_origem': cod_acompanhamento_atualizado,
                         'responsavel_pela_acao': responsavel_pela_acao
                     })
+            elif mrpa_results.get('decision') == 'manter':
+                # Se for manter o tratamento, criar a ação pendente "Solicitar Exames" para a mesma data
+                cod_proxima_acao_pendente = 4 # Solicitar Exames
+                data_agendamento_proxima = data_realizacao_acao # Mesma data da ação atual
+                sql_insert_pendente = """
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Solicitação de exames para acompanhamento.', %(responsavel_pela_acao)s);
+                """
+                cur.execute(sql_insert_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_atualizado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
             else: # If decision is not 'modify', ensure no pending 'Modificar tratamento' from this action
                 cur.execute("""
                     DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
@@ -2061,6 +2077,22 @@ def api_registrar_acao_hiperdia():
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
                     (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
                     VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Modificação de tratamento indicada após avaliação de MRPA.', %(responsavel_pela_acao)s);
+                """
+                cur.execute(sql_insert_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_realizado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+            elif mrpa_results.get('decision') == 'manter':
+                # Se for manter o tratamento, criar a ação pendente "Solicitar Exames" para a mesma data
+                cod_proxima_acao_pendente = 4 # Solicitar Exames
+                data_agendamento_proxima = data_realizacao_acao # Mesma data da ação atual
+                sql_insert_pendente = """
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Solicitação de exames para acompanhamento.', %(responsavel_pela_acao)s);
                 """
                 cur.execute(sql_insert_pendente, {
                     'cod_cidadao': cod_cidadao,
