@@ -167,16 +167,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function saveHiperdiaAction() {
+    async function saveHiperdiaAction() {
         if (!currentPacienteForModal) {
             alert('Erro: Paciente não selecionado.');
             return;
         }
 
         const codAcaoAtual = document.querySelector('.action-type-tab.active')?.dataset.actionValue;
-       const dataAcaoAtual = elements.dataAcaoAtualInput.value;
-       const observacoes = elements.hiperdiaObservacoes.value;
-
+        const dataAcaoAtual = elements.dataAcaoAtualInput.value;
+        const observacoes = elements.hiperdiaObservacoes.value;
         const responsavelPelaAcao = elements.hiperdiaResponsavelAcao.value;
         
         if (!codAcaoAtual || !dataAcaoAtual) {
@@ -191,13 +190,58 @@ document.addEventListener('DOMContentLoaded', function () {
             data_acao_atual: dataAcaoAtual,
             observacoes: observacoes || null,
             responsavel_pela_acao: responsavelPelaAcao || null
-        
+        };
+
+        // Function to create a future action
+        const createFutureAction = async (codAcao, daysFromNow, status = "PENDENTE", observacaoAdicional = '') => {
+            const futureDate = new Date(dataAcaoAtual + 'T00:00:00');
+            futureDate.setDate(futureDate.getDate() + daysFromNow);
+            const futureDateStr = futureDate.toISOString().split('T')[0];
+            
+            let actionObservacoes = `Ação criada automaticamente a partir da ação ${codAcaoAtual}.`;
+            if (observacaoAdicional) {
+                actionObservacoes += ` ${observacaoAdicional}`;
+            }
+
+            const futurePayload = {
+                cod_cidadao: currentPacienteForModal.cod_paciente,
+                cod_acao_atual: codAcao,
+                data_acao_atual: futureDateStr,
+                data_agendamento: futureDateStr,
+                data_realizacao: (status === "REALIZADA") ? futureDateStr : null,
+                status_acao: status,
+                observacoes: actionObservacoes,
+                responsavel_pela_acao: null
+            };
+            try {
+                const result = await hiperdiaApi.registrarAcao(futurePayload);
+                if (!result.sucesso) {
+                    console.error(`Erro ao criar ação futura (código ${codAcao}): ${result.erro}`);
+                }
+                return result;
+            } catch (error) {
+                console.error(`Erro na requisição para criar ação futura (código ${codAcao}):`, error);
+                return { sucesso: false, erro: error.message };
+            }
         };
 
         // Desabilita o botão para evitar cliques duplos
         hiperdiaDom.setSaveButtonLoading(true);
 
-        // Adiciona dados específicos da ação "Avaliar MRPA"
+        const actionDateObj = new Date(dataAcaoAtual + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Ação: Agendar Hiperdia (codAcaoAtual === 9)
+        if (parseInt(codAcaoAtual) === 9) {
+            // Ao agendar Hiperdia (mesmo que fique agendado para hoje), vai inserir apenas esta mesma acao mais ela fica como pendente.
+            payload.status_acao = "PENDENTE";
+            payload.data_agendamento = dataAcaoAtual; // Data da ação escolhida no calendário
+            payload.data_realizacao = null; // Deixar vazio
+            payload.cod_acao_origem = null; // Deixar vazio
+        }
+
+        // Adiciona dados específicos da ação "Avaliar MRPA" (codAcaoAtual === 2)
         if (parseInt(codAcaoAtual) === 2) {
             const sistolica = elements.mrpaSistolica?.value;
             const diastolica = elements.mrpaDiastolica?.value;
@@ -222,8 +266,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 analise_mrpa: analise,
                 decision: decision
             };
+            // Marcar a ação de Avaliar MRPA como REALIZADA
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
         }
-        // Adiciona dados específicos da ação "Modificar Tratamento"
+
+        // Adiciona dados específicos da ação "Modificar Tratamento" (codAcaoAtual === 3)
         if (parseInt(codAcaoAtual) === 3) {
             const tipoAjuste = elements.medicationTypeRadios ? document.querySelector('input[name="medication-type"]:checked')?.value : null;
             const novosMedicamentos = elements.novosMedicamentos?.value;
@@ -238,16 +286,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 tipo_ajuste: tipoAjuste,
                 medicamentos_novos: novosMedicamentos
             };
+
+            // Marcar a ação de Modificar Tratamento como REALIZADA
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
         }
-        // Adiciona dados específicos da ação "Avaliar Exames"
+
+        // Adiciona dados específicos da ação "Avaliar Exames" (codAcaoAtual === 5)
         if (parseInt(codAcaoAtual) === 5) {
            payload.lab_exam_results = hiperdiaDom.getLabExamResults(); // Já usa _elements internamente
+           payload.status_acao = "REALIZADA";
+           payload.data_realizacao = dataAcaoAtual;
          }
-        // Adiciona dados específicos da ação "Avaliar RCV"
+        // Adiciona dados específicos da ação "Avaliar RCV" (codAcaoAtual === 6)
         if (parseInt(codAcaoAtual) === 6) {
             payload.risk_assessment_data = hiperdiaDom.getRiskAssessmentData();
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
         }
-        // Adiciona dados específicos da ação "Registrar consulta nutrição"
+        // Adiciona dados específicos da ação "Registrar consulta nutrição" (codAcaoAtual === 8)
         if (parseInt(codAcaoAtual) === 8) {
             payload.nutrition_data = hiperdiaDom.getNutritionData();
 
@@ -256,21 +313,97 @@ document.addEventListener('DOMContentLoaded', function () {
                 hiperdiaDom.setSaveButtonLoading(false);
                 return;
             }
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
         }
-        // Adiciona dados específicos da ação "Agendar Hiperdia"
-        if (parseInt(codAcaoAtual) === 9) {
-            payload.status_acao = "PENDENTE";
-            payload.data_agendamento = dataAcaoAtual; // Data da ação escolhida no calendário
-            payload.data_realizacao = null; // Deixar vazio
-            payload.cod_acao_origem = null; // Deixar vazio
+        // Adiciona dados específicos da ação "Solicitar MRPA" (codAcaoAtual === 1)
+        if (parseInt(codAcaoAtual) === 1) {
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
         }
-
+        // Adiciona dados específicos da ação "Solicitar Exames" (codAcaoAtual === 4)
+        if (parseInt(codAcaoAtual) === 4) {
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
+        }
+        // Adiciona dados específicos da ação "Encaminhar Nutrição" (codAcaoAtual === 7)
+        if (parseInt(codAcaoAtual) === 7) {
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
+        }
+        
+        // Save the current action and create future actions based on the type
         hiperdiaApi.registrarAcao(payload)
-            .then(result => {
+            .then(async result => {
                 if (result.sucesso) {
-                    // alert(result.mensagem || "Ação registrada com sucesso!"); // Removido para não exibir pop-up de sucesso
-                    hiperdiaDom.closeRegisterModal(); // Use the function to close
+                    hiperdiaDom.closeRegisterModal();
                     fetchPacientesHiperdia();
+                    // Create future actions based on the action type
+                    switch (parseInt(codAcaoAtual)) {
+                        case 1: // Solicitar MRPA
+                            // 2) E ai quando eu inserir um Solicitar MRPA (pendente) ele tambem vai tornar o Agendar Hiperdia como realizado.
+                            // Cria a acao futura Avaliar MRPA (para daqui 7 dias) pendente.
+                            await createFutureAction(2, 7, "PENDENTE", "Aguardando avaliação do MRPA.");
+
+                            // Encontra a ação "Agendar Hiperdia" mais recente e pendente para este paciente
+                            const pendingAgendarHiperdia = await hiperdiaApi.fetchLatestPendingActionByType(currentPacienteForModal.cod_paciente, 9); // 9 é o cod_acao para "Agendar Hiperdia"
+                            if (pendingAgendarHiperdia && pendingAgendarHiperdia.cod_acompanhamento) {
+                                // Atualiza o status da ação "Agendar Hiperdia" para REALIZADA
+                                const updatePayload = {
+                                    status_acao: "REALIZADA",
+                                    data_realizacao: dataAcaoAtual,
+                                    observacoes: (pendingAgendarHiperdia.observacoes || '') + ' Status atualizado automaticamente ao solicitar MRPA.'
+                                };
+                                const updateResult = await hiperdiaApi.updateAcao(pendingAgendarHiperdia.cod_acompanhamento, updatePayload);
+                                if (!updateResult.sucesso) {
+                                    console.error('Erro ao atualizar Agendar Hiperdia para REALIZADA:', updateResult.erro);
+                                }
+                            }
+                            break;
+                        case 2: // Avaliar MRPA (c)
+                            const decision = document.querySelector('.mrpa-decision-btn.border-primary')?.dataset.decision;
+                            if (decision === 'modificar') {
+                                // Se for modificar o tratamento, vai criar a acao futura Modificar o tratamento como pendente (para hoje mesmo).
+                                await createFutureAction(3, 0, "PENDENTE", "Tratamento a ser modificado conforme avaliação do MRPA.");
+                            } else if (decision === 'manter') {
+                                // Se for manter o tratamento, criar a acao pendente solictar exames para hoje.
+                                await createFutureAction(4, 0, "PENDENTE", "Solicitação de exames para acompanhamento.");
+                            }
+                            break;
+                        case 3: // Modificar Tratamento
+                            // 1) QUANDO É CRIADO AUTOMATICAMENTE A OPCAO SOLICITAR MRPA APOS A MODIFICACAO DO TRATAMENTO,
+                            // NÃO É PRA CRIAR AUTOMATICAMENTE TAMBEM A ACAO AVALIAR MRPA. CORRIJA ISTO.
+                            // ao modificar o tratamento, cria a acao futura, Solicitar MRPA pendente (para 30 dias depois)
+                            await createFutureAction(1, 30, "PENDENTE", "Nova solicitação de MRPA após modificação do tratamento.");
+                            // Nenhuma ação adicional (como Avaliar MRPA) é criada aqui, conforme a nova instrução.
+                            break;
+                        case 4: // Solicitar Exames (f)
+                            // ao solicitado exames (torna realizado), criar a acao pendente Avaliar exames para 15 dias
+                            await createFutureAction(5, 15, "PENDENTE", "Aguardando resultados de exames para avaliação.");
+                            break;
+                        case 5: // Avaliar Exames (e)
+                            // ao avaliar exames cria a funcao futura avaliar RCV como pendente
+                            await createFutureAction(6, 0, "PENDENTE", "Avaliação de RCV após exames.");
+                            break;
+                        case 6: // Avaliar RCV (f)
+                            // ao avaliar RCV realizada, cria a acao futura encaminhar para a nutrição
+                            await createFutureAction(7, 0, "PENDENTE", "Encaminhamento para avaliação nutricional.");
+                            break;
+                        case 7: // Encaminhar para Nutrição
+                            // ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)
+                            // Note: The user's instruction (g) says "ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)".
+                            // This means action 7 (Encaminhar Nutrição) does not directly create action 9.
+                            // Action 8 (Registrar Nutrição) creates action 9.
+                            // So, no action is created here for Encaminhar Nutrição.
+                            break;
+                        case 8: // Registrar Consulta Nutrição (g)
+                            // ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)
+                            await createFutureAction(9, 0, "PENDENTE", "Novo agendamento de Hiperdia após consulta de nutrição.");
+                            break;
+                        case 9: // Agendar Hiperdia
+                            // Não cria nenhuma ação futura automaticamente. Permanece PENDENTE.
+                            break;
+                    }
                     // Mantém o modal da timeline aberto e o atualiza para exibir a última ação inserida
                     abrirModalTimelineHiperdia(currentPacienteForModal);
                 } else {
@@ -399,7 +532,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    """    // Listener para os botões de filtro de período da linha do tempo
+    // Listener para os botões de filtro de período da linha do tempo
     if (elements.timelinePeriodFilterButtons) {
         elements.timelinePeriodFilterButtons.forEach(button => {
             button.addEventListener('click', function() {
@@ -430,7 +563,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (elements.itemsPerPageSelect) {""
+    if (elements.itemsPerPageSelect) {
         elements.itemsPerPageSelect.value = currentLimit;
         elements.itemsPerPageSelect.addEventListener('change', (event) => {
             currentLimit = parseInt(event.target.value);
@@ -442,6 +575,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);
+
     fetchEquipesMicroareasHiperdia();
     fetchPacientesHiperdia();
     updateSummaryCards();

@@ -105,15 +105,6 @@ export const hiperdiaDom = {
         _elements.orientacoesNutricionais = document.getElementById('hiperdia-orientacoes-nutricionais');
         _elements.hiperdiaResponsavelAcao = document.getElementById('hiperdia-responsavel-acao');
 
-        // Próxima Ação
-        _elements.nextActionDateInput = document.getElementById('hiperdia-proxima-acao-data');
-        _elements.nextActionButton = document.getElementById('hiperdia-nextActionButton');
-        _elements.nextActionButtonText = document.getElementById('hiperdia-nextActionButton-text');
-        _elements.nextActionDropdown = document.getElementById('hiperdia-nextActionDropdown');
-        _elements.nextActionDropdownContent = document.getElementById('hiperdia-nextActionDropdown-content');
-        _elements.autoActionNotice = document.getElementById('hiperdia-auto-action-notice');
-        _elements.nextActionSection = document.getElementById('hiperdia-next-action-section');
-
         // Expose elements for direct access from hiperdia_has_script.js
         Object.assign(hiperdiaDom, { elements: _elements });
     },
@@ -470,6 +461,8 @@ export const hiperdiaDom = {
         events.forEach(evento => {
             let iconClass;
             let iconColorClass;
+            let displayActionText = evento.dsc_acao;
+            let statusDisplayText = `(${evento.status_acao})`;
 
             switch (evento.status_acao) {
                 case 'PENDENTE':
@@ -483,13 +476,17 @@ export const hiperdiaDom = {
                     break;
                 case 'REALIZADA':
                     iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
-                    if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento" e REALIZADA
+                    if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento"
                         iconClass = 'ri-calendar-check-line'; // Manter o ícone de calendário
                         iconColorClass = 'bg-yellow-100 text-yellow-600'; // Cor amarela
                     } else if (evento.cod_acao === 3) { // Se for "Modificar tratamento"
                         iconColorClass = 'bg-red-100 text-red-600'; // Usa a cor vermelha
                     } else {
                         iconColorClass = 'bg-green-100 text-green-600'; // Cor verde padrão para outras ações realizadas
+                    }
+                    if (evento.cod_acao === 2) { // Avaliar MRPA
+                        displayActionText = "Analisar MRPA após 7 dias";
+                        statusDisplayText = "(Ação concluída)";
                     }
                     break;
                 case 'CANCELADA':
@@ -761,20 +758,81 @@ export const hiperdiaDom = {
                     </div>
                 `;
             }
-            // Modificar o texto da ação e a cor do ícone conforme o status e tipo de ação
-            let displayActionText = evento.dsc_acao;
-            let statusDisplay = `(${evento.status_acao})`;
 
+            let adjustedActionText = evento.dsc_acao;
+            let adjustedStatusDisplay = `(${evento.status_acao})`;
+
+            // Garante que adjustedActionText seja inicializado
+            if (typeof adjustedActionText === 'undefined') {
+                adjustedActionText = evento.dsc_acao || 'Ação não especificada';
+            }
+
+            // Custom logic for display based on user requirements
             if (evento.cod_acao === 9 && evento.status_acao === 'PENDENTE') {
-                displayActionText = "Agendado Hiperdia";
-                statusDisplay = "(Pendente)";
+                adjustedActionText = "Agendado Hiperdia";
+                adjustedStatusDisplay = "(Pendente)";
+                iconClass = 'ri-calendar-check-line';
+                iconColorClass = 'bg-yellow-100 text-yellow-600';
             } else if (evento.cod_acao === 9 && evento.status_acao === 'REALIZADA') {
-                displayActionText = "Iniciado Hiperdia";
-                statusDisplay = "(REALIZADA)";
-                iconClass = 'ri-calendar-check-line'; // Manter o ícone de calendário
-                iconColorClass = 'bg-green-100 text-green-600'; // Mudar para verde
-            } else if (evento.cod_acao === 9) {
-                displayActionText = "Agendado Hiperdia";
+                adjustedActionText = "Iniciado Hiperdia";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-calendar-check-line'; // Keep calendar icon
+                iconColorClass = 'bg-green-100 text-green-600'; // Change to green
+            } else if (evento.cod_acao === 1 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Solicitar MRPA";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-file-add-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 2 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Avaliar MRPA";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-stethoscope-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 3 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Modificar Tratamento";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-capsule-line'; // Keep capsule icon
+                iconColorClass = 'bg-green-100 text-green-600'; // Change to green
+            } else if (evento.cod_acao === 4 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Solicitar Exames";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-test-tube-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 5 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Avaliar Exames";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-file-search-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 6 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Avaliar RCV";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-heart-2-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 7 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Encaminhar Nutrição";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-arrow-right-up-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else if (evento.cod_acao === 8 && evento.status_acao === 'REALIZADA') {
+                adjustedActionText = "Registrar Nutrição";
+                adjustedStatusDisplay = "(Realizada)";
+                iconClass = 'ri-apple-line';
+                iconColorClass = 'bg-green-100 text-green-600';
+            } else { // Default icons and colors for PENDENTE and CANCELADA or other cases
+                switch (evento.status_acao) {
+                    case 'PENDENTE':
+                        iconClass = 'ri-time-line';
+                        iconColorClass = 'bg-yellow-100 text-yellow-600';
+                        break;
+                    case 'CANCELADA':
+                        iconClass = 'ri-close-circle-line';
+                        iconColorClass = 'bg-red-100 text-red-600';
+                        break;
+                    default:
+                        iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
+                        iconColorClass = 'bg-gray-100 text-gray-600';
+                        break;
+                }
             }
 
             const eventHtml = `
@@ -784,7 +842,7 @@ export const hiperdiaDom = {
                     </div>
                     <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow ${cardBorderClass}">
                         <div class="flex justify-between items-center mb-2">
-                            <h5 class="font-medium">${displayActionText} ${statusDisplay}</h5>
+                            <h5 class="font-medium">${adjustedActionText} <span class="text-xs">${adjustedStatusDisplay}</span></h5>
                             <div class="flex items-center">
                                 <span class="text-sm text-gray-500">${dataFormatada}</span>
                                 ${cancelButtonHtml}
@@ -894,10 +952,25 @@ export const hiperdiaDom = {
             if (section) section.classList.add('hidden');
         });
 
+        // Adiciona um novo elemento para a mensagem de ação automática se ainda não existir
+        if (!_elements.autoActionNotice) {
+            const form = document.getElementById('hiperdia-registerForm');
+            if (form) {
+                const newDiv = document.createElement('div');
+                newDiv.id = 'hiperdia-autoActionNotice';
+                newDiv.className = 'bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 hidden';
+                form.insertBefore(newDiv, form.firstChild);
+                _elements.autoActionNotice = newDiv;
+            }
+        }
+
         if (_elements.autoActionNotice) _elements.autoActionNotice.classList.add('hidden');
 
         switch (selectedValue) {
             case '1': // Solicitar MRPA
+                // a) Ao agendar Hiperdia (ele fica como pendente).
+                // b) ao chegar a data do hiperdia, ele automaticamente cria a acao Solicitar MRPA (como pendente), e o Agendar Hiperdia muda pra realizado e muda o texto para Iniciado Hiperdia, cor verde o icone
+                // lembrando que se a data agendada para o Hiperdia for a mesma data de hoje, ele ja insere como Iniciado Hiperdia (realizado) e cria automaticamente a acao Solicitar MRPA (pendente).
                 if (_elements.autoActionNotice) {
                     _elements.autoActionNotice.classList.remove('hidden');
                     if (!isNaN(dataAcaoAtual.getTime())) {
@@ -912,44 +985,96 @@ export const hiperdiaDom = {
                 break;
             case '2': // Avaliar MRPA
                 if (_elements.mrpaSection) _elements.mrpaSection.classList.remove('hidden');
+                // c) ao avaliar MRPA (muda para realizada), e ai vai cria a proxima acao futura conforme a avaliacao.
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> A próxima ação será criada com base na decisão de manter ou modificar o tratamento.`;
+                }
                 break;
             case '3': // Modificar tratamento
                 if (_elements.medicationSection) _elements.medicationSection.classList.remove('hidden');
+                // d) se for modificar o tratamento, vai criar a acao futura Modificar o tratamento como pendente (para hoje mesmo).
+                // e) ao modificar o tratamento, cria a acao futura, Solicitar MRPA pendente (para 30 dias depois) e ai volta pra o mesmo esquema do b). e ai vai repetir varias vezes se necessário conforme o tratamento seja modificado.
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    if (!isNaN(dataAcaoAtual.getTime())) {
+                        const dataProxima = new Date(dataAcaoAtual);
+                        dataProxima.setDate(dataProxima.getDate() + 30);
+                        const dataFormatada = dataProxima.toLocaleDateString('pt-BR');
+                        _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Solicitar MRPA" será agendada para <strong>${dataFormatada}</strong>.`;
+                    } else {
+                        _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Solicitar MRPA" será agendada para 30 dias após a data da ação.`;
+                    }
+                }
+                break;
+            case '4': // Solicitar Exames
+                // f) se for manter o tratamento, criar a acao pendente solictar exames para hoje.
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    if (!isNaN(dataAcaoAtual.getTime())) {
+                        const dataProxima = new Date(dataAcaoAtual);
+                        dataProxima.setDate(dataProxima.getDate() + 15); // Avaliar exames em 15 dias
+                        const dataFormatada = dataProxima.toLocaleDateString('pt-BR');
+                        _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Avaliar Exames" será agendada para <strong>${dataFormatada}</strong>.`;
+                    } else {
+                        _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Avaliar Exames" será agendada para 15 dias após a data da ação.`;
+                    }
+                }
                 break;
             case '5': // Avaliar Exames
                 if (_elements.labExamsSection) _elements.labExamsSection.classList.remove('hidden');
-                // if (_elements.imageExamsSection) _elements.imageExamsSection.classList.remove('hidden'); // Se houver campos específicos para exames de imagem
+                // e) ao avaliar exames cria a funcao futura avaliar RCV como pendente e Avaliar exames realizado.
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Avaliar RCV" será agendada para hoje.`;
+                }
                 break;
             case '6': // Avaliar RCV (Risco Cardiovascular)
                 if (_elements.riskSection) _elements.riskSection.classList.remove('hidden');
+                // f) ao avaliar RCV realizada, cria a acao futura encaminhar para a nutrição
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Encaminhar Nutrição" será agendada para hoje.`;
+                }
+                break;
+            case '7': // Encaminhar Nutrição
+                // Não cria ação futura diretamente de acordo com as especificações.
+                // A ação 8 (Registrar Nutrição) cria a 9 (Agendar Hiperdia).
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Esta ação não gera uma ação futura automática.`;
+                }
                 break;
             case '8': // Registrar consulta nutrição
                 if (_elements.nutritionSection) _elements.nutritionSection.classList.remove('hidden');
+                // g) ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Agendar Hiperdia" será agendada para hoje.`;
+                }
                 break;
-            // Para '4', '7', '9', nenhuma seção específica é mostrada além das observações e próxima ação.
+            case '9': // Agendar Hiperdia
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0); // Normalize today to start of day
+                    if (!isNaN(dataAcaoAtual.getTime())) {
+                        const dataProxima = new Date(dataAcaoAtual);
+                        // Se a data for hoje ou passada, já inicia o Hiperdia e agenda MRPA para hoje.
+                        if (dataProxima <= today) {
+                            _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Se a data for hoje ou passada, o Hiperdia será iniciado e uma ação para "Solicitar MRPA" será agendada para hoje.`;
+                        } else {
+                            _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> O Hiperdia será agendado como pendente até a data selecionada.`;
+                        }
+                    } else {
+                        _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> O Hiperdia será agendado como pendente até a data selecionada.`;
+                    }
+                }
+                break;
+            default:
+                // Nenhuma seção específica ou mensagem automática para outras ações
+                break;
         }
-    },
-
-    /**
-     * Popula o dropdown de próxima ação.
-     * @param {Array<object>} actionTypes - Lista de tipos de ação.
-     */
-    populateNextActionDropdown: (actionTypes) => {
-        if (!_elements.nextActionDropdownContent) return;
-        _elements.nextActionDropdownContent.innerHTML = '';
-
-        actionTypes.forEach(tipo => {
-            const option = document.createElement('div');
-            option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
-            option.textContent = tipo.dsc;
-            option.dataset.value = tipo.cod;
-            option.addEventListener('click', () => {
-                if (_elements.nextActionButtonText) _elements.nextActionButtonText.textContent = tipo.dsc;
-                if (_elements.nextActionButton) _elements.nextActionButton.dataset.selectedValue = tipo.cod;
-                if (_elements.nextActionDropdown) _elements.nextActionDropdown.classList.add('hidden');
-            });
-            _elements.nextActionDropdownContent.appendChild(option);
-        });
     },
 
     /**
@@ -1029,23 +1154,6 @@ export const hiperdiaDom = {
             media_pa_diastolica: getNumericValue(_elements.mrpaDiastolica), // Corrected: _elements.mrpaDiastolica
             analise_mrpa: _elements.mrpaAnalise.value || null // Corrected: _elements.mrpaAnalise
         };
-    },
-
-    /**
-     * Obtém os dados da próxima ação agendada.
-     * @returns {object|null} Objeto com os dados da próxima ação ou null.
-     */
-    getNextActionData: () => {
-        const proximaAcaoData = _elements.nextActionDateInput.value;
-        const proximaAcaoTipo = _elements.nextActionButton.dataset.selectedValue;
-        if (proximaAcaoData && proximaAcaoTipo) {
-            return {
-                cod_acao: parseInt(proximaAcaoTipo),
-                data_agendamento: proximaAcaoData,
-                observacoes: null // Adicione um campo para observações da próxima ação se necessário
-            };
-        }
-        return null;
     },
 
     /**

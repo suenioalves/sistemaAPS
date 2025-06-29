@@ -110,5 +110,57 @@ export const hiperdiaApi = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
+    },
+
+    /**
+     * Busca uma ação pendente de um tipo específico para um paciente.
+     * @param {number} codCidadao - Código do cidadão.
+     * @param {number} codAcao - Código do tipo de ação (ex: 3 para Modificar tratamento).
+     * @returns {Promise<object|null>} A ação pendente encontrada ou null.
+     */
+    fetchPendingActionByType: async (codCidadao, codAcao) => {
+        const response = await fetch(`${API_BASE_URL}/api/hiperdia/pending_action/${codCidadao}/${codAcao}`);
+        if (!response.ok) {
+            if (response.status === 404) { // Not Found, meaning no pending action
+                return null;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Busca uma ação pendente de um tipo específico para um paciente, retornando a mais recente.
+     * @param {number} codCidadao - Código do cidadão.
+     * @param {number} codAcao - Código do tipo de ação (ex: 9 para Agendar Hiperdia).
+     * @returns {Promise<object|null>} A ação pendente mais recente encontrada ou null.
+     */
+    fetchLatestPendingActionByType: async (codCidadao, codAcao) => {
+        const response = await fetch(`${API_BASE_URL}/api/hiperdia/latest_pending_action/${codCidadao}/${codAcao}`);
+        if (!response.ok) {
+            if (response.status === 404) { // Not Found, meaning no pending action
+                return null;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Atualiza uma ação existente.
+     * @param {number} codAcompanhamento - Código do acompanhamento a ser atualizado.
+     * @param {object} payload - Dados da ação a serem atualizados.
+     * @returns {Promise<object>} Objeto com status de sucesso/erro.
+     */
+    updateAcao: async (codAcompanhamento, payload) => {
+        const response = await fetch(`${API_BASE_URL}/api/hiperdia/update_acao/${codAcompanhamento}`, {
+            method: 'PUT', // Usar PUT para atualização
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
     }
 };
