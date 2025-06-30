@@ -1115,11 +1115,29 @@ export const hiperdiaDom = {
      * @returns {object} Objeto com os dados de avaliação de risco.
      */
     getRiskAssessmentData: () => {
-        const getRadioValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || null;
-        const getBooleanValue = (name) => (document.querySelector(`input[name="${name}"]:checked`)?.value === 'Sim');
-        const getNumericValue = (element) => element && element.value !== '' ? parseInt(element.value) : null;
+        console.log('[LOG] Iniciando getRiskAssessmentData');
+        
+        const getRadioValue = (name) => {
+            const element = document.querySelector(`input[name="${name}"]:checked`);
+            const value = element?.value || null;
+            console.log(`[LOG] getRadioValue(${name}):`, value);
+            return value;
+        };
+        
+        const getBooleanValue = (name) => {
+            const element = document.querySelector(`input[name="${name}"]:checked`);
+            const value = element?.value === 'Sim';
+            console.log(`[LOG] getBooleanValue(${name}):`, value);
+            return value;
+        };
+        
+        const getNumericValue = (element) => {
+            const value = element && element.value !== '' ? parseInt(element.value) : null;
+            console.log(`[LOG] getNumericValue(${element?.id || 'unknown'}):`, value);
+            return value;
+        };
 
-        return {
+        const result = {
             idade: getNumericValue(_elements.riscoIdade),
             sexo: getRadioValue('gender'),
             tabagismo: getBooleanValue('smoking'),
@@ -1127,6 +1145,9 @@ export const hiperdiaDom = {
             colesterol_total: getNumericValue(_elements.riscoColesterolTotal),
             pressao_sistolica: getNumericValue(_elements.riscoPas)
         };
+        
+        console.log('[LOG] Resultado final getRiskAssessmentData:', result);
+        return result;
     },
 
     /**

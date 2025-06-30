@@ -93,15 +93,32 @@ export const hiperdiaApi = {
      * @returns {Promise<object>} Objeto com status de sucesso/erro.
      */
     registrarAcao: async (payload) => {
-        const response = await fetch(`${API_BASE_URL}/api/hiperdia/registrar_acao`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        console.log('[LOG] hiperdiaApi.registrarAcao - Iniciando');
+        console.log('[LOG] Payload recebido:', payload);
+        console.log('[LOG] URL da requisição:', `${API_BASE_URL}/api/hiperdia/registrar_acao`);
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/registrar_acao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            
+            console.log('[LOG] Status da resposta:', response.status);
+            console.log('[LOG] OK da resposta:', response.ok);
+            
+            if (!response.ok) {
+                console.log('[LOG] Erro na resposta HTTP:', response.status);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('[LOG] Resultado da API:', result);
+            return result;
+        } catch (error) {
+            console.log('[LOG] Erro capturado em registrarAcao:', error);
+            throw error;
         }
-        return response.json();
     },
 
     fetchMedicamentos: async (codCidadao) => {
