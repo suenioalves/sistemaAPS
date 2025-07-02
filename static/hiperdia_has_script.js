@@ -35,10 +35,8 @@ document.addEventListener('DOMContentLoaded', function () {
         futureDate.setDate(futureDate.getDate() + daysFromNow);
         const futureDateStr = futureDate.toISOString().split('T')[0];
         
-        let actionObservacoes = `Ação criada automaticamente a partir da ação ${codAcaoAtual}.`;
-        if (observacaoAdicional) {
-            actionObservacoes += ` ${observacaoAdicional}`;
-        }
+        // Usar apenas o observacaoAdicional se fornecido, caso contrário usar texto padrão
+        let actionObservacoes = observacaoAdicional || `Ação criada automaticamente a partir da ação ${codAcaoAtual}.`;
 
         const futurePayload = {
             cod_cidadao: currentPacienteForModal.cod_paciente,
@@ -277,6 +275,121 @@ document.addEventListener('DOMContentLoaded', function () {
             return; // Sai da função aqui para evitar execução dupla
         }
 
+        // CORREÇÃO: Para "Encaminhar Nutrição" (codAcaoAtual === 7), primeiro verificar se existe uma ação pendente
+        if (parseInt(codAcaoAtual) === 7) {
+            try {
+                console.log('[LOG] Processando ação Encaminhar Nutrição (cod_acao = 7)');
+                // Buscar ação pendente de "Encaminhar Nutrição" para este paciente
+                const pendingAction = await hiperdiaApi.fetchPendingActionByType(currentPacienteForModal.cod_paciente, 7);
+
+                if (pendingAction) {
+                    console.log('[LOG] Ação pendente de Encaminhar Nutrição encontrada:', pendingAction);
+                    // Se existe uma ação pendente, atualizar ela
+                    const updatePayload = {
+                        cod_cidadao: currentPacienteForModal.cod_paciente,
+                        cod_acao_atual: 7,
+                        data_acao_atual: dataAcaoAtual,
+                        observacoes: observacoes || null,
+                        responsavel_pela_acao: responsavelPelaAcao || null,
+                        status_acao: "REALIZADA"
+                    };
+                    console.log('[LOG] Payload para atualizar ação pendente:', updatePayload);
+                    const result = await hiperdiaApi.updateAcao(pendingAction.cod_acompanhamento, updatePayload);
+                    if (result.sucesso) {
+                        console.log('[LOG] Ação de Encaminhar Nutrição atualizada com sucesso');
+                        hiperdiaDom.closeRegisterModal();
+                        fetchPacientesHiperdia();
+                        abrirModalTimelineHiperdia(currentPacienteForModal);
+                    } else {
+                        alert(`Erro ao atualizar ação: ${result.erro}`);
+                    }
+                } else {
+                    console.log('[LOG] Nenhuma ação pendente de Encaminhar Nutrição encontrada, criando nova ação');
+                    // Se não existe ação pendente, criar uma nova ação realizada
+                    const payload = {
+                        cod_cidadao: currentPacienteForModal.cod_paciente,
+                        cod_acao_atual: 7,
+                        data_acao_atual: dataAcaoAtual,
+                        observacoes: observacoes || null,
+                        responsavel_pela_acao: responsavelPelaAcao || null,
+                        status_acao: "REALIZADA"
+                    };
+                    console.log('[LOG] Payload para criar nova ação:', payload);
+                    const result = await hiperdiaApi.registrarAcao(payload);
+                    if (result.sucesso) {
+                        console.log('[LOG] Nova ação de Encaminhar Nutrição criada com sucesso');
+                        hiperdiaDom.closeRegisterModal();
+                        fetchPacientesHiperdia();
+                        abrirModalTimelineHiperdia(currentPacienteForModal);
+                    } else {
+                        alert(`Erro ao registrar ação: ${result.erro}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao processar ação Encaminhar Nutrição:', error);
+                alert('Erro ao processar ação Encaminhar Nutrição. Tente novamente.');
+            } finally {
+                hiperdiaDom.setSaveButtonLoading(false);
+            }
+            return; // Sai da função aqui para evitar execução dupla
+        }
+
+        // Payload base para todas as ações
+        const payload = {
+            cod_cidadao: currentPacienteForModal.cod_paciente,
+            cod_acao_atual: parseInt(codAcaoAtual),
+            data_acao_atual: dataAcaoAtual,
+            observacoes: observacoes || null,
+            responsavel_pela_acao: responsavelPelaAcao || null
+        };
+
+        // CORREÇÃO: Para "Registrar Nutrição" (codAcaoAtual === 8), primeiro verificar se existe uma ação pendente
+        if (parseInt(codAcaoAtual) === 8) {
+            try {
+                console.log('[LOG] Processando ação Registrar Nutrição (cod_acao = 8)');
+                // Buscar ação pendente de "Registrar Nutrição" para este paciente
+                const pendingAction = await hiperdiaApi.fetchPendingActionByType(currentPacienteForModal.cod_paciente, 8);
+
+                if (pendingAction) {
+                    console.log('[LOG] Ação pendente de Registrar Nutrição encontrada:', pendingAction);
+                    // Se existe, atualizar para REALIZADA
+                    const updatePayload = {
+                        ...payload,
+                        status_acao: "REALIZADA",
+                        nutrition_data: hiperdiaDom.getNutritionData()
+                    };
+                    const result = await hiperdiaApi.updateAcao(pendingAction.cod_acompanhamento, updatePayload);
+                    if (result.sucesso) {
+                        console.log('[LOG] Ação de Registrar Nutrição atualizada com sucesso');
+                        // Cria ação futura Agendar Hiperdia (cod_acao=9) para daqui a 1 ano
+                        await createFutureAction(9, 365, 'PENDENTE', '<span style="color: #1e40af; font-weight: bold;">Hiperdia concluído!</span> Agendar novo hiperdia para daqui 6 meses há 1 ano, conforme seja necessário.', codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
+                        hiperdiaDom.closeRegisterModal();
+                        fetchPacientesHiperdia();
+                        abrirModalTimelineHiperdia(currentPacienteForModal);
+                    } else {
+                        alert(`Erro ao atualizar ação: ${result.erro}`);
+                    }
+                } else {
+                    // Se não existe, criar nova ação
+                    const result = await hiperdiaApi.registrarAcao(payload);
+                    if (result.sucesso) {
+                        console.log('[LOG] Nova ação de Registrar Nutrição criada com sucesso');
+                        hiperdiaDom.closeRegisterModal();
+                        fetchPacientesHiperdia();
+                        abrirModalTimelineHiperdia(currentPacienteForModal);
+                    } else {
+                        alert(`Erro ao registrar ação: ${result.erro}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao processar ação Registrar Nutrição:', error);
+                alert('Erro ao processar ação Registrar Nutrição. Tente novamente.');
+            } finally {
+                hiperdiaDom.setSaveButtonLoading(false);
+            }
+            return; // Sai da função aqui para evitar execução dupla
+        }
+
         // Para outras ações, seguir o fluxo normal
         await processNormalAction();
     }
@@ -468,19 +581,15 @@ document.addEventListener('DOMContentLoaded', function () {
                             // A LÓGICA FOI REMOVIDA DAQUI.
                             // O backend (app.py) já está corretamente:
                             // 1. Marcando "Agendar Hiperdia" (se houver) como REALIZADA.
-                            // 2. Criando a ação pendente "Avaliar MRPA".
+                            // 2. Criando a ação "Solicitar MRPA" como REALIZADA.
+                            // 3. Criando automaticamente a ação "Avaliar MRPA" como PENDENTE para 7 dias.
                             // Não precisamos fazer nada aqui no frontend.
                             break;
 
                         // ############# FIM DA CORREÇÃO #############                        case 2: // Avaliar MRPA (c)
-                        const decision = document.querySelector('.mrpa-decision-btn.border-primary')?.dataset.decision;
-                        if (decision === 'modify') {
-                            // Se for modificar o tratamento, vai criar a acao futura Modificar o tratamento como pendente (para hoje mesmo).
-                            await createFutureAction(3, 0, "PENDENTE", "Tratamento a ser modificado conforme avaliação do MRPA.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
-                        } else if (decision === 'maintain') {
-                            // Se for manter o tratamento, criar a acao pendente solictar exames para hoje.
-                            await createFutureAction(4, 0, "PENDENTE", "Solicitação de exames para acompanhamento.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
-                        }
+                        // REMOVIDO: O backend já está criando automaticamente as ações futuras baseadas na decisão
+                        // - Se "manter tratamento": cria ação "Solicitar Exames" (código 4)
+                        // - Se "modificar tratamento": cria ação "Modificar tratamento" (código 3)
                         break;
                     case 4: // Solicitar Exames (f)
                         // REMOVIDO: O backend já está criando automaticamente a ação "Avaliar Exames" para 15 dias
@@ -503,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         break;
                     case 8: // Registrar Consulta Nutrição (g)
                         // ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)
-                        await createFutureAction(9, 0, "PENDENTE", "Novo agendamento de Hiperdia após consulta de nutrição.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
+                        await createFutureAction(9, 0, "PENDENTE", '<span style="color: #1e40af; font-weight: bold;">Hiperdia concluído!</span> Agendar novo hiperdia para daqui 6 meses há 1 ano, conforme seja necessário.', codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                         break;
                     case 9: // Agendar Hiperdia
                         // Não cria nenhuma ação futura automaticamente. Permanece PENDENTE.

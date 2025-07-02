@@ -444,6 +444,14 @@ export const hiperdiaDom = {
         timelineLine.className = 'timeline-line';
         _elements.timelineModalContentArea.appendChild(timelineLine);
 
+        // Filtro: Remover "Solicitar MRPA", "Solicitar Exames" e "Encaminhar Nutrição" se não estiverem pendentes
+        const filteredEvents = events.filter(evento => {
+            if ((evento.cod_acao === 1 || evento.cod_acao === 4 || evento.cod_acao === 7) && evento.status_acao !== 'PENDENTE') {
+                return false; // Não exibe Solicitar MRPA, Solicitar Exames ou Encaminhar Nutrição se não for pendente
+            }
+            return true;
+        });
+
         // Mapeamento de ícones para cada tipo de ação quando 'REALIZADA'
         const actionIcons = {
             1: 'ri-file-add-line',          // Solicitar MRPA
@@ -458,7 +466,7 @@ export const hiperdiaDom = {
             'default': 'ri-check-double-line' // Fallback
         };
     
-        events.forEach(evento => {
+        filteredEvents.forEach(evento => {
             let iconClass;
             let iconColorClass;
             let displayActionText = evento.dsc_acao;
@@ -468,7 +476,7 @@ export const hiperdiaDom = {
                 case 'PENDENTE':
                     if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento"
                         iconClass = 'ri-calendar-check-line';
-                        iconColorClass = 'bg-yellow-100 text-yellow-600';
+                        iconColorClass = 'bg-blue-100 text-blue-600';
                     } else {
                         iconClass = 'ri-time-line';
                         iconColorClass = 'bg-yellow-100 text-yellow-600';
@@ -478,7 +486,7 @@ export const hiperdiaDom = {
                     iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
                     if (evento.cod_acao === 9) { // Se for "Agendar novo acompanhamento"
                         iconClass = 'ri-calendar-check-line'; // Manter o ícone de calendário
-                        iconColorClass = 'bg-yellow-100 text-yellow-600'; // Cor amarela
+                        iconColorClass = 'bg-blue-100 text-blue-600'; // Cor azul
                     } else if (evento.cod_acao === 3) { // Se for "Modificar tratamento"
                         iconColorClass = 'bg-red-100 text-red-600'; // Usa a cor vermelha
                     } else {
@@ -772,12 +780,12 @@ export const hiperdiaDom = {
                 adjustedActionText = "Agendado Hiperdia";
                 adjustedStatusDisplay = "(Pendente)";
                 iconClass = 'ri-calendar-check-line';
-                iconColorClass = 'bg-yellow-100 text-yellow-600';
+                iconColorClass = 'bg-blue-100 text-blue-600';
             } else if (evento.cod_acao === 9 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Iniciado Hiperdia";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-calendar-check-line'; // Keep calendar icon
-                iconColorClass = 'bg-green-100 text-green-600'; // Change to green
+                iconColorClass = 'bg-blue-100 text-blue-600'; // Change to blue
             } else if (evento.cod_acao === 1 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Solicitar MRPA";
                 adjustedStatusDisplay = "(Realizada)";
@@ -863,6 +871,27 @@ export const hiperdiaDom = {
                 </div>
             `;
             _elements.timelineModalContentArea.insertAdjacentHTML('beforeend', eventHtml);
+
+            // Adicionar mensagem especial "Hiperdia concluído!" após a ação de Registrar Nutrição
+            if (evento.cod_acao === 8 && evento.status_acao === 'REALIZADA' && evento.hiperdia_concluido) {
+                const hiperdiaConcluidoHtml = `
+                    <div class="flex mb-8 relative">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center z-10 flex-shrink-0">
+                            <div class="w-6 h-6 flex items-center justify-center"><i class="ri-check-double-line text-xl"></i></div>
+                        </div>
+                        <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow border-2 border-blue-400">
+                            <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-medium text-blue-600">Hiperdia concluído! <span class="text-xs text-blue-500">(Ciclo finalizado)</span></h5>
+                                <div class="flex items-center">
+                                    <span class="text-sm text-blue-500">${dataFormatada}</span>
+                                </div>
+                            </div>
+                            <p class="text-sm text-blue-600 mb-2">Parabéns! O ciclo completo do Hiperdia foi finalizado com sucesso.</p>
+                        </div>
+                    </div>
+                `;
+                _elements.timelineModalContentArea.insertAdjacentHTML('beforeend', hiperdiaConcluidoHtml);
+            }
         });
     },
 
