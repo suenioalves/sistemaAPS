@@ -638,26 +638,52 @@ document.addEventListener('DOMContentLoaded', function () {
                 const button = event.target;
                 const codAcompanhamento = button.dataset.codAcompanhamento;
 
-                if (confirm('Tem certeza que deseja cancelar esta ação pendente?')) {
+                // Confirmação mais detalhada
+                const confirmacao = confirm(
+                    'ATENÇÃO: Esta ação será completamente removida da base de dados, junto com todas as ações posteriores que dependem dela.\n\n' +
+                    'Esta operação não pode ser desfeita.\n\n' +
+                    'Tem certeza que deseja continuar?'
+                );
+
+                if (confirmacao) {
                     button.disabled = true;
-                    button.textContent = 'Cancelando...';
+                    button.textContent = 'Removendo...';
+                    button.classList.add('opacity-50');
+                    
                     try {
                         const data = await hiperdiaApi.cancelarAcao(codAcompanhamento);
                         if (data.sucesso) {
+                            // Mostrar mensagem de sucesso com detalhes
+                            const mensagem = data.acoes_removidas > 1 
+                                ? `Ação e ${data.acoes_removidas - 1} ação(ões) posterior(es) removida(s) com sucesso!`
+                                : 'Ação removida com sucesso!';
+                            
+                            // Feedback visual temporário
+                            button.textContent = '✓ Removido';
+                            button.classList.remove('text-red-500', 'hover:text-red-700');
+                            button.classList.add('text-green-600');
+                            
                             // Recarrega a timeline para refletir a mudança
                             if (currentPacienteForModal) {
                                 await abrirModalTimelineHiperdia(currentPacienteForModal);
                             }
+                            
+                            // Mostrar alerta de sucesso
+                            setTimeout(() => {
+                                alert(mensagem);
+                            }, 100);
                         } else {
-                            alert(`Erro ao cancelar ação: ${data.erro}`);
+                            alert(`Erro ao remover ação: ${data.erro}`);
                             button.disabled = false;
                             button.textContent = 'Cancelar';
+                            button.classList.remove('opacity-50');
                         }
                     } catch (error) {
                         console.error('Erro na requisição de cancelamento:', error);
-                        alert('Ocorreu um erro de comunicação ao tentar cancelar a ação.');
+                        alert('Ocorreu um erro de comunicação ao tentar remover a ação.');
                         button.disabled = false;
                         button.textContent = 'Cancelar';
+                        button.classList.remove('opacity-50');
                     }
                 }
             }

@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const timelineSortDropdown = document.getElementById('timeline-sort-dropdown');
     const timelineSortOptions = document.querySelectorAll('.timeline-sort-option');
     let currentTimelinePage = 1; 
+    let currentTimelineLimit = 10; // Limite de 10 nomes por página
     let currentTimelineSearch = '';
     let currentTimelineStatusFilter = 'Todos'; // 'Todos', 'SemMetodo', 'MetodoVencido'
     let currentTimelineSort = 'nome_asc';
@@ -712,7 +713,8 @@ document.addEventListener('DOMContentLoaded', function () {
             page_timeline: currentTimelinePage,
             search_timeline: currentTimelineSearch,
             status_timeline: currentTimelineStatusFilter,
-            sort_by_timeline: currentTimelineSort
+            sort_by_timeline: currentTimelineSort,
+            limit: currentTimelineLimit // Adiciona o parâmetro de limite
         });
 
         fetch(`/api/timeline_adolescentes?${params.toString()}`)

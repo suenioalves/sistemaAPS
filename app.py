@@ -633,7 +633,7 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         page = int(request.args.get('page_timeline', 1))
-        limit = 5 # Limite de 5 por página
+        limit = int(request.args.get('limit', 10)) # Limite de 10 por página (padrão)
         offset = (page - 1) * limit
 
         where_clause, order_by_clause, query_params = build_timeline_query_filters(request.args)
@@ -1520,21 +1520,134 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Atualiza o status da ação para 'CANCELADA' apenas se ela estiver 'PENDENTE'
-        sql_update = """
-            UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
-            SET status_acao = 'CANCELADA'
-            WHERE cod_acompanhamento = %(cod_acompanhamento)s AND status_acao = 'PENDENTE';
-        """
-        cur.execute(sql_update, {'cod_acompanhamento': cod_acompanhamento})
-
-        # Verifica se alguma linha foi realmente atualizada
-        if cur.rowcount == 0:
+        # Primeiro, buscar informações da ação para identificar referências posteriores
+        cur.execute("""
+            SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_acompanhamento = %(cod_acompanhamento)s
+        """, {'cod_acompanhamento': cod_acompanhamento})
+        
+        acao_info = cur.fetchone()
+        if not acao_info:
             conn.rollback()
-            return jsonify({"sucesso": False, "erro": "Ação não encontrada ou já não está pendente."}), 404
+            return jsonify({"sucesso": False, "erro": "Ação não encontrada."}), 404
 
-        conn.commit()
-        return jsonify({"sucesso": True, "mensagem": "Ação cancelada com sucesso!"})
+        cod_cidadao, cod_acao, status_acao, cod_acao_origem = acao_info
+
+        # Se a ação não estiver pendente, não permitir cancelamento
+        if status_acao != 'PENDENTE':
+            conn.rollback()
+            return jsonify({"sucesso": False, "erro": "Apenas ações pendentes podem ser canceladas."}), 400
+
+        # Buscar todas as ações posteriores que referenciam esta ação
+        cur.execute("""
+            SELECT cod_acompanhamento, cod_acao, status_acao
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_acao_origem = %(cod_acompanhamento)s
+            ORDER BY cod_acompanhamento ASC
+        """, {'cod_acompanhamento': cod_acompanhamento})
+        
+        acoes_posteriores = cur.fetchall()
+
+        # Iniciar transação para remoção em cascata
+        try:
+            # 1. Remover dados relacionados à ação principal (se existirem)
+            # Remover dados de MRPA
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_mrpa
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Remover dados de tratamento
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_tratamento
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Remover dados de resultados de exames
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Remover dados de risco cardiovascular
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_risco_cv
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Remover dados de nutrição
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_nutricao
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # 2. Remover ações posteriores em cascata (recursivamente)
+            for acao_posterior in acoes_posteriores:
+                cod_acompanhamento_posterior = acao_posterior[0]
+                
+                # Remover dados relacionados à ação posterior
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_mrpa
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_tratamento
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_risco_cv
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_nutricao
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                # Remover a ação posterior
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+            # 3. Finalmente, remover a ação principal
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Verificar se alguma linha foi realmente removida
+            if cur.rowcount == 0:
+                conn.rollback()
+                return jsonify({"sucesso": False, "erro": "Ação não encontrada para remoção."}), 404
+
+            conn.commit()
+            
+            # Contar quantas ações foram removidas
+            total_removidas = 1 + len(acoes_posteriores)  # ação principal + ações posteriores
+            
+            mensagem = f"Ação e {len(acoes_posteriores)} ação(ões) posterior(es) removida(s) com sucesso!"
+            if len(acoes_posteriores) == 0:
+                mensagem = "Ação removida com sucesso!"
+            
+            return jsonify({
+                "sucesso": True, 
+                "mensagem": mensagem,
+                "acoes_removidas": total_removidas
+            })
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Erro durante a remoção em cascata: {e}")
+            return jsonify({"sucesso": False, "erro": f"Erro durante a remoção: {str(e)}"}), 500
 
     except Exception as e:
         if conn: conn.rollback()
