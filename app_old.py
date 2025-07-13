@@ -32,7 +32,7 @@ DB_HOST = "localhost"
 DB_PORT = "5433"
 DB_NAME = "esus"
 DB_USER = "postgres"
-DB_PASS = "EUC[x*x~Mc#S+H_Ui#xZBr0O~"
+DB_PASS = "uJLV}8ELrFLH{TaC*?-g{IVgx7l"
 
 def get_db_connection():
     conn = psycopg2.connect(
@@ -52,10 +52,7 @@ def build_filtered_query(args):
     metodos = args.getlist('metodo')
     faixas_etarias = args.getlist('faixa_etaria')
     status_list = args.getlist('status')
-    status_timeline = args.get('status_timeline', 'Todos')  # Novo filtro para as abas
     sort_by = args.get('sort_by', 'nome_asc')
-
-    print(f"DEBUG: status_timeline recebido: {status_timeline}")
 
     query_params = {}
     where_clauses = []
@@ -65,22 +62,9 @@ def build_filtered_query(args):
         where_clauses.append("m.nome_equipe = %(equipe)s")
         query_params['equipe'] = equipe
     
-    # Filtro de Microárea
-    microarea = args.get('microarea', 'Todas as áreas')
-    if microarea != 'Todas as áreas':
-        if ' - ' in microarea:
-            parts = microarea.split(' - ', 1)
-            micro_area_str = parts[0].replace('Área ', '').strip()
-        else:
-            micro_area_str = microarea.replace('Área ', '').strip()
-        
-        if micro_area_str:
-            where_clauses.append("m.microarea = %(microarea)s")
-            query_params['microarea'] = micro_area_str
-    
     # Filtro de Busca por Nome
     if search_term:
-        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)")
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)")
         query_params['search'] = f"%{search_term}%"
 
     # Filtro de Métodos Contraceptivos
@@ -97,38 +81,7 @@ def build_filtered_query(args):
         if age_conditions:
             where_clauses.append(f"({ ' OR '.join(age_conditions) })")
 
-    # Filtro de Status das Abas (status_timeline)
-    if status_timeline != 'Todos':
-        print(f"DEBUG: Aplicando filtro status_timeline: {status_timeline}")
-        if status_timeline == 'SemMetodo':
-            where_clauses.append("(m.metodo IS NULL OR m.metodo = '')")
-            print("DEBUG: Adicionado filtro SemMetodo")
-        elif status_timeline == 'Gestante':
-            where_clauses.append("m.status_gravidez = 'Grávida'")
-            print("DEBUG: Adicionado filtro Gestante")
-        elif status_timeline == 'MetodoVencido':
-            where_clauses.append("""
-                (
-                    (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days') )
-                    ))
-                )
-            """)
-            print("DEBUG: Adicionado filtro MetodoVencido")
-        elif status_timeline == 'MetodoEmDia':
-            where_clauses.append("""
-                (
-                    (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days') ) OR
-                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days') )
-                    )) OR
-                    ( m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%' )
-                ) AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida')
-            """)
-            print("DEBUG: Adicionado filtro MetodoEmDia")
-
-    # Filtro de Status de Acompanhamento (mantido para compatibilidade)
+    # Filtro de Status de Acompanhamento
     if status_list:
         status_conditions = []
         if 'sem_metodo' in status_list:
@@ -157,6 +110,7 @@ def build_filtered_query(args):
         if status_conditions:
              where_clauses.append(f"({ ' OR '.join(status_conditions) })")
 
+
     # Lógica de Ordenação
     sort_mapping = {
         'nome_asc': 'm.nome_paciente ASC',
@@ -179,9 +133,6 @@ def build_filtered_query(args):
     order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC')
 
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-    
-    print(f"DEBUG: where_clause_str final: {where_clause_str}")
-    print(f"DEBUG: query_params: {query_params}")
     
     return where_clause_str, order_by_clause, query_params
 
@@ -212,7 +163,7 @@ def api_pacientes_plafam():
         cur = conn.cursor()
 
         page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 10))  # Limite configurável, padrão 10
+        limit = 20
         offset = (page - 1) * limit
 
         where_clause, order_by_clause, query_params = build_filtered_query(request.args)
@@ -300,55 +251,6 @@ def api_pacientes_plafam():
         if conn:
             conn.close()
 
-@app.route('/api/update_acompanhamento', methods=['POST'])
-def update_acompanhamento():
-    data = request.get_json()
-    co_cidadao = data.get('co_cidadao')
-    status_str = data.get('status')
-
-    if not co_cidadao or status_str is None:
-        return jsonify({'sucesso': False, 'erro': 'Dados inválidos'}), 400
-
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        if status_str == '0':
-            sql_upsert = """
-                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
-                VALUES (%(co_cidadao)s, NULL, NULL)
-                ON CONFLICT (co_cidadao) DO UPDATE
-                SET status_acompanhamento = NULL,
-                    data_acompanhamento = NULL;
-            """
-            cur.execute(sql_upsert, {'co_cidadao': co_cidadao})
-        else:
-            sql_upsert = """
-                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
-                VALUES (%(co_cidadao)s, %(status)s, CURRENT_DATE)
-                ON CONFLICT (co_cidadao) DO UPDATE
-                SET status_acompanhamento = EXCLUDED.status_acompanhamento,
-                    data_acompanhamento = EXCLUDED.data_acompanhamento;
-            """
-            cur.execute(sql_upsert, {'status': int(status_str), 'co_cidadao': co_cidadao})
-        
-        conn.commit()
-        
-        return jsonify({'sucesso': True, 'mensagem': 'Acompanhamento atualizado com sucesso!'})
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"Erro ao atualizar acompanhamento: {e}")
-        return jsonify({'sucesso': False, 'erro': f"Erro no servidor: {e}"}), 500
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
 @app.route('/api/export_data')
 def api_export_data():
     conn = None
@@ -393,6 +295,55 @@ def api_export_data():
     except Exception as e:
         print(f"Erro na exportação: {e}")
         return jsonify({"erro": f"Erro no servidor durante a exportação: {e}"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/update_acompanhamento', methods=['POST'])
+def update_acompanhamento():
+    data = request.get_json()
+    co_cidadao = data.get('co_cidadao')
+    status_str = data.get('status')
+
+    if not co_cidadao or status_str is None:
+        return jsonify({'sucesso': False, 'erro': 'Dados inválidos'}), 400
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        if status_str == '0':
+            sql_upsert = """
+                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
+                VALUES (%(co_cidadao)s, NULL, NULL)
+                ON CONFLICT (co_cidadao) DO UPDATE
+                SET status_acompanhamento = NULL,
+                    data_acompanhamento = NULL;
+            """
+            cur.execute(sql_upsert, {'co_cidadao': co_cidadao})
+        else:
+            sql_upsert = """
+                INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
+                VALUES (%(co_cidadao)s, %(status)s, CURRENT_DATE)
+                ON CONFLICT (co_cidadao) DO UPDATE
+                SET status_acompanhamento = EXCLUDED.status_acompanhamento,
+                    data_acompanhamento = EXCLUDED.data_acompanhamento;
+            """
+            cur.execute(sql_upsert, {'status': int(status_str), 'co_cidadao': co_cidadao})
+        
+        conn.commit()
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Acompanhamento atualizado com sucesso!'})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar acompanhamento: {e}")
+        return jsonify({'sucesso': False, 'erro': f"Erro no servidor: {e}"}), 500
     finally:
         if cur:
             cur.close()
@@ -603,113 +554,6 @@ def api_estatisticas_painel_adolescentes():
         if cur: cur.close()
         if conn: conn.close()
 
-@app.route('/api/estatisticas_painel_plafam')
-def api_estatisticas_painel_plafam():
-    equipe_req = request.args.get('equipe', 'Todas')
-    microarea_req = request.args.get('microarea', 'Todas as áreas')
-
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        # --- Total de Mulheres (14-45 anos) ---
-        query_mulheres_base = "SELECT COUNT(DISTINCT m.cod_paciente) FROM sistemaaps.mv_plafam m "
-        
-        # Cláusulas e parâmetros base para filtros de idade, equipe E área/agente
-        base_where_clauses = ["m.idade_calculada BETWEEN 14 AND 45"]
-        base_params = []
-
-        if equipe_req != 'Todas':
-            base_where_clauses.append("m.nome_equipe = %s")
-            base_params.append(equipe_req)
-
-        if microarea_req != 'Todas as áreas':
-            if ' - ' in microarea_req:
-                parts = microarea_req.split(' - ', 1)
-                micro_area_str = parts[0].replace('Área ', '').strip()
-            else:
-                micro_area_str = microarea_req.replace('Área ', '').strip()
-            
-            if micro_area_str:
-                base_where_clauses.append("m.microarea = %s")
-                base_params.append(micro_area_str)
-
-        query_total_mulheres_final = query_mulheres_base + " WHERE " + " AND ".join(base_where_clauses)
-        cur.execute(query_total_mulheres_final, tuple(base_params))
-        total_mulheres = cur.fetchone()[0] or 0
-
-        # --- Mulheres (14-45) SEM MÉTODO ---
-        where_clauses_sem_metodo = list(base_where_clauses)
-        condicao_sem_metodo = "(m.metodo IS NULL OR m.metodo = '')"
-        where_clauses_sem_metodo.append(condicao_sem_metodo)
-        query_mulheres_sem_metodo_final = query_mulheres_base + " WHERE " + " AND ".join(where_clauses_sem_metodo)
-        cur.execute(query_mulheres_sem_metodo_final, tuple(base_params))
-        mulheres_sem_metodo_count = cur.fetchone()[0] or 0
-        
-        # --- Mulheres (14-45) GESTANTES ---
-        where_clauses_gestantes = list(base_where_clauses)
-        condicao_gestantes = "m.status_gravidez = 'Grávida'"
-        where_clauses_gestantes.append(condicao_gestantes)
-        query_mulheres_gestantes_final = query_mulheres_base + " WHERE " + " AND ".join(where_clauses_gestantes)
-        cur.execute(query_mulheres_gestantes_final, tuple(base_params))
-        mulheres_gestantes_count = cur.fetchone()[0] or 0
-
-        # --- Mulheres (14-45) COM MÉTODO EM DIA ---
-        where_clauses_metodo_em_dia = list(base_where_clauses)
-        condicao_metodo_em_dia = """
-        (
-            (m.metodo IS NOT NULL AND m.metodo != '') AND 
-            (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND 
-            (
-                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                )) OR
-                (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%') 
-            )
-        )
-        """
-        where_clauses_metodo_em_dia.append(condicao_metodo_em_dia)
-        query_mulheres_metodo_em_dia_final = query_mulheres_base + " WHERE " + " AND ".join(where_clauses_metodo_em_dia)
-        cur.execute(query_mulheres_metodo_em_dia_final, tuple(base_params))
-        mulheres_com_metodo_em_dia_count = cur.fetchone()[0] or 0
-
-        # --- Mulheres (14-45) COM MÉTODO ATRASADO ---
-        where_clauses_metodo_atrasado = list(base_where_clauses)
-        condicao_metodo_atrasado = """
-        (
-            (m.metodo IS NOT NULL AND m.metodo != '') AND 
-            (
-                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days'))
-                )) OR
-                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
-                ))
-            )
-        )
-        """
-        where_clauses_metodo_atrasado.append(condicao_metodo_atrasado)
-        query_mulheres_metodo_atrasado_final = query_mulheres_base + " WHERE " + " AND ".join(where_clauses_metodo_atrasado)
-        cur.execute(query_mulheres_metodo_atrasado_final, tuple(base_params))
-        mulheres_com_metodo_atrasado_count = cur.fetchone()[0] or 0
-
-        return jsonify({
-            "total_adolescentes": total_mulheres,  # Mantém o nome para compatibilidade com o frontend
-            "adolescentes_sem_metodo": mulheres_sem_metodo_count,
-            "adolescentes_com_metodo_atrasado": mulheres_com_metodo_atrasado_count,
-            "adolescentes_gestantes": mulheres_gestantes_count,
-            "adolescentes_metodo_em_dia": mulheres_com_metodo_em_dia_count
-        })
-    except Exception as e:
-        print(f"Erro ao buscar estatísticas do painel Plafam: {e}")
-        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
 def build_timeline_query_filters(args):
     equipe = args.get('equipe', 'Todas')
     agente_selecionado = args.get('agente_selecionado', 'Todas as áreas')
@@ -735,7 +579,7 @@ def build_timeline_query_filters(args):
         # Se não tiver ' - ', pode ser apenas a microárea, mas a lógica atual do JS envia com ' - ' ou 'Todas as áreas'
 
     if search_term:
-        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search_timeline)s)")
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search_timeline)s)")
         query_params['search_timeline'] = f"%{search_term}%"
 
     if status_timeline == 'SemMetodo':
@@ -1318,7 +1162,7 @@ def build_hiperdia_has_filters(args):
             query_params['microarea'] = micro_area_str
 
     if search_term:
-        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)") # Adicionado alias 'm.'
+        where_clauses.append("unaccent(m.nome_paciente) ILIKE unaccent(%(search)s)") # Adicionado alias 'm.'
         query_params['search'] = f"%{search_term}%"
 
 
@@ -1785,6 +1629,29 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
                 conn.rollback()
                 return jsonify({"sucesso": False, "erro": "Ação não encontrada para remoção."}), 404
 
+            # 4. Verificar se a ação anterior (cod_acao_origem) agora pode ser cancelada
+            acao_anterior_cancelavel = False
+            if cod_acao_origem:
+                # Verificar se a ação anterior existe e se não tem mais ações posteriores pendentes
+                cur.execute("""
+                    SELECT cod_acompanhamento, status_acao
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_acompanhamento = %(cod_acao_origem)s
+                """, {'cod_acao_origem': cod_acao_origem})
+                
+                acao_anterior = cur.fetchone()
+                if acao_anterior:
+                    # Verificar se não há mais ações posteriores pendentes para a ação anterior
+                    cur.execute("""
+                        SELECT COUNT(*)
+                        FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                        WHERE cod_acao_origem = %(cod_acao_origem)s
+                          AND status_acao = 'PENDENTE'
+                    """, {'cod_acao_origem': cod_acao_origem})
+                    
+                    count_posteriores_pendentes = cur.fetchone()[0] or 0
+                    acao_anterior_cancelavel = count_posteriores_pendentes == 0
+
             conn.commit()
             
             # Contar quantas ações foram removidas
@@ -1797,7 +1664,9 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
             return jsonify({
                 "sucesso": True, 
                 "mensagem": mensagem,
-                "acoes_removidas": total_removidas
+                "acoes_removidas": total_removidas,
+                "acao_anterior_cancelavel": acao_anterior_cancelavel,
+                "cod_acao_anterior": cod_acao_origem
             })
 
         except Exception as e:
@@ -1973,7 +1842,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             })
 
         elif int(cod_acao_atual) == 2: # Avaliar MRPA
-            print(f"[LOG] Processando Avaliar MRPA (cod_acao = 2)")
+            print(f"[LOG] Processando Avaliar MRPA (cod_acao = 2) - buscando ação pendente existente")
             
             # Verificar se há dados da avaliação do MRPA (aceitar ambas as chaves)
             mrpa_assessment_data = data.get('mrpa_assessment_data') or data.get('mrpa_results')
@@ -2014,18 +1883,32 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 })
                 print(f"[LOG] Ação pendente de Avaliar MRPA atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Solicitar MRPA) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 1
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Avaliar MRPA")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 2, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 2, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes_atuais,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Avaliar MRPA criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2154,18 +2037,32 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 })
                 print(f"[LOG] Ação pendente de Avaliar Exames atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Solicitar Exames) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 4
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Avaliar Exames")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 5, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 5, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes_atuais,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Avaliar Exames criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2310,24 +2207,38 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s;
                 ''', {
                     'data_realizacao': data_realizacao_acao,
-                    'observacoes': observacoes,
+                    'observacoes': observacoes_atuais,
                     'responsavel_pela_acao': responsavel_pela_acao,
                     'cod_acompanhamento': cod_acompanhamento_realizado
                 })
                 print(f"[LOG] Ação pendente de Solicitar Exames atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Avaliar MRPA) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 2
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Solicitar Exames")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
-                    'observacoes': observacoes,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'observacoes': observacoes_atuais,
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Solicitar Exames criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2661,18 +2572,32 @@ def api_registrar_acao_hiperdia():
                 })
                 print(f"[LOG] Ação pendente de Avaliar MRPA atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Solicitar MRPA) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 1
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Avaliar MRPA")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 2, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 2, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Avaliar MRPA criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2780,18 +2705,32 @@ def api_registrar_acao_hiperdia():
                 })
                 print(f"[LOG] Ação pendente de Solicitar Exames atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Avaliar MRPA) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 2
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Solicitar Exames")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 4, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Solicitar Exames criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2869,18 +2808,32 @@ def api_registrar_acao_hiperdia():
                 })
                 print(f"[LOG] Ação pendente de Avaliar Exames atualizada para REALIZADA")
             else:
+                # Se não existe ação pendente, buscar a ação anterior (Solicitar Exames) para referenciar
+                cur.execute('''
+                    SELECT cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s
+                        AND cod_acao = 4
+                        AND status_acao = 'REALIZADA'
+                    ORDER BY data_realizacao DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                acao_anterior = cur.fetchone()
+                cod_acao_origem = acao_anterior[0] if acao_anterior else None
+                
                 # Se não existe ação pendente, criar uma nova ação realizada
                 print(f"[LOG] Criando nova ação de Avaliar Exames")
                 cur.execute('''
                     INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, 5, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%(cod_cidadao)s, 5, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                     RETURNING cod_acompanhamento;
                 ''', {
                     'cod_cidadao': cod_cidadao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes,
-                    'responsavel_pela_acao': responsavel_pela_acao
+                    'responsavel_pela_acao': responsavel_pela_acao,
+                    'cod_acao_origem': cod_acao_origem
                 })
                 cod_acompanhamento_realizado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação de Avaliar Exames criada - cod_acompanhamento: {cod_acompanhamento_realizado}")
@@ -2965,13 +2918,43 @@ def api_registrar_acao_hiperdia():
             })
             cod_acompanhamento_criado = cur.fetchone()[0]
             print(f"[LOG] Ação 'Solicitar MRPA' criada como REALIZADA - cod_acompanhamento: {cod_acompanhamento_criado}")
+            
+            # 3. Criar automaticamente "Avaliar MRPA" (cod_acao = 2) como PENDENTE para 7 dias
+            print(f"[LOG] Criando ação 'Avaliar MRPA' automaticamente para 7 dias")
+            cod_proxima_acao_pendente = 2 # Avaliar MRPA
+            data_agendamento_proxima = data_realizacao_acao + timedelta(days=7) # 7 dias
+            sql_insert_pendente = '''
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Avaliação do MRPA após 7 dias de monitorização.', %(responsavel_pela_acao)s);
+            '''
+            cur.execute(sql_insert_pendente, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao': cod_proxima_acao_pendente,
+                'data_agendamento': data_agendamento_proxima,
+                'cod_acao_origem': cod_acompanhamento_criado,
+                'responsavel_pela_acao': responsavel_pela_acao
+            })
+            print(f"[LOG] Ação futura 'Avaliar MRPA' criada automaticamente para 7 dias")
 
         else:
             # Criar nova ação para outras ações
+            # Buscar a ação anterior mais recente para referenciar
+            cur.execute('''
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_cidadao = %(cod_cidadao)s
+                    AND status_acao = 'REALIZADA'
+                ORDER BY data_realizacao DESC
+                LIMIT 1;
+            ''', {'cod_cidadao': cod_cidadao})
+            acao_anterior = cur.fetchone()
+            cod_acao_origem = acao_anterior[0] if acao_anterior else None
+            
             sql_insert_acompanhamento = """
                 INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao, cod_acao_origem)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
                 RETURNING cod_acompanhamento;
             """
             print(f"[LOG] Executando INSERT na tabela tb_hiperdia_has_acompanhamento")
@@ -2981,7 +2964,8 @@ def api_registrar_acao_hiperdia():
                 'status_acao': status_acao,
                 'data_realizacao': data_realizacao_acao,
                 'observacoes': observacoes,
-                'responsavel_pela_acao': responsavel_pela_acao
+                'responsavel_pela_acao': responsavel_pela_acao,
+                'cod_acao_origem': cod_acao_origem
             })
             cod_acompanhamento_criado = cur.fetchone()[0]
             print(f"[LOG] Nova ação criada - cod_acompanhamento: {cod_acompanhamento_criado}")
@@ -2997,260 +2981,6 @@ def api_registrar_acao_hiperdia():
         if conn: conn.rollback()
         print(f"[LOG] ERRO ao registrar ação do Hiperdia: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
-@app.route('/api/graficos_painel_plafam')
-def api_graficos_painel_plafam():
-    equipe_req = request.args.get('equipe', 'Todas')
-    # Não há filtro de idade aqui!
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-        # --- Gráfico de Pizza (Distribuição da Equipe) ---
-        base_where_pizza = []
-        params_pizza = {}
-        if equipe_req != 'Todas':
-            base_where_pizza.append("m.nome_equipe = %(equipe)s")
-            params_pizza['equipe'] = equipe_req
-        where_clause_pizza_str = " WHERE " + " AND ".join(base_where_pizza) if base_where_pizza else ""
-
-        query_pizza_status = f"""
-            SELECT 
-                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
-                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
-                SUM(CASE WHEN 
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
-                            ))
-                        )
-                    THEN 1 ELSE 0 END) as metodo_atraso,
-                SUM(CASE WHEN
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                            )) OR
-                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
-                        )
-                    THEN 1 ELSE 0 END) as metodo_em_dia
-            FROM sistemaaps.mv_plafam m
-            {where_clause_pizza_str};
-        """
-        cur.execute(query_pizza_status, params_pizza)
-        dados_pizza = cur.fetchone()
-
-        # --- Gráfico de Barras (Distribuição por Micro-área ou Equipe) ---
-        dados_barras_db = []
-        if equipe_req != 'Todas':
-            base_where_barras_agente = ["m.nome_equipe = %(equipe)s"]
-            params_barras_agente = {'equipe': equipe_req}
-            where_clause_barras_agente_str = " WHERE " + " AND ".join(base_where_barras_agente)
-            query_barras_status_por_agente = f"""
-            SELECT 
-                m.microarea, ag.nome_agente,
-                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
-                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
-                SUM(CASE WHEN 
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
-                            ))
-                        )
-                    THEN 1 ELSE 0 END) as metodo_atraso,
-                SUM(CASE WHEN
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                            )) OR
-                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
-                        )
-                    THEN 1 ELSE 0 END) as metodo_em_dia
-            FROM sistemaaps.mv_plafam m
-            LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
-            {where_clause_barras_agente_str}
-            GROUP BY m.microarea, ag.nome_agente
-            ORDER BY m.microarea, ag.nome_agente;
-            """
-            cur.execute(query_barras_status_por_agente, params_barras_agente)
-            dados_barras_db = cur.fetchall()
-        else:
-            query_barras_status_por_equipe = f"""
-            SELECT 
-                m.nome_equipe,
-                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
-                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
-                SUM(CASE WHEN 
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
-                            ))
-                        )
-                    THEN 1 ELSE 0 END) as metodo_atraso,
-                SUM(CASE WHEN
-                        (m.metodo IS NOT NULL AND m.metodo != '') AND
-                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
-                        (
-                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                            )) OR
-                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
-                        )
-                    THEN 1 ELSE 0 END) as metodo_em_dia
-            FROM sistemaaps.mv_plafam m
-            WHERE m.nome_equipe IS NOT NULL
-            GROUP BY m.nome_equipe
-            ORDER BY m.nome_equipe;
-            """
-            cur.execute(query_barras_status_por_equipe)
-            dados_barras_db = cur.fetchall()
-        dados_barras = []
-        if dados_barras_db:
-            for row in dados_barras_db:
-                dados_barras.append(dict(row))
-        return jsonify({
-            "pizza_data": dict(dados_pizza) if dados_pizza else {},
-            "bar_chart_data": dados_barras
-        })
-    except Exception as e:
-        print(f"Erro ao buscar dados para gráficos do painel plafam: {e}")
-        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
-@app.route('/api/indicadores_plafam')
-def api_indicadores_plafam():
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        # 1. Mulheres de 19 a 45 anos em uso de métodos seguros
-        query_mulheres_metodo_seguro = """
-            SELECT COUNT(DISTINCT m.cod_paciente)
-            FROM sistemaaps.mv_plafam m
-            WHERE m.idade_calculada BETWEEN 19 AND 45
-              AND (
-                m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%' OR
-                m.metodo ILIKE '%injet%' OR m.metodo ILIKE '%pílula%' OR m.metodo ILIKE '%oral%'
-              )
-              AND (
-                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                    ((m.metodo ILIKE '%mensal%' OR m.metodo ILIKE '%pílula%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                    (m.metodo ILIKE '%trimestral%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                ))
-                OR (m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%')
-              )
-        """
-        cur.execute(query_mulheres_metodo_seguro)
-        mulheres_19_45_metodo_seguro = cur.fetchone()[0] or 0
-
-        # 2. Adolescentes de 14 a 18 anos em uso regular de métodos
-        query_adolescentes_metodo_regular = """
-            SELECT COUNT(DISTINCT m.cod_paciente)
-            FROM sistemaaps.mv_plafam m
-            WHERE m.idade_calculada BETWEEN 14 AND 18
-              AND m.metodo IS NOT NULL AND m.metodo != ''
-              AND (
-                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                    ((m.metodo ILIKE '%mensal%' OR m.metodo ILIKE '%pílula%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
-                    (m.metodo ILIKE '%trimestral%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
-                ))
-                OR (m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%')
-              )
-        """
-        cur.execute(query_adolescentes_metodo_regular)
-        adolescentes_14_18_metodo_regular = cur.fetchone()[0] or 0
-
-        # 3. Número de gestantes adolescentes (14 a 18 anos)
-        query_gestantes_adolescentes = """
-            SELECT COUNT(DISTINCT m.cod_paciente)
-            FROM sistemaaps.mv_plafam m
-            WHERE m.idade_calculada BETWEEN 14 AND 18
-              AND m.status_gravidez = 'Grávida'
-        """
-        cur.execute(query_gestantes_adolescentes)
-        gestantes_adolescentes_14_18 = cur.fetchone()[0] or 0
-
-        return jsonify({
-            'mulheres_19_45_metodo_seguro': mulheres_19_45_metodo_seguro,
-            'adolescentes_14_18_metodo_regular': adolescentes_14_18_metodo_regular,
-            'gestantes_adolescentes_14_18': gestantes_adolescentes_14_18
-        })
-    except Exception as e:
-        print(f"Erro ao buscar indicadores do plafam: {e}")
-        return jsonify({'erro': f'Erro no servidor: {e}'}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
-@app.route('/api/equipes_com_agentes_plafam')
-def api_equipes_com_agentes_plafam():
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Pega todas as equipes distintas de mv_plafam ou tb_agentes
-        cur.execute('''
-            SELECT DISTINCT nome_equipe 
-            FROM (
-                SELECT nome_equipe FROM sistemaaps.mv_plafam
-                UNION
-                SELECT nome_equipe FROM sistemaaps.tb_agentes
-            ) AS equipes_unidas
-            WHERE nome_equipe IS NOT NULL 
-            ORDER BY nome_equipe
-        ''')
-        equipes_db = cur.fetchall()
-        resultado_final = []
-        for eq_row in equipes_db:
-            equipe_nome = eq_row['nome_equipe']
-            # Contar mulheres 14-45 anos para a equipe atual
-            cur.execute('''
-                SELECT COUNT(DISTINCT m.cod_paciente)
-                FROM sistemaaps.mv_plafam m
-                WHERE m.nome_equipe = %s AND m.idade_calculada BETWEEN 14 AND 45
-            ''', (equipe_nome,))
-            num_mulheres = cur.fetchone()[0] or 0
-            cur.execute('''
-                SELECT micro_area, nome_agente 
-                FROM sistemaaps.tb_agentes 
-                WHERE nome_equipe = %s 
-                ORDER BY micro_area, nome_agente
-            ''', (equipe_nome,))
-            agentes_db = cur.fetchall()
-            agentes = []
-            if agentes_db:
-                agentes = [{"micro_area": ag['micro_area'], "nome_agente": ag['nome_agente']} for ag in agentes_db]
-            resultado_final.append({"nome_equipe": equipe_nome, "agentes": agentes, "num_mulheres": num_mulheres})
-        resultado_final_ordenado = sorted(resultado_final, key=lambda x: x.get('num_mulheres', 0), reverse=True)
-        return jsonify(resultado_final_ordenado)
-    except Exception as e:
-        print(f"Erro ao buscar equipes com agentes plafam: {e}")
-        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

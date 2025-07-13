@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Abas</title>
+    <style>
+        .timeline-status-tab-btn {
+            padding: 8px 16px;
+            margin: 0 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .active {
+            font-weight: bold;
+            border-bottom: 2px solid;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste das Abas</h1>
+    
+    <div class="flex space-x-2 border-b border-gray-200 mb-6">
+        <button id="timeline-filter-todos" 
+                class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                data-status-filter="Todos"
+                data-active-bg="bg-primary"
+                data-active-text="text-white"
+                data-active-border="border-primary"
+                data-inactive-bg="bg-transparent"
+                data-inactive-text="text-gray-500 hover:text-gray-700"
+                data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
+        <button id="timeline-filter-metodo-em-dia" 
+                class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                data-status-filter="MetodoEmDia"
+                data-active-bg="bg-green-500"
+                data-active-text="text-white"
+                data-active-border="border-green-500"
+                data-inactive-bg="bg-transparent"
+                data-inactive-text="text-gray-500 hover:text-green-700"
+                data-inactive-border="border-transparent hover:border-green-300">Método em dia</button>
+        <button id="timeline-filter-metodo-vencido" 
+                class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                data-status-filter="MetodoVencido"
+                data-active-bg="bg-red-500"
+                data-active-text="text-white"
+                data-active-border="border-red-500"
+                data-inactive-bg="bg-transparent"
+                data-inactive-text="text-gray-500 hover:text-red-700"
+                data-inactive-border="border-transparent hover:border-red-300">Método Vencido</button>
+        <button id="timeline-filter-sem-metodo" 
+                class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                data-status-filter="SemMetodo"
+                data-active-bg="bg-yellow-400"
+                data-active-text="text-yellow-800"
+                data-active-border="border-yellow-400"
+                data-inactive-bg="bg-transparent"
+                data-inactive-text="text-gray-500 hover:text-yellow-600"
+                data-inactive-border="border-transparent hover:border-yellow-300">Sem método</button>
+        <button id="timeline-filter-gestante" 
+                class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                data-status-filter="Gestante"
+                data-active-bg="bg-pink-500"
+                data-active-text="text-white"
+                data-active-border="border-pink-500"
+                data-inactive-bg="bg-transparent"
+                data-inactive-text="text-gray-500 hover:text-pink-700"
+                data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
+    </div>
+    
+    <div id="status-display">Filtro atual: Todos</div>
+    
+    <script>
+        let currentStatusFilter = 'Todos';
+        
+        function setupStatusFilterTabs() {
+            console.log('setupStatusFilterTabs chamada');
+            const statusFilterButtons = document.querySelectorAll('.timeline-status-tab-btn');
+            console.log('Botões de filtro encontrados:', statusFilterButtons.length);
+            
+            statusFilterButtons.forEach((btn, index) => {
+                console.log(`Configurando botão ${index}:`, btn.textContent, btn.getAttribute('data-status-filter'));
+                btn.addEventListener('click', function() {
+                    console.log('Clique no botão:', this.textContent, 'status:', this.getAttribute('data-status-filter'));
+                    
+                    // Remove active state from all buttons
+                    statusFilterButtons.forEach(b => {
+                        b.classList.remove('border-b-2', 'font-bold');
+                        const activeBg = b.getAttribute('data-active-bg');
+                        const activeText = b.getAttribute('data-active-text');
+                        const activeBorder = b.getAttribute('data-active-border');
+                        const inactiveBg = b.getAttribute('data-inactive-bg');
+                        const inactiveText = b.getAttribute('data-inactive-text');
+                        const inactiveBorder = b.getAttribute('data-inactive-border');
+                        
+                        b.classList.remove(activeBg, activeText, activeBorder);
+                        b.classList.add(inactiveBg, inactiveText, inactiveBorder);
+                    });
+                    
+                    // Add active state to clicked button
+                    this.classList.add('border-b-2', 'font-bold');
+                    const activeBg = this.getAttribute('data-active-bg');
+                    const activeText = this.getAttribute('data-active-text');
+                    const activeBorder = this.getAttribute('data-active-border');
+                    
+                    this.classList.remove(this.getAttribute('data-inactive-bg'), 
+                                       this.getAttribute('data-inactive-text'), 
+                                       this.getAttribute('data-inactive-border'));
+                    this.classList.add(activeBg, activeText, activeBorder);
+                    
+                    // Update current filter and refresh data
+                    currentStatusFilter = this.getAttribute('data-status-filter');
+                    console.log('Filtro atualizado para:', currentStatusFilter);
+                    document.getElementById('status-display').textContent = 'Filtro atual: ' + currentStatusFilter;
+                });
+            });
+            
+            // Set initial active state
+            const todosButton = document.getElementById('timeline-filter-todos');
+            if (todosButton) {
+                console.log('Configurando estado inicial do botão Todos');
+                todosButton.classList.add('border-b-2', 'font-bold');
+                const activeBg = todosButton.getAttribute('data-active-bg');
+                const activeText = todosButton.getAttribute('data-active-text');
+                const activeBorder = todosButton.getAttribute('data-active-border');
+                todosButton.classList.add(activeBg, activeText, activeBorder);
+            } else {
+                console.error('Botão "Todos" não encontrado');
+            }
+        }
+        
+        // Inicializar quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado, configurando abas...');
+            setupStatusFilterTabs();
+        });
+    </script>
+</body>
+</html> 
