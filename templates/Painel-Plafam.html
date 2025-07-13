@@ -293,6 +293,128 @@
             </div>
         </div>
 
+        <!-- Painel de Controle (Cards) - igual ao painel de adolescentes -->
+        <div class="bg-white rounded shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-1">
+                    <div class="flex items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Painel de Controle</h2>
+                        <span id="nomeEquipeSelecionadaDisplay" class="ml-3 text-sm border-2 border-primary rounded-md px-2 py-0.5 text-primary font-medium">Todas as Equipes</span>
+                    </div>
+                    <!-- Menus suspensos de equipe e microárea -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Equipe</label>
+                        <div class="relative">
+                            <button id="equipeButton" class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                <span id="equipeButtonText">Todas as equipes</span>
+                                <div class="w-4 h-4 flex items-center justify-center">
+                                    <i class="ri-arrow-down-s-line"></i>
+                                </div>
+                            </button>
+                            <div id="equipeDropdown" class="dropdown-menu absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto hidden">
+                                <div id="equipeDropdownContent" class="p-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Área - Agente:</label>
+                        <div class="relative">
+                            <button id="microareaButton" class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                <span id="microareaButtonText">Todas as áreas</span>
+                                <div class="w-4 h-4 flex items-center justify-center">
+                                    <i class="ri-arrow-down-s-line"></i>
+                                </div>
+                            </button>
+                            <div id="microareaDropdown" class="dropdown-menu absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto hidden">
+                                <div id="microareaDropdownContent" class="p-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-2 grid md:grid-cols-2 gap-6">
+                    <div class="bg-indigo-50 rounded p-4 text-center flex flex-col justify-center items-center h-full">
+                        <p id="labelEquipeCardTotalAdolescentes" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
+                        <p class="text-lg font-semibold text-gray-700 mb-2">Total de Mulheres (14-45 anos)</p>
+                        <p id="totalAdolescentesValor" class="text-4xl font-bold text-primary">0</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-green-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoDia" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-green-700 mb-1">Método em Dia</p>
+                            <p id="adolescentesMetodoDiaValor" class="text-2xl font-bold text-green-700">0</p>
+                        </div>
+                        <div class="bg-red-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoAtrasado" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-red-700 mb-1">Método em Atraso</p>
+                            <p id="adolescentesMetodoAtrasadoValor" class="text-2xl font-bold text-red-700">0</p>
+                        </div>
+                        <div class="bg-yellow-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardSemMetodo" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-yellow-700 mb-1">Sem Método</p>
+                            <p id="adolescentesSemMetodoValor" class="text-2xl font-bold text-yellow-700">0</p>
+                        </div>
+                        <div class="bg-pink-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardGestantes" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-pink-700 mb-1">Gestantes</p>
+                            <p id="adolescentesGestantesValor" class="text-2xl font-bold text-pink-700">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Remover as abas por equipe -->
+        <!-- <div id="team-tabs-container" ...> ... </div> -->
+
+        <!-- Inserir as abas de status igual ao painel de adolescentes -->
+        <div class="flex space-x-2 border-b border-gray-200 mb-6">
+            <button id="timeline-filter-todos" 
+                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                    data-status-filter="Todos"
+                    data-active-bg="bg-primary"
+                    data-active-text="text-white"
+                    data-active-border="border-primary"
+                    data-inactive-bg="bg-transparent"
+                    data-inactive-text="text-gray-500 hover:text-gray-700"
+                    data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
+            <button id="timeline-filter-metodo-em-dia" 
+                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                    data-status-filter="MetodoEmDia"
+                    data-active-bg="bg-green-500"
+                    data-active-text="text-white"
+                    data-active-border="border-green-500"
+                    data-inactive-bg="bg-transparent"
+                    data-inactive-text="text-gray-500 hover:text-green-700"
+                    data-inactive-border="border-transparent hover:border-green-300">Método em dia</button>
+            <button id="timeline-filter-metodo-vencido" 
+                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                    data-status-filter="MetodoVencido"
+                    data-active-bg="bg-red-500"
+                    data-active-text="text-white"
+                    data-active-border="border-red-500"
+                    data-inactive-bg="bg-transparent"
+                    data-inactive-text="text-gray-500 hover:text-red-700"
+                    data-inactive-border="border-transparent hover:border-red-300">Método Vencido</button>
+            <button id="timeline-filter-sem-metodo" 
+                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                    data-status-filter="SemMetodo"
+                    data-active-bg="bg-yellow-400"
+                    data-active-text="text-yellow-800"
+                    data-active-border="border-yellow-400"
+                    data-inactive-bg="bg-transparent"
+                    data-inactive-text="text-gray-500 hover:text-yellow-600"
+                    data-inactive-border="border-transparent hover:border-yellow-300">Sem método</button>
+            <button id="timeline-filter-gestante" 
+                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                    data-status-filter="Gestante"
+                    data-active-bg="bg-pink-500"
+                    data-active-text="text-white"
+                    data-active-border="border-pink-500"
+                    data-inactive-bg="bg-transparent"
+                    data-inactive-text="text-gray-500 hover:text-pink-700"
+                    data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
+        </div>
+
         <div class="bg-white rounded shadow-sm overflow-hidden mb-6">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y-200">
@@ -317,6 +439,94 @@
              <div id="pagination-info" class="text-sm text-gray-700"></div>
              <div id="pagination-container" class="pagination-container"></div>
         </div>
+
+        <!-- Gráficos do Painel Plafam -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 mb-8" id="graficos-plafam-container">
+            <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição da Equipe</h2>
+                <canvas id="grafico-pizza-plafam" width="350" height="350"></canvas>
+                <div class="flex flex-wrap justify-center gap-4 mt-4">
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ec4899"></span> <span class="text-sm">Grávidas</span></div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#facc15"></span> <span class="text-sm">Sem Método</span></div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#f87171"></span> <span class="text-sm">Método em Atraso</span></div>
+                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#22c55e"></span> <span class="text-sm">Método em Dia</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição por Micro-área</h2>
+                <canvas id="grafico-barras-plafam" width="500" height="350"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+        function corStatusPlafam(idx) {
+            // 0: grávidas, 1: sem método, 2: método em atraso, 3: método em dia
+            return ['#ec4899', '#facc15', '#f87171', '#22c55e'][idx];
+        }
+
+        function carregarGraficosPlafam(equipeSelecionada = 'Todas') {
+            fetch(`/api/graficos_painel_plafam?equipe=${encodeURIComponent(equipeSelecionada)}`)
+                .then(r => r.json())
+                .then(dados => {
+                    // Pizza
+                    const pizza = dados.pizza_data || {};
+                    const pizzaLabels = ['Grávidas', 'Sem Método', 'Método em Atraso', 'Método em Dia'];
+                    const pizzaData = [pizza.gestantes||0, pizza.sem_metodo||0, pizza.metodo_atraso||0, pizza.metodo_em_dia||0];
+                    if(window.graficoPizzaPlafam) window.graficoPizzaPlafam.destroy();
+                    window.graficoPizzaPlafam = new Chart(document.getElementById('grafico-pizza-plafam'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: pizzaLabels,
+                            datasets: [{ data: pizzaData, backgroundColor: pizzaLabels.map((_,i)=>corStatusPlafam(i)) }]
+                        },
+                        options: { cutout: '70%', plugins: { legend: { display: false } } }
+                    });
+                    // Barras
+                    const barras = dados.bar_chart_data || [];
+                    let labels = [];
+                    let datasets = [[],[],[],[]];
+                    if(barras.length && barras[0].microarea !== undefined) {
+                        labels = barras.map(x => x.microarea + (x.nome_agente ? ' - ' + x.nome_agente : ''));
+                        barras.forEach((x,i)=>{
+                            datasets[0].push(x.gestantes||0);
+                            datasets[1].push(x.sem_metodo||0);
+                            datasets[2].push(x.metodo_atraso||0);
+                            datasets[3].push(x.metodo_em_dia||0);
+                        });
+                    } else if(barras.length && barras[0].nome_equipe !== undefined) {
+                        labels = barras.map(x => x.nome_equipe);
+                        barras.forEach((x,i)=>{
+                            datasets[0].push(x.gestantes||0);
+                            datasets[1].push(x.sem_metodo||0);
+                            datasets[2].push(x.metodo_atraso||0);
+                            datasets[3].push(x.metodo_em_dia||0);
+                        });
+                    }
+                    if(window.graficoBarrasPlafam) window.graficoBarrasPlafam.destroy();
+                    window.graficoBarrasPlafam = new Chart(document.getElementById('grafico-barras-plafam'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Grávidas', data: datasets[0], backgroundColor: corStatusPlafam(0) },
+                                { label: 'Sem Método', data: datasets[1], backgroundColor: corStatusPlafam(1) },
+                                { label: 'Método em Atraso', data: datasets[2], backgroundColor: corStatusPlafam(2) },
+                                { label: 'Método em Dia', data: datasets[3], backgroundColor: corStatusPlafam(3) },
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: true } },
+                            scales: { x: { stacked: true }, y: { stacked: true } }
+                        }
+                    });
+                });
+        }
+        // Chamar ao carregar a página
+        carregarGraficosPlafam();
+        </script>
     </main>
     
     <!-- Bibliotecas JS -->

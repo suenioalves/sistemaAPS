@@ -32,7 +32,7 @@ DB_HOST = "localhost"
 DB_PORT = "5433"
 DB_NAME = "esus"
 DB_USER = "postgres"
-DB_PASS = "uJLV}8ELrFLH{TaC*?-g{IVgx7l"
+DB_PASS = "EUC[x*x~Mc#S+H_Ui#xZBr0O~"
 
 def get_db_connection():
     conn = psycopg2.connect(
@@ -2841,6 +2841,260 @@ def api_registrar_acao_hiperdia():
         if conn: conn.rollback()
         print(f"[LOG] ERRO ao registrar ação do Hiperdia: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/graficos_painel_plafam')
+def api_graficos_painel_plafam():
+    equipe_req = request.args.get('equipe', 'Todas')
+    # Não há filtro de idade aqui!
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # --- Gráfico de Pizza (Distribuição da Equipe) ---
+        base_where_pizza = []
+        params_pizza = {}
+        if equipe_req != 'Todas':
+            base_where_pizza.append("m.nome_equipe = %(equipe)s")
+            params_pizza['equipe'] = equipe_req
+        where_clause_pizza_str = " WHERE " + " AND ".join(base_where_pizza) if base_where_pizza else ""
+
+        query_pizza_status = f"""
+            SELECT 
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            {where_clause_pizza_str};
+        """
+        cur.execute(query_pizza_status, params_pizza)
+        dados_pizza = cur.fetchone()
+
+        # --- Gráfico de Barras (Distribuição por Micro-área ou Equipe) ---
+        dados_barras_db = []
+        if equipe_req != 'Todas':
+            base_where_barras_agente = ["m.nome_equipe = %(equipe)s"]
+            params_barras_agente = {'equipe': equipe_req}
+            where_clause_barras_agente_str = " WHERE " + " AND ".join(base_where_barras_agente)
+            query_barras_status_por_agente = f"""
+            SELECT 
+                m.microarea, ag.nome_agente,
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+            {where_clause_barras_agente_str}
+            GROUP BY m.microarea, ag.nome_agente
+            ORDER BY m.microarea, ag.nome_agente;
+            """
+            cur.execute(query_barras_status_por_agente, params_barras_agente)
+            dados_barras_db = cur.fetchall()
+        else:
+            query_barras_status_por_equipe = f"""
+            SELECT 
+                m.nome_equipe,
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            WHERE m.nome_equipe IS NOT NULL
+            GROUP BY m.nome_equipe
+            ORDER BY m.nome_equipe;
+            """
+            cur.execute(query_barras_status_por_equipe)
+            dados_barras_db = cur.fetchall()
+        dados_barras = []
+        if dados_barras_db:
+            for row in dados_barras_db:
+                dados_barras.append(dict(row))
+        return jsonify({
+            "pizza_data": dict(dados_pizza) if dados_pizza else {},
+            "bar_chart_data": dados_barras
+        })
+    except Exception as e:
+        print(f"Erro ao buscar dados para gráficos do painel plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/indicadores_plafam')
+def api_indicadores_plafam():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # 1. Mulheres de 19 a 45 anos em uso de métodos seguros
+        query_mulheres_metodo_seguro = """
+            SELECT COUNT(DISTINCT m.cod_paciente)
+            FROM sistemaaps.mv_plafam m
+            WHERE m.idade_calculada BETWEEN 19 AND 45
+              AND (
+                m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%' OR
+                m.metodo ILIKE '%injet%' OR m.metodo ILIKE '%pílula%' OR m.metodo ILIKE '%oral%'
+              )
+              AND (
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    ((m.metodo ILIKE '%mensal%' OR m.metodo ILIKE '%pílula%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%trimestral%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                ))
+                OR (m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%')
+              )
+        """
+        cur.execute(query_mulheres_metodo_seguro)
+        mulheres_19_45_metodo_seguro = cur.fetchone()[0] or 0
+
+        # 2. Adolescentes de 14 a 18 anos em uso regular de métodos
+        query_adolescentes_metodo_regular = """
+            SELECT COUNT(DISTINCT m.cod_paciente)
+            FROM sistemaaps.mv_plafam m
+            WHERE m.idade_calculada BETWEEN 14 AND 18
+              AND m.metodo IS NOT NULL AND m.metodo != ''
+              AND (
+                (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                    ((m.metodo ILIKE '%mensal%' OR m.metodo ILIKE '%pílula%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%trimestral%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                ))
+                OR (m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%')
+              )
+        """
+        cur.execute(query_adolescentes_metodo_regular)
+        adolescentes_14_18_metodo_regular = cur.fetchone()[0] or 0
+
+        # 3. Número de gestantes adolescentes (14 a 18 anos)
+        query_gestantes_adolescentes = """
+            SELECT COUNT(DISTINCT m.cod_paciente)
+            FROM sistemaaps.mv_plafam m
+            WHERE m.idade_calculada BETWEEN 14 AND 18
+              AND m.status_gravidez = 'Grávida'
+        """
+        cur.execute(query_gestantes_adolescentes)
+        gestantes_adolescentes_14_18 = cur.fetchone()[0] or 0
+
+        return jsonify({
+            'mulheres_19_45_metodo_seguro': mulheres_19_45_metodo_seguro,
+            'adolescentes_14_18_metodo_regular': adolescentes_14_18_metodo_regular,
+            'gestantes_adolescentes_14_18': gestantes_adolescentes_14_18
+        })
+    except Exception as e:
+        print(f"Erro ao buscar indicadores do plafam: {e}")
+        return jsonify({'erro': f'Erro no servidor: {e}'}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/equipes_com_agentes_plafam')
+def api_equipes_com_agentes_plafam():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Pega todas as equipes distintas de mv_plafam ou tb_agentes
+        cur.execute('''
+            SELECT DISTINCT nome_equipe 
+            FROM (
+                SELECT nome_equipe FROM sistemaaps.mv_plafam
+                UNION
+                SELECT nome_equipe FROM sistemaaps.tb_agentes
+            ) AS equipes_unidas
+            WHERE nome_equipe IS NOT NULL 
+            ORDER BY nome_equipe
+        ''')
+        equipes_db = cur.fetchall()
+        resultado_final = []
+        for eq_row in equipes_db:
+            equipe_nome = eq_row['nome_equipe']
+            # Contar mulheres 14-45 anos para a equipe atual
+            cur.execute('''
+                SELECT COUNT(DISTINCT m.cod_paciente)
+                FROM sistemaaps.mv_plafam m
+                WHERE m.nome_equipe = %s AND m.idade_calculada BETWEEN 14 AND 45
+            ''', (equipe_nome,))
+            num_mulheres = cur.fetchone()[0] or 0
+            cur.execute('''
+                SELECT micro_area, nome_agente 
+                FROM sistemaaps.tb_agentes 
+                WHERE nome_equipe = %s 
+                ORDER BY micro_area, nome_agente
+            ''', (equipe_nome,))
+            agentes_db = cur.fetchall()
+            agentes = []
+            if agentes_db:
+                agentes = [{"micro_area": ag['micro_area'], "nome_agente": ag['nome_agente']} for ag in agentes_db]
+            resultado_final.append({"nome_equipe": equipe_nome, "agentes": agentes, "num_mulheres": num_mulheres})
+        resultado_final_ordenado = sorted(resultado_final, key=lambda x: x.get('num_mulheres', 0), reverse=True)
+        return jsonify(resultado_final_ordenado)
+    except Exception as e:
+        print(f"Erro ao buscar equipes com agentes plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

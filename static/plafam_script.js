@@ -81,67 +81,48 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function fetchEquipes() {
-        fetch('/api/equipes')
-            .then(response => response.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const equipes = data;
-                    const tabsHtml = `
-                        <div class="flex items-center space-x-1 overflow-x-auto pb-2 flex-grow scrollbar-hide" style="scroll-snap-type: x mandatory;">
-                            <button class="team-tab px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap" data-equipe="Todas" style="scroll-snap-align: start;">Todas as Equipes</button>
-                            ${equipes.map(equipe => `
-                                <button class="team-tab px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 whitespace-nowrap" data-equipe="${equipe}" style="scroll-snap-align: start;">${equipe}</button>
-                            `).join('')}
-                        </div>
-                    `;
-                    teamTabsContainer.innerHTML = tabsHtml;
-                    setActiveTab('Todas');
-                    document.querySelectorAll('.team-tab').forEach(tab => {
-                        tab.addEventListener('click', () => {
-                            activeTeam = tab.dataset.equipe;
-                            currentPage = 1;
-                            currentSearchTerm = '';
-                            searchInput.value = '';
-                            clearAllFilters();
-                            fetchPacientes();
-                            setActiveTab(activeTeam);
-                        });
-                    });
-                    setupScrollButtons();
-                } else {
-                    console.error('Erro ao buscar equipes:', data.erro || 'Resposta inválida da API');
-                }
-            })
-            .catch(error => console.error('Erro de rede ao buscar equipes:', error));
-    }
+    // --- Remover lógica de abas por equipe (teamTabsContainer, fetchEquipes, setActiveTab, etc.) ---
+    // (Comentar ou remover toda a lógica relacionada a teamTabsContainer e abas de equipe)
 
-    function setActiveTab(equipeName) {
-        // Classes de estado para abas INATIVAS
-        const inactiveClasses = ['text-gray-500', 'border-transparent', 'hover:text-gray-700', 'hover:border-gray-300'];
-        // Classes de estado para abas ATIVAS
-        // 'selected-team-tab' aplica o fundo azul e cor de texto branca.
-        // 'text-primary' e 'border-primary' definem as cores do texto (sobrescrito por selected-team-tab) e da borda inferior.
-        const activeClasses = ['text-primary', 'border-primary', 'selected-team-tab'];
+    // --- Adicionar lógica para abas de status igual ao painel de adolescentes ---
+    const timelineStatusFilterButtons = document.querySelectorAll('.timeline-status-tab-btn');
+    let currentTimelineStatusFilter = 'Todos';
 
-        document.querySelectorAll('.team-tab').forEach(tab => {
-            if (tab.dataset.equipe === equipeName) {
-                // Aplicar estilos de ATIVA
-                tab.classList.add(...activeClasses);
-                // Remover estilos de INATIVA
-                tab.classList.remove(...inactiveClasses);
-            } else {
-                // Aplicar estilos de INATIVA
-                tab.classList.add(...inactiveClasses);
-                // Remover estilos de ATIVA
-                tab.classList.remove(...activeClasses);
-            }
+    timelineStatusFilterButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            timelineStatusFilterButtons.forEach(b => b.classList.remove('border-b-2', 'font-bold'));
+            this.classList.add('border-b-2', 'font-bold');
+            currentTimelineStatusFilter = this.getAttribute('data-status-filter');
+            currentPage = 1;
+            fetchPacientes();
         });
-        const teamText = equipeName === 'Todas' ? 'Todas as Equipes' : equipeName;
-        if (printInvitesText) {
-            printInvitesText.textContent = `Imprimir Convites - ${teamText}`;
-        }
+    });
+
+    document.getElementById('timeline-filter-todos').classList.add('border-b-2', 'font-bold');
+
+    // --- Preencher os cards do painel de controle no topo ---
+    function atualizarCardsPainelControle(estatisticas) {
+        document.getElementById('totalAdolescentesValor').textContent = estatisticas.total_adolescentes || 0;
+        document.getElementById('adolescentesMetodoDiaValor').textContent = estatisticas.adolescentes_metodo_em_dia || 0;
+        document.getElementById('adolescentesMetodoAtrasadoValor').textContent = estatisticas.adolescentes_metodo_atrasado || 0;
+        document.getElementById('adolescentesSemMetodoValor').textContent = estatisticas.adolescentes_sem_metodo || 0;
+        document.getElementById('adolescentesGestantesValor').textContent = estatisticas.adolescentes_gestantes || 0;
     }
+
+    // --- Buscar estatísticas para os cards ---
+    function fetchEstatisticasPainelControle() {
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual,
+            microarea: agenteSelecionadoAtual
+        });
+        fetch('/api/estatisticas_painel_plafam?' + params.toString())
+            .then(r => r.json())
+            .then(estatisticas => atualizarCardsPainelControle(estatisticas));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchEstatisticasPainelControle();
+    });
 
     function getAcompanhamentoStatus(paciente) {
         if (paciente.gestante) return 'gestante';
@@ -832,7 +813,147 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // --- Inicialização ---
-    fetchEquipes();
+    // fetchEquipes(); // Removido
     fetchPacientes();
     sortBtnText.textContent = 'Nome (A-Z)';
+
+    // --- Menus suspensos de equipe e microárea (igual adolescentes) ---
+    const equipeButton = document.getElementById('equipeButton');
+    const equipeButtonText = document.getElementById('equipeButtonText');
+    const equipeDropdown = document.getElementById('equipeDropdown');
+    const equipeDropdownContent = document.getElementById('equipeDropdownContent');
+
+    const microareaButton = document.getElementById('microareaButton');
+    const microareaButtonText = document.getElementById('microareaButtonText');
+    const microareaDropdown = document.getElementById('microareaDropdown');
+    const microareaDropdownContent = document.getElementById('microareaDropdownContent');
+
+    // Variáveis globais
+    let todasEquipesComAgentes = [];
+    let equipeSelecionadaAtual = 'Todas';
+    let agenteSelecionadoAtual = 'Todas as áreas';
+
+    function setupDropdown(button, dropdown) {
+        button.addEventListener('click', function (event) {
+            event.stopPropagation();
+            document.querySelectorAll('.dropdown-menu.absolute').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            dropdown.classList.toggle('hidden');
+        });
+    }
+    setupDropdown(equipeButton, equipeDropdown);
+    setupDropdown(microareaButton, microareaDropdown);
+    document.addEventListener('click', function (e) {
+        if (!equipeButton.contains(e.target) && !equipeDropdown.contains(e.target)) {
+            equipeDropdown.classList.add('hidden');
+        }
+        if (!microareaButton.contains(e.target) && !microareaDropdown.contains(e.target)) {
+            microareaDropdown.classList.add('hidden');
+        }
+    });
+
+    function popularDropdownAgentes(agentes) {
+        const microareaDropdownContent = document.getElementById('microareaDropdownContent');
+        const microareaButtonText = document.getElementById('microareaButtonText');
+        const microareaDropdown = document.getElementById('microareaDropdown');
+        microareaDropdownContent.innerHTML = '';
+        const todasAgenciasOption = document.createElement('div');
+        todasAgenciasOption.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
+        todasAgenciasOption.textContent = 'Todas as áreas';
+        todasAgenciasOption.addEventListener('click', () => {
+            microareaButtonText.textContent = 'Todas as áreas';
+            agenteSelecionadoAtual = 'Todas as áreas';
+            microareaDropdown.classList.add('hidden');
+            atualizarPainelCompleto();
+        });
+        microareaDropdownContent.appendChild(todasAgenciasOption);
+        if (agentes && agentes.length > 0) {
+            agentes.forEach(agente => {
+                const option = document.createElement('div');
+                option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
+                const displayText = `Área ${agente.micro_area} - ${agente.nome_agente}`;
+                option.textContent = displayText;
+                option.addEventListener('click', () => {
+                    microareaButtonText.textContent = displayText;
+                    agenteSelecionadoAtual = displayText;
+                    microareaDropdown.classList.add('hidden');
+                    atualizarPainelCompleto();
+                });
+                microareaDropdownContent.appendChild(option);
+            });
+        } else {
+            microareaButtonText.textContent = 'Nenhuma área/agente';
+        }
+    }
+
+    function fetchEquipesEAgentes() {
+        const equipeDropdownContent = document.getElementById('equipeDropdownContent');
+        const equipeButtonText = document.getElementById('equipeButtonText');
+        const equipeDropdown = document.getElementById('equipeDropdown');
+        const microareaButtonText = document.getElementById('microareaButtonText');
+        const nomeEquipeSelecionadaDisplay = document.getElementById('nomeEquipeSelecionadaDisplay');
+        fetch('/api/equipes_com_agentes_plafam')
+            .then(response => response.json())
+            .then(data => {
+                if (data.erro) {
+                    console.error('Erro ao buscar equipes e agentes:', data.erro);
+                    return;
+                }
+                todasEquipesComAgentes = data;
+                equipeDropdownContent.innerHTML = '';
+                const todasEquipesOption = document.createElement('div');
+                todasEquipesOption.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
+                todasEquipesOption.textContent = 'Todas as equipes';
+                todasEquipesOption.addEventListener('click', () => {
+                    equipeButtonText.textContent = 'Todas as equipes';
+                    nomeEquipeSelecionadaDisplay.textContent = 'Todas as Equipes';
+                    equipeSelecionadaAtual = 'Todas';
+                    equipeDropdown.classList.add('hidden');
+                    popularDropdownAgentes([]);
+                    microareaButtonText.textContent = 'Todas as áreas';
+                    agenteSelecionadoAtual = 'Todas as áreas';
+                    atualizarPainelCompleto();
+                });
+                equipeDropdownContent.appendChild(todasEquipesOption);
+                todasEquipesComAgentes.forEach(equipe => {
+                    const option = document.createElement('div');
+                    option.className = 'cursor-pointer hover:bg-gray-100 p-2 rounded';
+                    option.textContent = equipe.nome_equipe;
+                    option.addEventListener('click', () => {
+                        equipeButtonText.textContent = equipe.nome_equipe;
+                        nomeEquipeSelecionadaDisplay.textContent = `Equipe ${equipe.nome_equipe}`;
+                        equipeSelecionadaAtual = equipe.nome_equipe;
+                        equipeDropdown.classList.add('hidden');
+                        popularDropdownAgentes(equipe.agentes);
+                        microareaButtonText.textContent = 'Todas as áreas';
+                        agenteSelecionadoAtual = 'Todas as áreas';
+                        atualizarPainelCompleto();
+                    });
+                    equipeDropdownContent.appendChild(option);
+                });
+                atualizarPainelCompleto();
+            })
+            .catch(error => console.error('Erro de rede ao buscar equipes e agentes:', error));
+    }
+
+    function atualizarPainelCompleto() {
+        fetchEstatisticasPainelControle();
+        // Aqui você pode adicionar outras atualizações, como tabela, gráficos, etc.
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchEquipesEAgentes();
+    });
+
+    // Atualizar fetchEstatisticasPainelControle para usar equipeSelecionadaAtual e microareaSelecionadaAtual
+    function fetchEstatisticasPainelControle() {
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual,
+            microarea: agenteSelecionadoAtual
+        });
+        fetch('/api/estatisticas_painel_plafam?' + params.toString())
+            .then(r => r.json())
+            .then(estatisticas => atualizarCardsPainelControle(estatisticas));
+    }
 });
