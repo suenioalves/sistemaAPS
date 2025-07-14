@@ -26,8 +26,19 @@ function getAcompanhamentoStatus(paciente) {
         limiteDias = 30;
     } else if (metodoLower.includes('trimestral')) {
         limiteDias = 90;
+    } else if (metodoLower.includes('diu')) {
+        limiteDias = 3650; // 10 anos = 3650 dias
+    } else if (metodoLower.includes('implante')) {
+        limiteDias = 1095; // 3 anos = 1095 dias
     }
-    return (diffDays <= limiteDias) ? 'em dia' : 'atrasado';
+    
+    if (diffDays <= limiteDias) {
+        return 'em_dia';
+    } else {
+        // Verificar se está atrasado há mais de 6 meses (180 dias)
+        const diasAtraso = diffDays - limiteDias;
+        return (diasAtraso > 180) ? 'atrasado_6_meses' : 'atrasado';
+    }
 }
 
 // Função global para imprimir convites selecionados
@@ -43,13 +54,24 @@ function imprimirConvitesSelecionados() {
     }
     
     console.log('Imprimindo convites para pacientes:', selectedIds);
+    console.log('Total de pacientes em allPacientes:', allPacientes.length);
     
     // Filtrar pacientes selecionados dos dados carregados
-    const pacientesParaImprimir = allPacientes.filter(p => selectedIds.includes(p.cartao_sus));
+    const pacientesParaImprimir = allPacientes.filter(p => {
+        const cnsValue = p.cartao_sus || p.cod_paciente || 'sem-cns';
+        const cnsValueStr = String(cnsValue);
+        console.log('Comparando:', cnsValueStr, 'com selectedIds:', selectedIds);
+        return selectedIds.includes(cnsValueStr);
+    });
+    
+    console.log('Pacientes encontrados para impressão:', pacientesParaImprimir.length);
+    
     if (pacientesParaImprimir.length > 0) {
         generateInvitePDF(pacientesParaImprimir);
     } else {
         console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
+        console.log('Debug - selectedIds:', selectedIds);
+        console.log('Debug - allPacientes sample:', allPacientes.slice(0, 2));
         alert("Ocorreu um erro ao encontrar os dados dos pacientes selecionados. Tente novamente.");
     }
 }
@@ -89,7 +111,11 @@ function generateInvitePDF(pacientesSelecionados) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor('#1D70B8');
-        const tituloConvite = statusAcompanhamento === 'atrasado' ? "Lembrete Importante" : "Planejamento Familiar - Convite";
+        let tituloConvite = "Planejamento Familiar - Convite";
+        if (statusAcompanhamento === 'atrasado') {
+            tituloConvite = "Lembrete Importante";
+        }
+        // Para atrasado_6_meses usa o mesmo título do convite padrão
         doc.text(tituloConvite, xStart + conviteWidth / 2, currentY, { align: 'center' });
 
         currentY += 10;
@@ -133,7 +159,7 @@ function generateInvitePDF(pacientesSelecionados) {
             const textoFinal = "Nossa equipe está à disposição para atendê-la e esclarecer qualquer dúvida que possa ter sobre o uso do medicamento. Caso tenha apresentado alguma reação ao anticoncepcional ou tenha decidido interromper seu uso, nossa equipe também está disponível para orientá-la sobre outras opções de métodos contraceptivos que possam ser mais adequados para você.";
             splitTexto = doc.splitTextToSize(textoFinal, conviteWidth - 20);
             doc.text(splitTexto, xStart + 10, currentY);
-        } else {
+        } else if (statusAcompanhamento === 'atrasado_6_meses' || statusAcompanhamento === 'sem_metodo') {
             const textoConvite = "É com grande satisfação que convidamos você a participar do nosso programa de Planejamento Familiar na Unidade Básica de Saúde (UBS). Nosso objetivo é fornecer informações essenciais sobre métodos que possa evitar uma gravidez não planejada e promover a saúde reprodutiva das mulheres em nossa comunidade.";
             const splitTexto = doc.splitTextToSize(textoConvite, conviteWidth - 20);
             doc.text(splitTexto, xStart + 10, currentY);
@@ -411,9 +437,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const dataFormatada = dataAplicacaoObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        const metodoLower = paciente.metodo ? paciente.metodo.toLowerCase() : '';
+        const isMetodoLongaDuracao = metodoLower.includes('diu') || metodoLower.includes('implante') || metodoLower.includes('laqueadura');
 
-        if (status === 'em dia') {
-            return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+        if (status === 'em_dia') {
+            if (isMetodoLongaDuracao) {
+                return `<div class="text-xs text-gray-600">Em uso desde: ${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+            } else {
+                return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+            }
+        } else if (status === 'atrasado_6_meses') {
+            return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-late mt-1">(atrasado +6 meses)</span>`;
         } else {
             return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-late mt-1">(atrasado)</span>`;
         }
@@ -430,14 +464,18 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'N/A';
     }
     
-    // Mapa de status de acompanhamento (igual ao arquivo antigo)
+    // Mapa de status de acompanhamento (atualizado)
     const statusMap = {
         '0': { text: '', class: '' }, // Nenhuma ação
         '1': { text: 'Convite com o agente', class: 'status-com-agente' },
         '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
-        '3': { text: 'Plafam em consulta', class: 'status-compareceu' }, // Verde claro
-        '4': { text: 'Plafam em domicílio', class: 'status-domicilio' }, // Novo, Verde claro
-        '5': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' }
+        '3': { text: 'Deseja iniciar (via consulta)', class: 'status-compareceu' },
+        '4': { text: 'Deseja iniciar (após convite)', class: 'status-domicilio' },
+        '5': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
+        '6': { text: 'Particular', class: 'status-particular' },
+        '7': { text: 'Reavaliar em 6 meses', class: 'status-reavaliar-6m' },
+        '8': { text: 'Reavaliar em 1 ano', class: 'status-reavaliar-1a' },
+        '9': { text: 'Fora de área', class: 'status-fora-area' }
     };
 
     // Função para obter conteúdo da célula de acompanhamento (igual ao arquivo antigo)
@@ -449,11 +487,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         const isAtrasado = status === 'atrasado';
+        const isAtrasado6Meses = status === 'atrasado_6_meses';
         const semMetodo = status === 'sem_metodo';
         const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
         
-        // Exibir menu de ações para pacientes elegíveis: sem método, atrasado, ou sem cartão SUS  
-        if (!paciente.gestante && (semMetodo || isAtrasado || semCartaoSus)) {
+        // Exibir menu de ações para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS  
+        if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
             const statusAcomp = paciente.status_acompanhamento;
             let statusBadge = '';
             if (statusAcomp && statusMap[statusAcomp]) {
@@ -471,9 +510,13 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="py-1" role="none">
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="1">Convite com o agente</a>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="2">Convite entregue ao cliente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Plafam em consulta</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Plafam em domicílio</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Deseja iniciar (via consulta)</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Deseja iniciar (após convite)</a>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="5">Cliente não encontrado</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="6">Particular</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="7">Reavaliar em 6 meses</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="8">Reavaliar em 1 ano</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="9">Fora de área</a>
                             <div class="border-t my-1"></div>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="0">Nenhuma ação</a>
                         </div>
@@ -494,11 +537,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         const isAtrasado = status === 'atrasado';
+        const isAtrasado6Meses = status === 'atrasado_6_meses';
         const semMetodo = status === 'sem_metodo';
         const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
         
-        // Exibir checkbox para pacientes elegíveis: sem método, atrasado, ou sem cartão SUS
-        if (!paciente.gestante && (semMetodo || isAtrasado || semCartaoSus)) {
+        // Exibir checkbox para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS
+        if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
             const cnsValue = paciente.cartao_sus || paciente.cod_paciente || 'sem-cns';
             return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${cnsValue}">`;
         }
