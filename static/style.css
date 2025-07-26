@@ -1,0 +1,187 @@
+/* Estilos para as abas de equipe */
+.equipe-tab {
+  background-color: white; /* Fundo branco para inativas */
+  color: #1D70B8; /* Texto azul primário */
+  border: 2px solid #60a5fa; /* Borda azul clara (Tailwind blue-400) */
+  border-radius: 6px; /* Cantos arredondados */
+  margin-right: 4px; /* Pequeno espaçamento entre abas */
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  /* As classes de layout do Tailwind como px-4 py-2 text-sm font-medium whitespace-nowrap são mantidas no HTML */
+}
+
+.equipe-tab:hover {
+  background-color: #eff6ff; /* Azul muito claro no hover (Tailwind blue-100) */
+  color: #1c64b1; /* Azul um pouco mais escuro para texto */
+  border-color: #3b82f6; /* Borda azul média (Tailwind blue-500) */
+}
+
+/* Estilo para a aba da equipe ATIVA */
+.equipe-tab.active {
+  background-color: #1D70B8; /* Cor primária azul */
+  color: white; /* Texto branco */
+  border-color: #1D70B8; /* Borda na mesma cor do fundo */
+  font-weight: 600; /* Mais destaque para o texto (Tailwind font-semibold) */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Pequena sombra para elevação */
+}
+
+/* Estilos para a linha do tempo */
+.timeline-line {
+    position: absolute;
+    left: 24px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #e5e7eb;
+    z-index: 0;
+}
+
+/* Estilos para inputs de número (remover setas) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Estilos para o switch customizado (se usado) */
+.custom-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+.custom-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e5e7eb;
+    transition: .4s;
+    border-radius: 24px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: #4f46e5; /* primary color */
+}
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+/* Estilos para radio buttons customizados */
+.custom-radio {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.custom-radio input {
+    display: none;
+}
+.radio-mark {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    display: inline-block;
+    position: relative;
+    margin-right: 8px;
+}
+.radio-mark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4f46e5; /* primary color */
+}
+.custom-radio input:checked ~ .radio-mark {
+    border-color: #4f46e5; /* primary color */
+}
+.custom-radio input:checked ~ .radio-mark:after {
+    display: block;
+}
+
+/* Estilos para checkboxes customizados */
+.custom-checkbox {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.custom-checkbox input {
+    display: none;
+}
+.checkbox-mark {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 2px solid #d1d5db;
+    display: inline-block;
+    position: relative;
+    margin-right: 8px;
+}
+.checkbox-mark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+.custom-checkbox input:checked ~ .checkbox-mark {
+    background-color: #4f46e5; /* primary color */
+    border-color: #4f46e5; /* primary color */
+}
+.custom-checkbox input:checked ~ .checkbox-mark:after {
+    display: block;
+}
+
+/* Animações */
+@keyframes highlightBorder {
+    from {
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        border-color: rgba(79, 70, 229, 0.3);
+    }
+    to {
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0);
+        border-color: rgba(79, 70, 229, 0.1);
+    }
+}
+.highlight-section {
+    animation: highlightBorder 1s ease-out;
+    border: 2px solid rgba(79, 70, 229, 0.1);
+    border-radius: 8px;
+}
+@keyframes radioHighlight {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+.radio-mark.highlight {
+    animation: radioHighlight 0.3s ease-out;
+}

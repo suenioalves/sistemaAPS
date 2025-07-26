@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Tabela de Dados - PostgreSQL</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        h1 { color: #1D70B8; }
+        table { width: 80%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); background-color: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #e0f2f7; color: #2c3e50; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .error { color: red; font-weight: bold; }
+        .loading { color: gray; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>Dados do PostgreSQL (Teste Simples)</h1>
+    
+    <div id="dados-tabela-container">
+        <p class="loading">Carregando dados...</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('dados-tabela-container');
+
+            fetch('/api/pacientes_plafam') // Chama a mesma API que o Painel-Plafam usa
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro na rede ou no servidor: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.length === 0) {
+                        container.innerHTML = '<p>Nenhum dado encontrado.</p>';
+                        return;
+                    }
+
+                    const table = document.createElement('table');
+                    const thead = document.createElement('thead');
+                    const tbody = document.createElement('tbody');
+                    const headerRow = document.createElement('tr');
+
+                    // Cria o cabeçalho da tabela com base nas chaves do primeiro objeto de dados
+                    Object.keys(data[0]).forEach(key => {
+                        const th = document.createElement('th');
+                        // Formata o nome da coluna para ser mais legível
+                        th.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // Preenche o corpo da tabela com os dados
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+                        Object.values(item).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            row.appendChild(td);
+                        });
+                        tbody.appendChild(row);
+                    });
+                    table.appendChild(tbody);
+
+                    container.innerHTML = ''; // Limpa a mensagem de carregamento
+                    container.appendChild(table);
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar dados:', error);
+                    container.innerHTML = `<p class="error">Erro ao carregar dados: ${error.message}. Verifique o console do navegador.</p>`;
+                });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Acompanhamento de Adolescentes</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#10b981' }, borderRadius: { 'none': '0px', 'sm': '4px', DEFAULT: '8px', 'md': '12px', 'lg': '16px', 'xl': '20px', '2xl': '24px', '3xl': '32px', 'full': '9999px', 'button': '8px' } } } }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+    <style>
+        :where([class^="ri-"])::before {
+            content: "\f3c2";
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 24px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #e5e7eb;
+            z-index: 0;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .custom-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .custom-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e7eb;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #4f46e5;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        .custom-radio {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .custom-radio input {
+            display: none;
+        }
+
+        .radio-mark {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            display: inline-block;
+            position: relative;
+            margin-right: 8px;
+        }
+
+        .radio-mark:after {
+            content: "";
+            position: absolute;
+            display: none;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4f46e5;
+        }
+
+        .custom-radio input:checked~.radio-mark {
+            border-color: #4f46e5;
+        }
+
+        .custom-radio input:checked~.radio-mark:after {
+            display: block;
+        }
+
+        .custom-checkbox {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .custom-checkbox input {
+            display: none;
+        }
+
+        .checkbox-mark {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 2px solid #d1d5db;
+            display: inline-block;
+            position: relative;
+            margin-right: 8px;
+        }
+
+        .checkbox-mark:after {
+            content: "";
+            position: absolute;
+            display: none;
+            left: 5px;
+            top: 1px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .custom-checkbox input:checked~.checkbox-mark {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        .custom-checkbox input:checked~.checkbox-mark:after {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <h1 class="text-2xl font-['Pacifico'] text-primary">Plafam Ativo - Adolescentes</h1>
+                <span class="ml-2 text-sm text-gray-500">Protocolo de prevenção de gravidez na adolescência</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-600">
+                    <span>13/06/2025</span>
+                </div>
+                <div class="relative">
+                    <button class="flex items-center text-gray-700 hover:text-primary">
+                        <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                            <i class="ri-user-line"></i>
+                        </div>
+                        <span>Dra. Mariana Santos</span>
+                        <div class="w-4 h-4 flex items-center justify-center ml-1">
+                            <i class="ri-arrow-down-s-line"></i>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-1">
+                    <div class="flex items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Painel de Controle</h2>
+                        <span id="nomeEquipeSelecionadaDisplay"
+                            class="ml-3 text-sm border-2 border-primary rounded-md px-2 py-0.5 text-primary font-medium">Todas
+                            as Equipes</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Equipe</label>
+                            <div class="relative">
+                                <button id="equipeButton"
+                                    class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                    <span id="equipeButtonText">Todas as equipes</span>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <div id="equipeDropdown"
+                                    class="dropdown-menu hidden absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="equipeDropdownContent" class="p-2">
+                                        <!-- Opções de equipe serão inseridas aqui pelo JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Área - Agente:</label>
+                            <div class="relative">
+                                <button id="microareaButton"
+                                    class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                    <span id="microareaButtonText">Todas as áreas</span>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <div id="microareaDropdown"
+                                    class="dropdown-menu hidden absolute z-20 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="microareaDropdownContent" class="p-2">
+                                        <!-- Opções de microárea/agente serão inseridas aqui pelo JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Container dos Cards de Estatísticas à Direita -->
+                <div class="md:col-span-2 grid md:grid-cols-2 gap-6">
+                    <!-- Coluna 1: Card Grande Total Adolescentes -->
+                    <div class="bg-indigo-50 rounded p-4 text-center flex flex-col justify-center items-center h-full">
+                        <p id="labelEquipeCardTotalAdolescentes" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
+                        <p class="text-lg font-semibold text-gray-700 mb-2">Total de Adolescentes (14-18 anos)</p>
+                        <p id="totalAdolescentesValor" class="text-4xl font-bold text-primary">0</p>
+                    </div>
+
+                    <!-- Coluna 2: Grid 2x2 para os outros cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Método em Dia (Verde) -->
+                        <div class="bg-green-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoDia" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-green-700 mb-1">Método em Dia</p>
+                            <p id="adolescentesMetodoDiaValor" class="text-2xl font-bold text-green-700">0</p>
+                        </div>
+                        <!-- Método em Atraso (Vermelho) -->
+                        <div class="bg-red-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardMetodoAtrasado" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-red-700 mb-1">Método em Atraso</p>
+                            <p id="adolescentesMetodoAtrasadoValor" class="text-2xl font-bold text-red-700">0</p>
+                        </div>
+                        <!-- Sem Método (Amarelo) -->
+                            <div class="bg-yellow-100 rounded p-4 text-center">
+                                <p id="labelEquipeCardSemMetodo" class="text-sm text-gray-600 mb-1">Todas as Equipes</p>
+                                <p class="text-sm font-medium text-yellow-700 mb-1">Sem Método</p>
+                                <p id="adolescentesSemMetodoValor" class="text-2xl font-bold text-yellow-700">0</p>
+                            </div>
+                        <!-- Gestantes (Rosa) -->
+                        <div class="bg-pink-100 rounded p-4 text-center">
+                            <p id="labelEquipeCardGestantes" class="text-xs text-gray-600 mb-1">Todas as Equipes</p>
+                            <p class="text-sm font-medium text-pink-700 mb-1">Gestantes</p>
+                            <p id="adolescentesGestantesValor" class="text-2xl font-bold text-pink-700">0</p>
+                        </div>
+                            </div>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded shadow-sm p-6 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="acompanhamentoAdolescentesTitle" class="text-xl font-semibold text-gray-800">Acompanhamento de Adolescentes</h2>
+                <!-- Controles de Busca e Ordenação movidos para cá ou para baixo das abas -->
+            </div>
+            <div id="sugestaoAbordagemContainer" class="mb-4 text-sm text-blue-600 hidden">
+                <!-- Controles de Busca e Ordenação movidos para cá ou para baixo das abas -->
+            </div>
+            <!-- Abas de Filtro de Status -->
+            <div class="flex space-x-2 border-b border-gray-200 mb-6">
+                <button id="timeline-filter-todos" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="Todos"
+                        data-active-bg="bg-primary"
+                        data-active-text="text-white"
+                        data-active-border="border-primary"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-gray-700"
+                        data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
+                <button id="timeline-filter-metodo-em-dia" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="MetodoEmDia"
+                        data-active-bg="bg-green-500"
+                        data-active-text="text-white"
+                        data-active-border="border-green-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-green-700"
+                        data-inactive-border="border-transparent hover:border-green-300">Método em dia</button>
+                <button id="timeline-filter-metodo-vencido" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="MetodoVencido"
+                        data-active-bg="bg-red-500"
+                        data-active-text="text-white"
+                        data-active-border="border-red-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-red-700"
+                        data-inactive-border="border-transparent hover:border-red-300">Método Vencido</button>
+                <button id="timeline-filter-sem-metodo" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="SemMetodo"
+                        data-active-bg="bg-yellow-400"
+                        data-active-text="text-yellow-800"
+                        data-active-border="border-yellow-400"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-yellow-600"
+                        data-inactive-border="border-transparent hover:border-yellow-300">Sem método</button>
+                <button id="timeline-filter-gestante" 
+                        class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
+                        data-status-filter="Gestante"
+                        data-active-bg="bg-pink-500"
+                        data-active-text="text-white"
+                        data-active-border="border-pink-500"
+                        data-inactive-bg="bg-transparent"
+                        data-inactive-text="text-gray-500 hover:text-pink-700"
+                        data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
+            </div>
+
+            <!-- Barra de Ferramentas da Tabela (Busca, Ordenação, Impressão) -->
+            <div class="flex justify-between items-center mb-4">
+                <div> <!-- Espaço reservado à esquerda, ou pode ser removido se os botões de filtro preencherem -->
+                </div>
+                <div class="flex items-center space-x-2">
+                    <!-- Busca -->
+                    <div class="relative">
+                        <input type="text" id="search-timeline-input" placeholder="Buscar adolescente..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
+                        <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <i class="ri-search-line"></i>
+                        </div>
+                    </div>
+                    <!-- Botão Ordenar (placeholder, funcionalidade a ser implementada no JS) -->
+                    <div class="relative" id="timeline-sort-menu-container">
+                        <button id="timeline-sort-btn" class="px-3 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-sort-desc mr-2"></i>
+                            <span id="timeline-sort-btn-text">Nome (A-Z)</span>
+                        </button>
+                        <div id="timeline-sort-dropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-20 hidden overflow-hidden border">
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="nome_asc" data-text="Nome (A-Z)">
+                               <i class="ri-sort-alphabet-asc mr-2"></i> Nome (A-Z)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="nome_desc" data-text="Nome (Z-A)">
+                               <i class="ri-sort-alphabet-desc mr-2"></i> Nome (Z-A)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="idade_asc" data-text="Idade (crescente)">
+                               <i class="ri-sort-numeric-asc mr-2"></i> Idade (crescente)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="idade_desc" data-text="Idade (decrescente)">
+                               <i class="ri-sort-numeric-desc mr-2"></i> Idade (decrescente)
+                           </a>
+                        </div>
+                    </div>
+                    <div>
+                        <button id="imprimir-informativos-mae-btn" class="px-3 py-2 bg-secondary text-white rounded-lg flex items-center hover:bg-secondary/90 text-sm whitespace-nowrap !rounded-button">
+                            <i class="ri-printer-line mr-2"></i>Imprimir Informativos (Mães)
+                        </div>
+                    </div>
+                </div>
+            </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Adolescente</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipe - Agente</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Status</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Próxima ação</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Ações</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Imprimir Informativo</th>
+
+                            </tr>
+                        </thead>
+                        <tbody id="timeline-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Linhas da tabela serão inseridas aqui pelo JS -->
+                             <tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="timeline-pagination-wrapper" class="flex items-center justify-between mt-4">
+                    <div id="timeline-pagination-info" class="text-sm text-gray-700"></div>
+                    <div id="timeline-pagination-container" class="flex space-x-1">
+                        <!-- Botões de paginação serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="timelineModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b">
+                    <h3 class="text-xl font-semibold text-gray-900">Linha do Tempo - Juliana Costa</h3>
+                    <button id="closeTimelineModal" class="text-gray-400 hover:text-gray-500">
+                        <div class="w-6 h-6 flex items-center justify-center">
+                            <i class="ri-close-line"></i>
+                        </div>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                    <div class="flex mb-6">
+                        <div class="w-1/3 pr-4">
+                            <div class="bg-white rounded-lg shadow p-4">
+                                <div class="flex items-center justify-center mb-4">
+                                    <div
+                                        id="timelineModalAvatarIniciais" class="h-24 w-24 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl">
+                                        <span>--</span>
+                                    </div>
+                                </div>
+                                <h4 id="timelineModalAdolescenteNome" class="text-lg font-medium text-center mb-2">Nome da Adolescente</h4>
+                                <div id="timelineModalAdolescenteIdade" class="text-sm text-gray-500 text-center mb-4">-- anos</div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Nome da Mãe:</span>
+                                        <span id="timelineModalNomeMae" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Micro-área:</span>
+                                        <span id="timelineModalMicroarea" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Equipe:</span>
+                                        <span id="timelineModalEquipe" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Agente:</span>
+                                        <span id="timelineModalAgente" class="text-sm font-medium">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Status:</span>
+                                        <span id="timelineModalStatus" class="text-sm font-medium text-gray-700">--</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Próxima ação:</span>
+                                        <span id="timelineModalProximaAcao" class="text-sm font-medium">--</span>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <button id="timelineRegisterBtn"
+                                        class="w-full bg-primary text-white py-2 px-4 rounded flex items-center justify-center !rounded-button whitespace-nowrap">
+                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                            <i class="ri-add-line text-lg"></i>
+                                        </div>
+                                        Registrar ação
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-2/3 pl-4">
+                            <div id="timelineModalContentArea" class="relative">
+                                <!-- A linha da timeline será adicionada dinamicamente pelo JS se houver eventos -->
+                                <div class="flex mb-8 relative">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-primary z-10 flex-shrink-0">
+                                        <div class="w-6 h-6 flex items-center justify-center">
+                                            <i class="ri-home-line"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h5 class="font-medium">Cadastro inicial</h5>
+                                            <span class="text-sm text-gray-500">10/01/2025</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            Adolescente cadastrada no sistema de acompanhamento. Identificada como parte
+                                            do grupo de risco para gravidez na adolescência.
+                                        </p>
+                                        <div class="text-sm text-gray-500">
+                                            Responsável: <span class="font-medium">ACS Fernanda Oliveira</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex mb-8 relative">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 z-10 flex-shrink-0">
+                                        <div class="w-6 h-6 flex items-center justify-center">
+                                            <i class="ri-team-line"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h5 class="font-medium">Abordagem com pais</h5>
+                                            <span class="text-sm text-gray-500">15/02/2025</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            Realizada visita domiciliar para abordagem com os pais. Apresentado o
+                                            programa de prevenção à gravidez na adolescência. Pais demonstraram
+                                            interesse, mas solicitaram tempo para conversar com a filha.
+                                        </p>
+                                        <div class="text-sm text-gray-500">
+                                            Responsável: <span class="font-medium">Enf. Marcelo Santos</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex mb-8 relative">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 z-10 flex-shrink-0">
+                                        <div class="w-6 h-6 flex items-center justify-center">
+                                            <i class="ri-close-line"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h5 class="font-medium">Recusa de método</h5>
+                                            <span class="text-sm text-gray-500">20/02/2025</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            Pais informaram que, após conversa com a adolescente, decidiram não iniciar
+                                            método contraceptivo no momento. Alegam que a filha não tem vida sexual
+                                            ativa.
+                                        </p>
+                                        <div class="text-sm text-gray-500">
+                                            Responsável: <span class="font-medium">ACS Fernanda Oliveira</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex mb-8 relative">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 z-10 flex-shrink-0">
+                                        <div class="w-6 h-6 flex items-center justify-center">
+                                            <i class="ri-calendar-line"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow border-2 border-primary">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h5 class="font-medium">Próxima abordagem agendada</h5>
+                                            <span class="text-sm text-primary font-medium">15/06/2025</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            Nova abordagem com os pais agendada após período de 6 meses da recusa
+                                            inicial. Será realizada visita domiciliar para nova sensibilização sobre a
+                                            importância da prevenção.
+                                        </p>
+                                        <div class="text-sm text-gray-500">
+                                            Responsável: <span class="font-medium">Enf. Marcelo Santos</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 border-t flex justify-end">
+                    <button id="closeTimelineModalBtn"
+                        class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Fechar</button>
+                </div>
+            </div>
+        </div>
+        <div id="registerModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b">
+                    <h3 class="text-xl font-semibold text-gray-900">Registrar Nova Ação</h3>
+                    <button id="closeRegisterModal" class="text-gray-400 hover:text-gray-500">
+                        <div class="w-6 h-6 flex items-center justify-center">
+                            <i class="ri-close-line"></i>
+                        </div>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
+                            <div class="space-y-2">
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="1" checked>
+                                    <span class="radio-mark"></span>
+                                    Abordagem com pais
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="2">
+                                    <span class="radio-mark"></span>
+                                    Abordagem direta com adolescente
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="3">
+                                    <span class="radio-mark"></span>
+                                    Consulta na UBS
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="4">
+                                    <span class="radio-mark"></span>
+                                    Entrega de convite
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
+                            <input type="date"
+                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                value="2025-06-13">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Resultado da abordagem</label>
+                            <div class="relative">
+                                <button id="resultButton"
+                                    class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                    <span>Selecione o resultado</span>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <div id="resultDropdown"
+                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div class="p-2" id="resultDropdownOptionsContainer">
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="methodSection" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Método escolhido</label>
+                            <div class="space-y-2">
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="Pílula anticoncepcional">
+                                    <span class="radio-mark"></span>
+                                    Pílula anticoncepcional
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="Anticoncepcional injetável mensal">
+                                    <span class="radio-mark"></span>
+                                    Anticoncepcional injetável mensal
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="Anticoncepcional injetável trimestral">
+                                    <span class="radio-mark"></span>
+                                    Anticoncepcional injetável trimestral
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="DIU">
+                                    <span class="radio-mark"></span>
+                                    DIU
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="Implante subdérmico">
+                                    <span class="radio-mark"></span>
+                                    Implante subdérmico
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="method-type" value="Preservativo">
+                                    <span class="radio-mark"></span>
+                                    Preservativo
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                            <textarea
+                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
+                                placeholder="Registre informações adicionais relevantes..."></textarea> <!-- Fechamento da tag textarea -->
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Próxima ação</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label id="proximaAcaoDataLabel" class="block text-xs text-gray-500 mb-1">Data</label>
+                                    <input type="date"
+                                        class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                        value="2025-07-13">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Tipo</label>
+                                    <div class="relative">
+                                        <button id="nextActionButton"
+                                            class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
+                                            <span>Selecione o tipo</span>
+                                            <div class="w-4 h-4 flex items-center justify-center">
+                                                <i class="ri-arrow-down-s-line"></i>
+                                            </div>
+                                        </button>
+                                        <div id="nextActionDropdown"
+                                            class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                            <div class="p-2" id="nextActionDropdownOptionsContainer">
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Consulta na UBS</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela ação</label>
+                            <input type="text" id="registerResponsibleInput" name="registerResponsibleInput"
+                                   class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent !rounded-button"
+                                   placeholder="Nome do responsável pela ação">
+                        </div>
+
+                        <div>
+                            <label class="custom-checkbox">
+                                <input type="checkbox">
+                                <span class="checkbox-mark"></span>
+                                Enviar lembrete automático para a próxima ação
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 border-t flex justify-end">
+                    <button id="cancelRegisterBtn"
+                        class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 !rounded-button whitespace-nowrap">Cancelar</button>
+                    <button id="saveRegisterFormBtn" class="bg-primary text-white py-2 px-4 rounded !rounded-button whitespace-nowrap">
+                        Salvar registro
+                    </button>
+                    
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            <div class="md:col-span-1 bg-white rounded shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição da Equipe</h2>
+                <div id="chartAge" class="h-80"></div>
+            </div>
+            <div class="md:col-span-2 bg-white rounded shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Distribuição por Micro-área</h2>
+                <div id="chartStatus" class="h-80"></div>
+            </div>
+        </div>
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script id="dropdownHandlers">
+        // O script original dropdownHandlers foi removido pois a lógica de dropdown
+        // para Equipe e Área/Agente agora está em adolescentes_script.js.
+        // Se os outros dropdowns (Status do método, Resultado da abordagem, etc.)
+        // ainda precisarem desta lógica genérica, ela pode ser mantida ou adaptada.
+        // Por ora, focamos nos dropdowns de Equipe e Área/Agente.
+
+        // Lógica para os dropdowns de "Status do método", "Resultado da abordagem", etc., se ainda necessária:
+        document.addEventListener('DOMContentLoaded', function () {
+            const otherDropdowns = [
+                // { button: 'statusButton', dropdown: 'statusDropdown' }, // Este foi desabilitado no HTML
+                { button: 'resultButton', dropdown: 'resultDropdown', optionsContainer: 'resultDropdownOptionsContainer' },
+                { button: 'nextActionButton', dropdown: 'nextActionDropdown', optionsContainer: 'nextActionDropdownOptionsContainer' }
+                // { button: 'responsibleButton', dropdown: 'responsibleDropdown' } // Removido pois virou input
+            ];
+            otherDropdowns.forEach(item => {
+                const button = document.getElementById(item.button);
+                const dropdown = document.getElementById(item.dropdown);
+                const optionsContainer = document.getElementById(item.optionsContainer);
+                if (button && dropdown && optionsContainer) {
+                    button.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                        dropdown.classList.toggle('hidden');
+                    });
+                    const options = dropdown.querySelectorAll('.cursor-pointer');
+                    options.forEach(option => {
+                        option.addEventListener('click', function () {
+                            if (button.querySelector('span')) {
+                                button.querySelector('span').textContent = this.textContent;
+                                // Armazenar o valor em um atributo do botão ou em uma variável JS se necessário
+                                button.dataset.selectedValue = this.dataset.value; 
+                            }
+                            dropdown.classList.add('hidden');
+                            // Lógica específica como a do methodSection
+                            if (item.button === 'resultButton') {
+                                const methodSection = document.getElementById('methodSection');
+                                if (this.dataset.value === '1') { // "Deseja iniciar um método contraceptivo"
+                                    methodSection.classList.remove('hidden');
+                                } else {
+                                    methodSection.classList.add('hidden');
+                                }
+                            }
+                        });
+                    });
+                }
+            });
+            // Fechar outros dropdowns se clicar fora
+            document.addEventListener('click', function (e) {
+                otherDropdowns.forEach(item => {
+                    const button = document.getElementById(item.button);
+                    const dropdown = document.getElementById(item.dropdown);
+                    if (button && dropdown && !button.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+            });
+        });
+    </script>
+    <script id="modalHandlers">
+        document.addEventListener('DOMContentLoaded', function () {
+            const timelineModal = document.getElementById('timelineModal');
+            const registerModal = document.getElementById('registerModal');
+            const detailButtons = document.querySelectorAll('button.text-primary');
+            const closeTimelineModal = document.getElementById('closeTimelineModal');
+            const closeTimelineModalBtn = document.getElementById('closeTimelineModalBtn');
+            const closeRegisterModal = document.getElementById('closeRegisterModal');
+            const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
+            // const newActionButton = document.querySelector('button.bg-primary'); // saveRegisterFormBtn é mais específico
+            const timelineRegisterBtn = document.getElementById('timelineRegisterBtn');
+            function openRegisterModalForJuliana() {
+                const modalTitle = registerModal.querySelector('h3');
+                modalTitle.textContent = 'Registrar Nova Ação - Juliana Costa';
+                registerModal.classList.remove('hidden');
+            }
+            function handleRegisterSave() {
+                const saveBtn = document.getElementById('saveRegisterFormBtn'); // Usar ID específico
+                if (saveBtn && !saveBtn.hasEventListener) { // Verificar se saveBtn existe
+                    saveBtn.addEventListener('click', function () {
+                        const date = registerModal.querySelector('input[type="date"]').value;
+                        const actionType = registerModal.querySelector('input[name="action-type"]:checked').parentElement.textContent.trim();
+                        const responsible = document.getElementById('responsibleButton').querySelector('span').textContent;
+                        const newAction = document.createElement('div');
+                        newAction.className = 'flex mb-8 relative';
+                        newAction.innerHTML = `
+<div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 z-10 flex-shrink-0">
+<div class="w-6 h-6 flex items-center justify-center">
+<i class="ri-calendar-line"></i>
+</div>
+</div>
+<div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow">
+<div class="flex justify-between items-center mb-2">
+<h5 class="font-medium">${actionType}</h5>
+<span class="text-sm text-gray-500">${date}</span>
+</div>
+<p class="text-sm text-gray-600 mb-2">
+Nova ação registrada no acompanhamento.
+</p>
+<div class="text-sm text-gray-500">
+Responsável: <span class="font-medium">${responsible}</span>
+</div>
+</div>
+`;
+                        const timelineContainer = document.querySelector('.timeline-line').parentElement;
+                        timelineContainer.insertBefore(newAction, timelineContainer.firstChild);
+                        registerModal.classList.add('hidden');
+                    });
+                    saveBtn.hasEventListener = true;
+                }
+            }
+            if (timelineRegisterBtn) {
+                timelineRegisterBtn.addEventListener('click', function () {
+                    openRegisterModalForJuliana();
+                    handleRegisterSave();
+                });
+            }
+            detailButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    timelineModal.classList.remove('hidden');
+                });
+            });
+            if (closeTimelineModal) {
+                closeTimelineModal.addEventListener('click', function () {
+                    timelineModal.classList.add('hidden');
+                });
+            }
+            if (closeTimelineModalBtn) {
+                closeTimelineModalBtn.addEventListener('click', function () {
+                    timelineModal.classList.add('hidden');
+                });
+            }
+            if (closeRegisterModal) {
+                closeRegisterModal.addEventListener('click', function () {
+                    registerModal.classList.add('hidden');
+                });
+            }
+            if (cancelRegisterBtn) {
+                cancelRegisterBtn.addEventListener('click', function () {
+                    registerModal.classList.add('hidden');
+                });
+            }
+        });
+    </script>
+    <script id="chartsInit">
+        document.addEventListener('DOMContentLoaded', function () {
+            // Status Chart
+            const statusChart = echarts.init(document.getElementById('chartStatus'));
+            const statusOption = {
+                animation: false,
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1,
+                    textStyle: {
+                        color: '#1f2937'
+                    }
+                },
+                legend: {
+                    data: ['Sem método', 'Método ativo', 'Método a vencer', 'Método vencido'],
+                    bottom: 0,
+                    textStyle: {
+                        color: '#1f2937'
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['Micro-área 01', 'Micro-área 02', 'Micro-área 03', 'Micro-área 04', 'Micro-área 05'],
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e5e7eb'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#1f2937'
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: {
+                        lineStyle: {
+                            color: '#e5e7eb'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#1f2937'
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#f3f4f6'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: 'Sem método',
+                        type: 'bar',
+                        stack: 'total',
+                        itemStyle: {
+                            color: 'rgba(252, 141, 98, 1)',
+                            borderRadius: [4, 4, 0, 0]
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: 'rgba(252, 141, 98, 0.8)'
+                            }
+                        },
+                        data: [12, 8, 10, 14, 9]
+                    },
+                    {
+                        name: 'Método ativo',
+                        type: 'bar',
+                        stack: 'total',
+                        itemStyle: {
+                            color: 'rgba(141, 211, 199, 1)'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: 'rgba(141, 211, 199, 0.8)'
+                            }
+                        },
+                        data: [8, 12, 9, 7, 10]
+                    },
+                    {
+                        name: 'Método a vencer',
+                        type: 'bar',
+                        stack: 'total',
+                        itemStyle: {
+                            color: 'rgba(251, 191, 114, 1)'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: 'rgba(251, 191, 114, 0.8)'
+                            }
+                        },
+                        data: [3, 5, 4, 2, 3]
+                    },
+                    {
+                        name: 'Método vencido',
+                        type: 'bar',
+                        stack: 'total',
+                        itemStyle: {
+                            color: 'rgba(87, 181, 231, 1)'
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: 'rgba(87, 181, 231, 0.8)'
+                            }
+                        },
+                        data: [2, 1, 3, 2, 1]
+                    }
+                ]
+            };
+            statusChart.setOption(statusOption);
+            // Age Chart
+            const ageChart = echarts.init(document.getElementById('chartAge'));
+            const ageOption = {
+                animation: false,
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{b}: {c} ({d}%)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1,
+                    textStyle: {
+                        color: '#1f2937'
+                    }
+                },
+                legend: {
+                    orient: 'vertical',
+                    right: 10,
+                    top: 'center',
+                    data: ['14 anos', '15 anos', '16 anos', '17 anos'],
+                    textStyle: {
+                        color: '#1f2937'
+                    }
+                },
+                series: [
+                    {
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['40%', '50%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: {
+                            borderRadius: 8,
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        label: {
+                            show: false
+                        },
+                        emphasis: {
+                            label: {
+                                show: true,
+                                fontSize: '12',
+                                fontWeight: 'bold'
+                            }
+                        },
+                        labelLine: {
+                            show: false
+                        },
+                        data: [
+                            { value: 28, name: '14 anos', itemStyle: { color: 'rgba(87, 181, 231, 1)' } },
+                            { value: 35, name: '15 anos', itemStyle: { color: 'rgba(141, 211, 199, 1)' } },
+                            { value: 42, name: '16 anos', itemStyle: { color: 'rgba(251, 191, 114, 1)' } },
+                            { value: 21, name: '17 anos', itemStyle: { color: 'rgba(252, 141, 98, 1)' } }
+                        ]
+                    }
+                ]
+            };
+            ageChart.setOption(ageOption);
+            // Resize charts when window size changes
+            window.addEventListener('resize', function () {
+                statusChart.resize();
+                ageChart.resize();
+            });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='adolescentes_script.js') }}" defer></script>
+</body>
+
+</html>
