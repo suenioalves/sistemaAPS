@@ -9,8 +9,8 @@
 			"configuration": {
 				"host": "localhost",
 				"port": "5433",
-				"database": "postgres",
-				"url": "jdbc:postgresql://localhost:5433/postgres",
+				"database": "esus",
+				"url": "jdbc:postgresql://localhost:5433/esus",
 				"configurationType": "MANUAL",
 				"home": "postgresql-x64-9.6",
 				"type": "dev",

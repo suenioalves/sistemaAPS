@@ -1381,7 +1381,6 @@ export const hiperdiaDom = {
                     </div>
                 </div>
                 <div class="space-y-1 text-sm text-gray-600">
-                    <p><span class="font-medium">Posologia:</span> ${medicamento.posologia || 'N/A'}</p>
                     <p><span class="font-medium">Frequência:</span> ${medicamento.frequencia || 'N/A'}</p>
                     <p><span class="font-medium">Início:</span> ${medicamento.data_inicio ? new Date(medicamento.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
                     ${medicamento.data_fim ? `<p><span class="font-medium">Fim:</span> ${new Date(medicamento.data_fim + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>` : ''}
@@ -1444,7 +1443,7 @@ export const hiperdiaDom = {
     getNovoMedicamentoData: () => {
         return {
             nome_medicamento: _elements.novoMedicamentoNome?.value || '',
-            frequencia: parseInt(_elements.novoMedicamentoFrequencia?.value) || null,
+            frequencia: _elements.novoMedicamentoFrequencia?.value || '',
             data_inicio: _elements.novoMedicamentoDataInicio?.value || null,
             observacoes: _elements.novoMedicamentoObservacoes?.value || null
         };
@@ -1462,5 +1461,42 @@ export const hiperdiaDom = {
             nova_frequencia: modificationType === 'frequency' ? parseInt(_elements.novaFrequencia?.value) : null,
             motivo: _elements.modificacaoObservacoes?.value || null
         };
+    },
+
+    /**
+     * Carrega os medicamentos disponíveis para hipertensão no dropdown.
+     * @param {object} api - Referência para o objeto da API
+     */
+    carregarMedicamentosDisponiveis: async (api) => {
+        const selectMedicamento = document.getElementById('hiperdia-novoMedicamentoNome');
+        if (!selectMedicamento || !api) return;
+
+        try {
+            // Mostrar loading
+            selectMedicamento.innerHTML = '<option value="">Carregando medicamentos...</option>';
+            selectMedicamento.disabled = true;
+
+            // Buscar medicamentos da API
+            const medicamentos = await api.fetchMedicamentosHipertensao();
+
+            // Limpar dropdown
+            selectMedicamento.innerHTML = '<option value="">Selecione o medicamento</option>';
+
+            // Adicionar medicamentos ao dropdown
+            medicamentos.forEach(medicamento => {
+                const option = document.createElement('option');
+                option.value = medicamento.nome_medicamento;
+                option.setAttribute('data-cod-medicamento', medicamento.co_seq_medicamento);
+                option.textContent = medicamento.nome_medicamento;
+                selectMedicamento.appendChild(option);
+            });
+
+            selectMedicamento.disabled = false;
+
+        } catch (error) {
+            console.error('Erro ao carregar medicamentos:', error);
+            selectMedicamento.innerHTML = '<option value="">Erro ao carregar medicamentos</option>';
+            selectMedicamento.disabled = false;
+        }
     }
 };

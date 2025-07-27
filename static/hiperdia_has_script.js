@@ -188,6 +188,9 @@ document.addEventListener('DOMContentLoaded', function () {
         hiperdiaDom.openTreatmentModal(paciente);
         
         try {
+            // Carregar medicamentos disponíveis no dropdown
+            await hiperdiaDom.carregarMedicamentosDisponiveis(hiperdiaApi);
+            
             // Buscar medicamentos atuais do paciente
             const medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(paciente.cod_paciente);
             hiperdiaDom.renderMedicamentosAtuais(medicamentos);
@@ -246,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const medicamentoData = hiperdiaDom.getNovoMedicamentoData();
         
         if (!medicamentoData.nome_medicamento || !medicamentoData.frequencia) {
-            alert('Por favor, preencha o nome do medicamento e a frequência.');
+            alert('Por favor, preencha o nome do medicamento e frequência.');
             return;
         }
 

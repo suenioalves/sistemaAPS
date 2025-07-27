@@ -3321,21 +3321,27 @@ def api_get_medicamentos_atuais_hiperdia(cod_cidadao):
                 codcidadao = %(cod_cidadao)s
         """
         
-        # Segundo, busca medicamentos da tabela manual (se existir)
+        # Segundo, busca medicamentos da tabela manual
         sql_manual = """
             SELECT 
-                cod_seq_medicamento,
+                cod_seq_medicamentos as cod_seq_medicamento,
                 'manual' as origem,
                 codcidadao, 
                 nome_medicamento, 
-                posologia, 
-                frequencia,
+                null as posologia,
+                CASE 
+                    WHEN frequencia = 1 THEN '1x ao dia'
+                    WHEN frequencia = 2 THEN '2x ao dia'
+                    WHEN frequencia = 3 THEN '3x ao dia'
+                    WHEN frequencia = 4 THEN '4x ao dia'
+                    ELSE CONCAT(frequencia::text, 'x ao dia')
+                END as frequencia,
                 data_inicio,
                 data_fim,
-                motivo_interrupcao,
-                observacoes
+                null as motivo_interrupcao,
+                observacao as observacoes
             FROM 
-                sistemaaps.tb_medicamentos
+                sistemaaps.tb_hiperdia_has_medicamentos
             WHERE 
                 codcidadao = %(cod_cidadao)s
                 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
@@ -3393,28 +3399,37 @@ def api_adicionar_medicamento_hiperdia():
 
         cod_cidadao = data.get('codcidadao')
         nome_medicamento = data.get('nome_medicamento')
-        posologia = data.get('posologia')
+        posologia = data.get('posologia')  # Vamos ignorar, não existe na tabela
         frequencia = data.get('frequencia')
         data_inicio = data.get('data_inicio')
-        observacoes = data.get('observacoes', '')
+        observacao = data.get('observacoes', '')  # Mapear observacoes para observacao
 
-        if not all([cod_cidadao, nome_medicamento, posologia, frequencia, data_inicio]):
+        if not all([cod_cidadao, nome_medicamento, frequencia, data_inicio]):
             return jsonify({"sucesso": False, "erro": "Dados incompletos para adicionar medicamento."}), 400
 
+        # Converter frequência para inteiro (a tabela espera int4)
+        try:
+            # Se frequencia vier como "1x ao dia", extrair apenas o número
+            if isinstance(frequencia, str):
+                frequencia_num = int(frequencia.split('x')[0]) if 'x' in frequencia else int(frequencia)
+            else:
+                frequencia_num = int(frequencia)
+        except (ValueError, TypeError):
+            return jsonify({"sucesso": False, "erro": "Frequência deve ser um número válido."}), 400
+
         sql_insert = """
-            INSERT INTO sistemaaps.tb_medicamentos
-            (codcidadao, nome_medicamento, posologia, frequencia, data_inicio, observacoes)
-            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(posologia)s, %(frequencia)s, %(data_inicio)s, %(observacoes)s)
-            RETURNING cod_seq_medicamento;
+            INSERT INTO sistemaaps.tb_hiperdia_has_medicamentos
+            (codcidadao, nome_medicamento, frequencia, data_inicio, observacao)
+            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(frequencia)s, %(data_inicio)s, %(observacao)s)
+            RETURNING cod_seq_medicamentos;
         """
 
         cur.execute(sql_insert, {
             'codcidadao': cod_cidadao,
             'nome_medicamento': nome_medicamento,
-            'posologia': posologia,
-            'frequencia': frequencia,
+            'frequencia': frequencia_num,
             'data_inicio': data_inicio,
-            'observacoes': observacoes
+            'observacao': observacao
         })
 
         cod_seq_medicamento = cur.fetchone()[0]
@@ -3447,37 +3462,41 @@ def api_atualizar_medicamento_hiperdia(cod_seq_medicamento):
 
         # Campos que podem ser atualizados
         nome_medicamento = data.get('nome_medicamento')
-        posologia = data.get('posologia')
+        posologia = data.get('posologia')  # Ignorar, não existe na tabela
         frequencia = data.get('frequencia')
-        observacoes = data.get('observacoes')
+        observacao = data.get('observacoes')  # Mapear para observacao
 
         # Construir query dinâmica baseada nos campos fornecidos
         update_fields = []
-        params = {'cod_seq_medicamento': cod_seq_medicamento}
+        params = {'cod_seq_medicamentos': cod_seq_medicamento}
 
         if nome_medicamento is not None:
             update_fields.append("nome_medicamento = %(nome_medicamento)s")
             params['nome_medicamento'] = nome_medicamento
 
-        if posologia is not None:
-            update_fields.append("posologia = %(posologia)s")
-            params['posologia'] = posologia
-
         if frequencia is not None:
-            update_fields.append("frequencia = %(frequencia)s")
-            params['frequencia'] = frequencia
+            # Converter frequência para inteiro
+            try:
+                if isinstance(frequencia, str):
+                    frequencia_num = int(frequencia.split('x')[0]) if 'x' in frequencia else int(frequencia)
+                else:
+                    frequencia_num = int(frequencia)
+                update_fields.append("frequencia = %(frequencia)s")
+                params['frequencia'] = frequencia_num
+            except (ValueError, TypeError):
+                return jsonify({"sucesso": False, "erro": "Frequência deve ser um número válido."}), 400
 
-        if observacoes is not None:
-            update_fields.append("observacoes = %(observacoes)s")
-            params['observacoes'] = observacoes
+        if observacao is not None:
+            update_fields.append("observacao = %(observacao)s")
+            params['observacao'] = observacao
 
         if not update_fields:
             return jsonify({"sucesso": False, "erro": "Nenhum campo para atualizar fornecido."}), 400
 
         sql_update = f"""
-            UPDATE sistemaaps.tb_medicamentos
+            UPDATE sistemaaps.tb_hiperdia_has_medicamentos
             SET {', '.join(update_fields)}
-            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s;
+            WHERE cod_seq_medicamentos = %(cod_seq_medicamentos)s;
         """
 
         cur.execute(sql_update, params)
@@ -3518,16 +3537,14 @@ def api_interromper_medicamento_hiperdia(cod_seq_medicamento):
             return jsonify({"sucesso": False, "erro": "Data de fim é obrigatória para interromper medicamento."}), 400
 
         sql_update = """
-            UPDATE sistemaaps.tb_medicamentos
-            SET data_fim = %(data_fim)s,
-                motivo_interrupcao = %(motivo)s
-            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s;
+            UPDATE sistemaaps.tb_hiperdia_has_medicamentos
+            SET data_fim = %(data_fim)s
+            WHERE cod_seq_medicamentos = %(cod_seq_medicamentos)s;
         """
 
         cur.execute(sql_update, {
             'data_fim': data_fim,
-            'motivo': motivo,
-            'cod_seq_medicamento': cod_seq_medicamento
+            'cod_seq_medicamentos': cod_seq_medicamento
         })
 
         if cur.rowcount == 0:
@@ -3545,6 +3562,97 @@ def api_interromper_medicamento_hiperdia(cod_seq_medicamento):
             conn.rollback()
         print(f"Erro na API interromper medicamento: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/debug_table_structure')
+def api_debug_table_structure():
+    """Debug: Verifica a estrutura da tabela tb_hiperdia_has_medicamentos"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Verificar se a tabela existe e suas colunas
+        sql_query = """
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_schema = 'sistemaaps' 
+            AND table_name = 'tb_hiperdia_has_medicamentos'
+            ORDER BY ordinal_position;
+        """
+        
+        cur.execute(sql_query)
+        columns = cur.fetchall()
+        
+        return jsonify({
+            "tabela": "tb_hiperdia_has_medicamentos",
+            "colunas": [dict(row) for row in columns]
+        })
+
+    except Exception as e:
+        print(f"Erro ao verificar estrutura da tabela: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/medicamentos_hipertensao')
+def api_get_medicamentos_hipertensao():
+    """Busca medicamentos anti-hipertensivos da tabela tb_medicamento"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        sql_query = """
+            SELECT 
+                co_seq_medicamento,
+                no_principio_ativo_filtro as nome_medicamento
+            FROM 
+                public.tb_medicamento
+            WHERE 
+                co_seq_medicamento BETWEEN 195 AND 196 OR co_seq_medicamento BETWEEN 222 AND 224 OR
+                co_seq_medicamento BETWEEN 276 AND 288 OR co_seq_medicamento BETWEEN 317 AND 323 OR
+                co_seq_medicamento BETWEEN 372 AND 374 OR co_seq_medicamento BETWEEN 429 AND 431 OR
+                co_seq_medicamento BETWEEN 454 AND 457 OR co_seq_medicamento BETWEEN 471 AND 472 OR
+                co_seq_medicamento BETWEEN 542 AND 547 OR co_seq_medicamento BETWEEN 551 AND 554 OR
+                co_seq_medicamento BETWEEN 600 AND 603 OR co_seq_medicamento BETWEEN 700 AND 702 OR
+                co_seq_medicamento BETWEEN 787 AND 790 OR co_seq_medicamento BETWEEN 848 AND 850 OR
+                co_seq_medicamento BETWEEN 1027 AND 1035 OR co_seq_medicamento BETWEEN 1114 AND 1118 OR
+                co_seq_medicamento BETWEEN 1169 AND 1172 OR co_seq_medicamento BETWEEN 1228 AND 1229 OR
+                co_seq_medicamento BETWEEN 1362 AND 1367 OR co_seq_medicamento BETWEEN 1479 AND 1484 OR
+                co_seq_medicamento BETWEEN 1572 AND 1573 OR co_seq_medicamento BETWEEN 1614 AND 1617 OR
+                co_seq_medicamento BETWEEN 1682 AND 1683 OR co_seq_medicamento BETWEEN 1768 AND 1769 OR
+                co_seq_medicamento BETWEEN 1785 AND 1790 OR co_seq_medicamento BETWEEN 1867 AND 1868 OR
+                co_seq_medicamento BETWEEN 1890 AND 1897 OR co_seq_medicamento BETWEEN 2111 AND 2118 OR
+                co_seq_medicamento BETWEEN 2386 AND 2391 OR co_seq_medicamento BETWEEN 2411 AND 2417 OR
+                co_seq_medicamento BETWEEN 2670 AND 2674 OR co_seq_medicamento BETWEEN 2723 AND 2724 OR
+                co_seq_medicamento BETWEEN 2783 AND 2784 OR co_seq_medicamento BETWEEN 2846 AND 2862 OR
+                co_seq_medicamento BETWEEN 2889 AND 2892 OR co_seq_medicamento BETWEEN 2937 AND 2938 OR
+                co_seq_medicamento BETWEEN 3004 AND 3006 OR co_seq_medicamento BETWEEN 3156 AND 3157 OR
+                co_seq_medicamento BETWEEN 3249 AND 3250 OR co_seq_medicamento BETWEEN 3268 AND 3269 OR
+                co_seq_medicamento IN (199, 447, 516, 1085, 1165, 1668, 1688, 1803, 2258, 2934, 2942, 2957, 2987, 3068, 3179, 3218, 3301, 3343)
+            ORDER BY 
+                no_principio_ativo_filtro ASC;
+        """
+        
+        cur.execute(sql_query)
+        medicamentos_db = cur.fetchall()
+        
+        medicamentos = []
+        for row in medicamentos_db:
+            med_dict = dict(row)
+            medicamentos.append(med_dict)
+            
+        return jsonify(medicamentos)
+
+    except Exception as e:
+        print(f"Erro na API /api/hiperdia/medicamentos_hipertensao: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

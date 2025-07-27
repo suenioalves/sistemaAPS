@@ -851,19 +851,21 @@
                                         <div class="grid grid-cols-1 gap-4">
                                             <div>
                                                 <label for="hiperdia-novoMedicamentoNome" class="block text-sm font-medium text-gray-700 mb-1">Nome do Medicamento</label>
-                                                <input type="text" id="hiperdia-novoMedicamentoNome"
-                                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                    placeholder="Ex: Losartana 50mg">
+                                                <select id="hiperdia-novoMedicamentoNome"
+                                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                                    <option value="">Selecione o medicamento</option>
+                                                    <!-- Opções serão carregadas dinamicamente via JavaScript -->
+                                                </select>
                                             </div>
                                             <div>
                                                 <label for="hiperdia-novoMedicamentoFrequencia" class="block text-sm font-medium text-gray-700 mb-1">Frequência (vezes por dia)</label>
                                                 <select id="hiperdia-novoMedicamentoFrequencia"
                                                     class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                                                     <option value="">Selecione a frequência</option>
-                                                    <option value="1">1x ao dia</option>
-                                                    <option value="2">2x ao dia</option>
-                                                    <option value="3">3x ao dia</option>
-                                                    <option value="4">4x ao dia</option>
+                                                    <option value="1x ao dia">1x ao dia</option>
+                                                    <option value="2x ao dia">2x ao dia</option>
+                                                    <option value="3x ao dia">3x ao dia</option>
+                                                    <option value="4x ao dia">4x ao dia</option>
                                                 </select>
                                             </div>
                                             <div>
