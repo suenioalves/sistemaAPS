@@ -102,17 +102,19 @@ document.addEventListener('DOMContentLoaded', function () {
             status: currentStatusFilter
         });
 
-        hiperdiaApi.fetchPacientesHiperdia(params)
+        return hiperdiaApi.fetchPacientesHiperdia(params)
             .then(data => {
                 currentFetchedPacientes = data.pacientes || [];
                 hiperdiaDom.renderPacientesTable(currentFetchedPacientes, situacaoProblemaMap);
                 renderPaginacaoHiperdia(data.total, data.page, data.limit, data.pages);
                 hiperdiaDom.updateAcompanhamentoTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
                 hiperdiaDom.updateTimelineTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
+                return data; // Return the data for chaining
             })
             .catch(error => {
                 console.error('Erro ao carregar pacientes com hipertensão:', error);
                 hiperdiaDom.setTableError();
+                throw error; // Re-throw for proper error handling
             });
     }
 
@@ -176,6 +178,152 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error("Erro ao buscar linha do tempo:", error);
             if (elements.timelineModalContentArea) elements.timelineModalContentArea.innerHTML = '<p class="text-center text-red-500 py-8">Não foi possível carregar a linha do tempo.</p>';
+        }
+    }
+
+    async function abrirModalTratamento(paciente) {
+        if (!paciente) return;
+
+        currentPacienteForModal = paciente;
+        hiperdiaDom.openTreatmentModal(paciente);
+        
+        try {
+            // Buscar medicamentos atuais do paciente
+            const medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(paciente.cod_paciente);
+            hiperdiaDom.renderMedicamentosAtuais(medicamentos);
+            hiperdiaDom.populateMedicamentosDropdown(medicamentos);
+        } catch (error) {
+            console.error('Erro ao buscar medicamentos:', error);
+            hiperdiaDom.renderMedicamentosAtuais([]);
+        }
+    }
+
+    async function carregarTratamentoAtual(paciente) {
+        try {
+            const medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(paciente.cod_paciente);
+            const tratamentoContainer = document.getElementById(`tratamento-atual-${paciente.cod_paciente}`);
+            
+            if (tratamentoContainer) {
+                if (medicamentos && medicamentos.length > 0) {
+                    const medicamentosAtivos = medicamentos.filter(med => !med.data_fim);
+                    if (medicamentosAtivos.length > 0) {
+                        const medicamentosList = medicamentosAtivos.map(med => 
+                            `${med.nome_medicamento} (${med.frequencia}x/dia)`
+                        ).join('<br>');
+                        tratamentoContainer.innerHTML = medicamentosList;
+                    } else {
+                        tratamentoContainer.innerHTML = '<span class="text-gray-400">Sem medicamentos ativos</span>';
+                    }
+                } else {
+                    tratamentoContainer.innerHTML = '<span class="text-gray-400">Nenhum tratamento cadastrado</span>';
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao carregar tratamento atual:', error);
+            const tratamentoContainer = document.getElementById(`tratamento-atual-${paciente.cod_paciente}`);
+            if (tratamentoContainer) {
+                tratamentoContainer.innerHTML = '<span class="text-red-400">Erro ao carregar</span>';
+            }
+        }
+    }
+
+    async function salvarTratamento() {
+        if (!currentPacienteForModal) {
+            alert('Erro: Paciente não selecionado.');
+            return;
+        }
+
+        const activeAction = document.querySelector('.treatment-action-tab.active')?.dataset.action;
+        
+        if (activeAction === 'add') {
+            await adicionarNovoMedicamento();
+        } else if (activeAction === 'modify') {
+            await modificarMedicamento();
+        }
+    }
+
+    async function adicionarNovoMedicamento() {
+        const medicamentoData = hiperdiaDom.getNovoMedicamentoData();
+        
+        if (!medicamentoData.nome_medicamento || !medicamentoData.frequencia) {
+            alert('Por favor, preencha o nome do medicamento e a frequência.');
+            return;
+        }
+
+        try {
+            medicamentoData.codcidadao = currentPacienteForModal.cod_paciente;
+            
+            const result = await hiperdiaApi.adicionarMedicamento(medicamentoData);
+            
+            if (result.sucesso) {
+                alert('Medicamento adicionado com sucesso!');
+                // Recarregar medicamentos
+                const medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(currentPacienteForModal.cod_paciente);
+                hiperdiaDom.renderMedicamentosAtuais(medicamentos);
+                hiperdiaDom.populateMedicamentosDropdown(medicamentos);
+                
+                // Limpar formulário
+                hiperdiaDom.resetTreatmentForm();
+                
+                // Atualizar tabela principal
+                fetchPacientesHiperdia();
+            } else {
+                alert(`Erro ao adicionar medicamento: ${result.erro}`);
+            }
+        } catch (error) {
+            console.error('Erro ao adicionar medicamento:', error);
+            alert('Erro ao adicionar medicamento. Tente novamente.');
+        }
+    }
+
+    async function modificarMedicamento() {
+        const modificacaoData = hiperdiaDom.getModificacaoMedicamentoData();
+        
+        if (!modificacaoData.cod_seq_medicamentos || !modificacaoData.tipo_modificacao) {
+            alert('Por favor, selecione um medicamento e o tipo de modificação.');
+            return;
+        }
+
+        try {
+            let result;
+            
+            if (modificacaoData.tipo_modificacao === 'stop' || modificacaoData.tipo_modificacao === 'pause') {
+                result = await hiperdiaApi.interromperMedicamento(
+                    modificacaoData.cod_seq_medicamentos, 
+                    modificacaoData.motivo || 'Interrupção solicitada'
+                );
+            } else if (modificacaoData.tipo_modificacao === 'frequency') {
+                if (!modificacaoData.nova_frequencia) {
+                    alert('Por favor, informe a nova frequência.');
+                    return;
+                }
+                result = await hiperdiaApi.atualizarMedicamento(
+                    modificacaoData.cod_seq_medicamentos,
+                    {
+                        frequencia: modificacaoData.nova_frequencia,
+                        observacoes: modificacaoData.motivo
+                    }
+                );
+            }
+            
+            if (result && result.sucesso) {
+                alert('Medicamento modificado com sucesso!');
+                // Recarregar medicamentos
+                const medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(currentPacienteForModal.cod_paciente);
+                hiperdiaDom.renderMedicamentosAtuais(medicamentos);
+                hiperdiaDom.populateMedicamentosDropdown(medicamentos);
+                
+                // Limpar formulário
+                hiperdiaDom.resetTreatmentForm();
+                
+                // Atualizar tabela principal
+                fetchPacientesHiperdia();
+            } else {
+                alert(`Erro ao modificar medicamento: ${result?.erro || 'Erro desconhecido'}`);
+            }
+        } catch (error) {
+            console.error('Erro ao modificar medicamento:', error);
+            alert('Erro ao modificar medicamento. Tente novamente.');
         }
     }
 
@@ -692,9 +840,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (elements.tabelaPacientesBody) {
         elements.tabelaPacientesBody.addEventListener('click', async function (event) { // Made async
-            const button = event.target.closest('.hiperdia-ver-detalhes-btn');
-            if (button) {
-                const codPaciente = button.dataset.codPaciente;
+            // Botão para abrir modal de timeline
+            const timelineButton = event.target.closest('.hiperdia-ver-detalhes-btn');
+            if (timelineButton) {
+                const codPaciente = timelineButton.dataset.codPaciente;
                 const paciente = currentFetchedPacientes.find(p => String(p.cod_paciente) === codPaciente);
                 if (paciente) {
                     try {
@@ -707,6 +856,26 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.error("Paciente não encontrado no cache:", codPaciente);
                     alert("Erro: não foi possível encontrar os dados do paciente.");
                 }
+                return;
+            }
+
+            // Botão para abrir modal de tratamento (nome do paciente)
+            const treatmentButton = event.target.closest('.hiperdia-treatment-btn');
+            if (treatmentButton) {
+                const codPaciente = treatmentButton.dataset.codPaciente;
+                const paciente = currentFetchedPacientes.find(p => String(p.cod_paciente) === codPaciente);
+                if (paciente) {
+                    try {
+                        await abrirModalTratamento(paciente);
+                    } catch (error) {
+                        console.error("Erro ao abrir modal de tratamento:", error);
+                        alert("Erro ao carregar informações do tratamento.");
+                    }
+                } else {
+                    console.error("Paciente não encontrado no cache:", codPaciente);
+                    alert("Erro: não foi possível encontrar os dados do paciente.");
+                }
+                return;
             }
         });
     }
@@ -809,6 +978,65 @@ document.addEventListener('DOMContentLoaded', function () {
             fetchPacientesHiperdia();
         });
     }
+
+    // Event listeners para o modal de tratamento
+    if (elements.closeTreatmentModal) {
+        elements.closeTreatmentModal.addEventListener('click', () => hiperdiaDom.closeTreatmentModal());
+    }
+    if (elements.cancelTreatmentBtn) {
+        elements.cancelTreatmentBtn.addEventListener('click', () => hiperdiaDom.closeTreatmentModal());
+    }
+    if (elements.saveTreatmentBtn) {
+        elements.saveTreatmentBtn.addEventListener('click', salvarTratamento);
+    }
+
+    // Event listeners para as abas de ação do tratamento
+    if (elements.treatmentActionTabs) {
+        elements.treatmentActionTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove o estado ativo de todas as abas
+                elements.treatmentActionTabs.forEach(t => {
+                    t.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                    t.classList.add('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                });
+                // Adiciona o estado ativo à aba clicada
+                this.classList.add('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                this.classList.remove('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                
+                // Alternar seções
+                hiperdiaDom.toggleTreatmentSections(this.dataset.action);
+            });
+        });
+    }
+
+    // Event listener para o tipo de modificação
+    if (elements.modificationTypeRadios) {
+        elements.modificationTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'frequency') {
+                    elements.newFrequencySection?.classList.remove('hidden');
+                } else {
+                    elements.newFrequencySection?.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    // Event listener para carregar tratamento atual na tabela
+    function carregarTratamentosNaTabela() {
+        currentFetchedPacientes.forEach(paciente => {
+            carregarTratamentoAtual(paciente);
+        });
+    }
+
+    // Função modificada para carregar tratamentos após carregar pacientes
+    const originalFetchPacientes = fetchPacientesHiperdia;
+    fetchPacientesHiperdia = function() {
+        return originalFetchPacientes().then(() => {
+            // Carregar tratamentos atuais para todos os pacientes
+            setTimeout(carregarTratamentosNaTabela, 100);
+        });
+    };
 
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);

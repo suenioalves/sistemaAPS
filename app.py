@@ -3293,5 +3293,261 @@ def api_equipes_com_agentes_plafam():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/hiperdia/medicamentos_atuais/<int:cod_cidadao>')
+def api_get_medicamentos_atuais_hiperdia(cod_cidadao):
+    """Busca medicamentos atuais de um paciente combinando view existente e tabela manual"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Primeiro, busca medicamentos da view existente (prescrições automáticas)
+        sql_view = """
+            SELECT 
+                codmedicamento as cod_seq_medicamento,
+                'view' as origem,
+                codcidadao, 
+                medicamento as nome_medicamento, 
+                posologia, 
+                ds_frequencia_dose as frequencia,
+                dt_inicio_tratamento as data_inicio,
+                null as data_fim,
+                null as motivo_interrupcao,
+                null as observacoes
+            FROM 
+                sistemaaps.mv_hiperdia_hipertensao_medicamentos
+            WHERE 
+                codcidadao = %(cod_cidadao)s
+        """
+        
+        # Segundo, busca medicamentos da tabela manual (se existir)
+        sql_manual = """
+            SELECT 
+                cod_seq_medicamento,
+                'manual' as origem,
+                codcidadao, 
+                nome_medicamento, 
+                posologia, 
+                frequencia,
+                data_inicio,
+                data_fim,
+                motivo_interrupcao,
+                observacoes
+            FROM 
+                sistemaaps.tb_medicamentos
+            WHERE 
+                codcidadao = %(cod_cidadao)s
+                AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+        """
+        
+        medicamentos = []
+        
+        # Busca da view existente
+        cur.execute(sql_view, {'cod_cidadao': cod_cidadao})
+        medicamentos_view = cur.fetchall()
+        
+        for row in medicamentos_view:
+            med_dict = dict(row)
+            if med_dict.get('data_inicio') and isinstance(med_dict['data_inicio'], date):
+                med_dict['data_inicio'] = med_dict['data_inicio'].strftime('%Y-%m-%d')
+            medicamentos.append(med_dict)
+        
+        # Busca da tabela manual (só se existir)
+        try:
+            cur.execute(sql_manual, {'cod_cidadao': cod_cidadao})
+            medicamentos_manual = cur.fetchall()
+            
+            for row in medicamentos_manual:
+                med_dict = dict(row)
+                if med_dict.get('data_inicio') and isinstance(med_dict['data_inicio'], date):
+                    med_dict['data_inicio'] = med_dict['data_inicio'].strftime('%Y-%m-%d')
+                if med_dict.get('data_fim') and isinstance(med_dict['data_fim'], date):
+                    med_dict['data_fim'] = med_dict['data_fim'].strftime('%Y-%m-%d')
+                medicamentos.append(med_dict)
+        except:
+            # Tabela ainda não existe, ignora
+            pass
+        
+        # Ordena por data de início (mais recente primeiro)
+        medicamentos.sort(key=lambda x: x.get('data_inicio', ''), reverse=True)
+            
+        return jsonify(medicamentos)
+
+    except Exception as e:
+        print(f"Erro na API /api/hiperdia/medicamentos_atuais: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/medicamentos', methods=['POST'])
+def api_adicionar_medicamento_hiperdia():
+    """Adiciona um novo medicamento para um paciente"""
+    data = request.get_json()
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cod_cidadao = data.get('codcidadao')
+        nome_medicamento = data.get('nome_medicamento')
+        posologia = data.get('posologia')
+        frequencia = data.get('frequencia')
+        data_inicio = data.get('data_inicio')
+        observacoes = data.get('observacoes', '')
+
+        if not all([cod_cidadao, nome_medicamento, posologia, frequencia, data_inicio]):
+            return jsonify({"sucesso": False, "erro": "Dados incompletos para adicionar medicamento."}), 400
+
+        sql_insert = """
+            INSERT INTO sistemaaps.tb_medicamentos
+            (codcidadao, nome_medicamento, posologia, frequencia, data_inicio, observacoes)
+            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(posologia)s, %(frequencia)s, %(data_inicio)s, %(observacoes)s)
+            RETURNING cod_seq_medicamento;
+        """
+
+        cur.execute(sql_insert, {
+            'codcidadao': cod_cidadao,
+            'nome_medicamento': nome_medicamento,
+            'posologia': posologia,
+            'frequencia': frequencia,
+            'data_inicio': data_inicio,
+            'observacoes': observacoes
+        })
+
+        cod_seq_medicamento = cur.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": "Medicamento adicionado com sucesso",
+            "cod_seq_medicamento": cod_seq_medicamento
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro na API adicionar medicamento: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/medicamentos/<int:cod_seq_medicamento>', methods=['PUT'])
+def api_atualizar_medicamento_hiperdia(cod_seq_medicamento):
+    """Atualiza um medicamento existente"""
+    data = request.get_json()
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Campos que podem ser atualizados
+        nome_medicamento = data.get('nome_medicamento')
+        posologia = data.get('posologia')
+        frequencia = data.get('frequencia')
+        observacoes = data.get('observacoes')
+
+        # Construir query dinâmica baseada nos campos fornecidos
+        update_fields = []
+        params = {'cod_seq_medicamento': cod_seq_medicamento}
+
+        if nome_medicamento is not None:
+            update_fields.append("nome_medicamento = %(nome_medicamento)s")
+            params['nome_medicamento'] = nome_medicamento
+
+        if posologia is not None:
+            update_fields.append("posologia = %(posologia)s")
+            params['posologia'] = posologia
+
+        if frequencia is not None:
+            update_fields.append("frequencia = %(frequencia)s")
+            params['frequencia'] = frequencia
+
+        if observacoes is not None:
+            update_fields.append("observacoes = %(observacoes)s")
+            params['observacoes'] = observacoes
+
+        if not update_fields:
+            return jsonify({"sucesso": False, "erro": "Nenhum campo para atualizar fornecido."}), 400
+
+        sql_update = f"""
+            UPDATE sistemaaps.tb_medicamentos
+            SET {', '.join(update_fields)}
+            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s;
+        """
+
+        cur.execute(sql_update, params)
+        
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Medicamento não encontrado."}), 404
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": "Medicamento atualizado com sucesso"
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro na API atualizar medicamento: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/medicamentos/<int:cod_seq_medicamento>/interromper', methods=['PUT'])
+def api_interromper_medicamento_hiperdia(cod_seq_medicamento):
+    """Interrompe um medicamento definindo data_fim e motivo"""
+    data = request.get_json()
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        data_fim = data.get('data_fim')
+        motivo = data.get('motivo', 'Interrompido pelo profissional')
+
+        if not data_fim:
+            return jsonify({"sucesso": False, "erro": "Data de fim é obrigatória para interromper medicamento."}), 400
+
+        sql_update = """
+            UPDATE sistemaaps.tb_medicamentos
+            SET data_fim = %(data_fim)s,
+                motivo_interrupcao = %(motivo)s
+            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s;
+        """
+
+        cur.execute(sql_update, {
+            'data_fim': data_fim,
+            'motivo': motivo,
+            'cod_seq_medicamento': cod_seq_medicamento
+        })
+
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Medicamento não encontrado."}), 404
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": "Medicamento interrompido com sucesso"
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro na API interromper medicamento: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')

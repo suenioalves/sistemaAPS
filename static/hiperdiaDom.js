@@ -105,6 +105,37 @@ export const hiperdiaDom = {
         _elements.orientacoesNutricionais = document.getElementById('hiperdia-orientacoes-nutricionais');
         _elements.hiperdiaResponsavelAcao = document.getElementById('hiperdia-responsavel-acao');
 
+        // Elementos do modal de tratamento
+        _elements.treatmentModal = document.getElementById('hiperdia-treatmentModal');
+        _elements.closeTreatmentModal = document.getElementById('hiperdia-closeTreatmentModal');
+        _elements.cancelTreatmentBtn = document.getElementById('hiperdia-cancelTreatmentBtn');
+        _elements.saveTreatmentBtn = document.getElementById('hiperdia-saveTreatmentBtn');
+        _elements.treatmentModalTitle = document.getElementById('hiperdia-treatmentModalTitle');
+        _elements.treatmentModalAvatarIniciais = document.getElementById('hiperdia-treatmentModalAvatarIniciais');
+        _elements.treatmentModalPacienteNome = document.getElementById('hiperdia-treatmentModalPacienteNome');
+        _elements.treatmentModalPacienteIdade = document.getElementById('hiperdia-treatmentModalPacienteIdade');
+        _elements.treatmentModalPacienteInfo = document.getElementById('hiperdia-treatmentModalPacienteInfo');
+        _elements.medicamentosAtuaisContainer = document.getElementById('hiperdia-medicamentosAtuaisContainer');
+        _elements.medicamentosAtivosCount = document.getElementById('hiperdia-medicamentosAtivosCount');
+        _elements.noMedicamentosMessage = document.getElementById('hiperdia-noMedicamentosMessage');
+        _elements.treatmentForm = document.getElementById('hiperdia-treatmentForm');
+        _elements.treatmentActionTabs = document.querySelectorAll('.treatment-action-tab');
+        _elements.addMedicationSection = document.getElementById('hiperdia-addMedicationSection');
+        _elements.modifyMedicationSection = document.getElementById('hiperdia-modifyMedicationSection');
+        
+        // Campos do formulário de novo medicamento
+        _elements.novoMedicamentoNome = document.getElementById('hiperdia-novoMedicamentoNome');
+        _elements.novoMedicamentoFrequencia = document.getElementById('hiperdia-novoMedicamentoFrequencia');
+        _elements.novoMedicamentoDataInicio = document.getElementById('hiperdia-novoMedicamentoDataInicio');
+        _elements.novoMedicamentoObservacoes = document.getElementById('hiperdia-novoMedicamentoObservacoes');
+        
+        // Campos de modificação de medicamento
+        _elements.selectMedicamentoModificar = document.getElementById('hiperdia-selectMedicamentoModificar');
+        _elements.novaFrequencia = document.getElementById('hiperdia-novaFrequencia');
+        _elements.modificacaoObservacoes = document.getElementById('hiperdia-modificacaoObservacoes');
+        _elements.newFrequencySection = document.getElementById('hiperdia-newFrequencySection');
+        _elements.modificationTypeRadios = document.querySelectorAll('input[name="modification-type"]');
+
         // Expose elements for direct access from hiperdia_has_script.js
         Object.assign(hiperdiaDom, { elements: _elements });
     },
@@ -180,7 +211,9 @@ export const hiperdiaDom = {
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm font-medium text-gray-900">
-                            ${paciente.nome_paciente || 'N/A'}, ${paciente.idade_calculada || 'N/A'} anos
+                            <button class="hiperdia-treatment-btn text-primary hover:text-indigo-900 underline" data-cod-paciente="${paciente.cod_paciente}">
+                                ${paciente.nome_paciente || 'N/A'}
+                            </button>, ${paciente.idade_calculada || 'N/A'} anos
                             ${hasPendingAction ? '<i class="ri-time-line text-yellow-500 ml-1" title="Ação Pendente"></i>' : ''}
                         </div>
                         <div class="text-xs text-gray-500">CNS: ${paciente.cartao_sus || 'N/A'}</div>
@@ -188,10 +221,9 @@ export const hiperdiaDom = {
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${situacaoDisplay}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${paciente.ciap_cronico ? `CIAP: ${paciente.ciap_cronico}` : ''}
-                        ${paciente.ciap_cronico && paciente.cid10_cronico ? '<br>' : ''}
-                        ${paciente.cid10_cronico ? `CID10: ${paciente.cid10_cronico}` : ''}
-                        ${!paciente.ciap_cronico && !paciente.cid10_cronico ? 'N/A' : ''}
+                        <div id="tratamento-atual-${paciente.cod_paciente}" class="text-xs">
+                            <span class="loading-pulse">Carregando...</span>
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${proximaAcaoDisplay}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1248,5 +1280,187 @@ export const hiperdiaDom = {
             activeButton.classList.remove(activeButton.dataset.inactiveBg, activeButton.dataset.inactiveText, activeButton.dataset.inactiveBorder);
             activeButton.classList.add(activeButton.dataset.activeBg, activeButton.dataset.activeText, activeButton.dataset.activeBorder);
         }
+    },
+
+    /**
+     * Abre o modal de gerenciamento de tratamento.
+     * @param {object} paciente - Dados do paciente.
+     */
+    openTreatmentModal: (paciente) => {
+        if (!paciente || !_elements.treatmentModal) return;
+
+        // Preencher informações do paciente
+        _elements.treatmentModalTitle.textContent = `Gerenciar Tratamento - ${paciente.nome_paciente || 'Paciente'}`;
+        _elements.treatmentModalAvatarIniciais.textContent = hiperdiaDom.getIniciais(paciente.nome_paciente);
+        _elements.treatmentModalPacienteNome.textContent = paciente.nome_paciente || 'N/A';
+        _elements.treatmentModalPacienteIdade.textContent = `${paciente.idade_calculada || 'N/A'} anos`;
+        _elements.treatmentModalPacienteInfo.textContent = `Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'}`;
+
+        // Definir data atual como padrão
+        if (_elements.novoMedicamentoDataInicio) {
+            _elements.novoMedicamentoDataInicio.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Resetar formulário
+        hiperdiaDom.resetTreatmentForm();
+
+        _elements.treatmentModal.classList.remove('hidden');
+    },
+
+    /**
+     * Fecha o modal de gerenciamento de tratamento.
+     */
+    closeTreatmentModal: () => {
+        if (_elements.treatmentModal) {
+            _elements.treatmentModal.classList.add('hidden');
+        }
+    },
+
+    /**
+     * Reseta o formulário de tratamento.
+     */
+    resetTreatmentForm: () => {
+        if (_elements.treatmentForm) {
+            _elements.treatmentForm.reset();
+        }
+
+        // Ativar a primeira aba (Adicionar medicamento)
+        if (_elements.treatmentActionTabs) {
+            _elements.treatmentActionTabs.forEach((tab, index) => {
+                tab.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                tab.classList.add('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                if (index === 0) {
+                    tab.classList.add('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                    tab.classList.remove('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                }
+            });
+        }
+
+        // Mostrar seção de adicionar e ocultar modificação
+        if (_elements.addMedicationSection) _elements.addMedicationSection.classList.remove('hidden');
+        if (_elements.modifyMedicationSection) _elements.modifyMedicationSection.classList.add('hidden');
+    },
+
+    /**
+     * Renderiza a lista de medicamentos atuais do paciente.
+     * @param {Array<object>} medicamentos - Lista de medicamentos.
+     */
+    renderMedicamentosAtuais: (medicamentos) => {
+        if (!_elements.medicamentosAtuaisContainer) return;
+
+        _elements.medicamentosAtuaisContainer.innerHTML = '';
+
+        if (!medicamentos || medicamentos.length === 0) {
+            _elements.noMedicamentosMessage.classList.remove('hidden');
+            _elements.medicamentosAtivosCount.textContent = '0 medicamentos';
+            return;
+        }
+
+        _elements.noMedicamentosMessage.classList.add('hidden');
+        _elements.medicamentosAtivosCount.textContent = `${medicamentos.length} medicamento${medicamentos.length > 1 ? 's' : ''}`;
+
+        medicamentos.forEach(medicamento => {
+            const medicamentoCard = document.createElement('div');
+            medicamentoCard.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow';
+            
+            const statusClass = medicamento.data_fim ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
+            const statusText = medicamento.data_fim ? 'Interrompido' : 'Ativo';
+            
+            // Determina se é um medicamento editável (origem manual) ou somente leitura (origem view/sistema)
+            const isEditable = medicamento.origem === 'manual';
+            const origemBadge = medicamento.origem === 'view' ? 
+                '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Sistema</span>' : 
+                '<span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Manual</span>';
+            
+            medicamentoCard.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h6 class="font-medium text-gray-900">${medicamento.nome_medicamento || 'Medicamento não especificado'}</h6>
+                    <div class="flex space-x-1">
+                        ${origemBadge}
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
+                    </div>
+                </div>
+                <div class="space-y-1 text-sm text-gray-600">
+                    <p><span class="font-medium">Posologia:</span> ${medicamento.posologia || 'N/A'}</p>
+                    <p><span class="font-medium">Frequência:</span> ${medicamento.frequencia || 'N/A'}</p>
+                    <p><span class="font-medium">Início:</span> ${medicamento.data_inicio ? new Date(medicamento.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
+                    ${medicamento.data_fim ? `<p><span class="font-medium">Fim:</span> ${new Date(medicamento.data_fim + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>` : ''}
+                    ${medicamento.motivo_interrupcao ? `<p><span class="font-medium">Motivo:</span> ${medicamento.motivo_interrupcao}</p>` : ''}
+                    ${medicamento.observacoes ? `<p><span class="font-medium">Obs:</span> ${medicamento.observacoes}</p>` : ''}
+                </div>
+                ${!medicamento.data_fim && isEditable ? `
+                    <div class="mt-3 flex space-x-2">
+                        <button type="button" class="modify-medication-btn text-xs text-blue-600 hover:text-blue-800 font-medium" data-medicamento-id="${medicamento.cod_seq_medicamento}">
+                            <i class="ri-edit-line mr-1"></i>Modificar
+                        </button>
+                        <button type="button" class="stop-medication-btn text-xs text-red-600 hover:text-red-800 font-medium" data-medicamento-id="${medicamento.cod_seq_medicamento}">
+                            <i class="ri-stop-circle-line mr-1"></i>Interromper
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            
+            _elements.medicamentosAtuaisContainer.appendChild(medicamentoCard);
+        });
+    },
+
+    /**
+     * Popula o dropdown de medicamentos para modificação.
+     * @param {Array<object>} medicamentos - Lista de medicamentos ativos.
+     */
+    populateMedicamentosDropdown: (medicamentos) => {
+        if (!_elements.selectMedicamentoModificar) return;
+
+        _elements.selectMedicamentoModificar.innerHTML = '<option value="">Selecione um medicamento</option>';
+
+        if (medicamentos && medicamentos.length > 0) {
+            medicamentos.filter(med => !med.data_fim).forEach(medicamento => {
+                const option = document.createElement('option');
+                option.value = medicamento.cod_seq_medicamentos;
+                option.textContent = `${medicamento.nome_medicamento} - ${medicamento.frequencia}x/dia`;
+                _elements.selectMedicamentoModificar.appendChild(option);
+            });
+        }
+    },
+
+    /**
+     * Alterna entre as seções do modal de tratamento.
+     * @param {string} action - Ação selecionada ('add' ou 'modify').
+     */
+    toggleTreatmentSections: (action) => {
+        if (action === 'add') {
+            if (_elements.addMedicationSection) _elements.addMedicationSection.classList.remove('hidden');
+            if (_elements.modifyMedicationSection) _elements.modifyMedicationSection.classList.add('hidden');
+        } else if (action === 'modify') {
+            if (_elements.addMedicationSection) _elements.addMedicationSection.classList.add('hidden');
+            if (_elements.modifyMedicationSection) _elements.modifyMedicationSection.classList.remove('hidden');
+        }
+    },
+
+    /**
+     * Obtém os dados do novo medicamento do formulário.
+     * @returns {object} Dados do medicamento.
+     */
+    getNovoMedicamentoData: () => {
+        return {
+            nome_medicamento: _elements.novoMedicamentoNome?.value || '',
+            frequencia: parseInt(_elements.novoMedicamentoFrequencia?.value) || null,
+            data_inicio: _elements.novoMedicamentoDataInicio?.value || null,
+            observacoes: _elements.novoMedicamentoObservacoes?.value || null
+        };
+    },
+
+    /**
+     * Obtém os dados de modificação do medicamento.
+     * @returns {object} Dados da modificação.
+     */
+    getModificacaoMedicamentoData: () => {
+        const modificationType = document.querySelector('input[name="modification-type"]:checked')?.value;
+        return {
+            cod_seq_medicamentos: parseInt(_elements.selectMedicamentoModificar?.value) || null,
+            tipo_modificacao: modificationType,
+            nova_frequencia: modificationType === 'frequency' ? parseInt(_elements.novaFrequencia?.value) : null,
+            motivo: _elements.modificacaoObservacoes?.value || null
+        };
     }
 };

@@ -179,5 +179,103 @@ export const hiperdiaApi = {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
+    },
+
+    /**
+     * Busca todos os medicamentos atuais de um paciente.
+     * @param {number} codCidadao - Código do cidadão.
+     * @returns {Promise<Array<object>>} Lista de medicamentos atuais.
+     */
+    fetchMedicamentosAtuais: async (codCidadao) => {
+        try {
+            if (!codCidadao) {
+                throw new Error('Código do cidadão é obrigatório');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/medicamentos_atuais/${codCidadao}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao buscar medicamentos atuais:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Adiciona um novo medicamento para um paciente.
+     * @param {object} medicamentoData - Dados do medicamento.
+     * @returns {Promise<object>} Resultado da operação.
+     */
+    adicionarMedicamento: async (medicamentoData) => {
+        try {
+            if (!medicamentoData.codcidadao || !medicamentoData.nome_medicamento) {
+                throw new Error('Código do cidadão e nome do medicamento são obrigatórios');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/medicamentos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(medicamentoData),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao adicionar medicamento:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Atualiza um medicamento existente.
+     * @param {number} codSeqMedicamento - Código do medicamento.
+     * @param {object} medicamentoData - Novos dados do medicamento.
+     * @returns {Promise<object>} Resultado da operação.
+     */
+    atualizarMedicamento: async (codSeqMedicamento, medicamentoData) => {
+        try {
+            if (!codSeqMedicamento) {
+                throw new Error('Código do medicamento é obrigatório');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/medicamentos/${codSeqMedicamento}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(medicamentoData),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao atualizar medicamento:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Remove/interrompe um medicamento.
+     * @param {number} codSeqMedicamento - Código do medicamento.
+     * @param {string} motivo - Motivo da interrupção.
+     * @returns {Promise<object>} Resultado da operação.
+     */
+    interromperMedicamento: async (codSeqMedicamento, motivo) => {
+        try {
+            if (!codSeqMedicamento) {
+                throw new Error('Código do medicamento é obrigatório');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/medicamentos/${codSeqMedicamento}/interromper`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ motivo, data_fim: new Date().toISOString().split('T')[0] }),
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao interromper medicamento:', error);
+            throw error;
+        }
     }
 };
