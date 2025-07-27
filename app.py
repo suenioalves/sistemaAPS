@@ -54,6 +54,11 @@ def build_filtered_query(args):
     status_list = args.getlist('status')
     status_timeline = args.get('status_timeline', 'Todos')  # Novo filtro para as abas
     sort_by = args.get('sort_by', 'nome_asc')
+    
+    # Filtros de aplicação
+    aplicacao_data_inicial = args.get('aplicacao_data_inicial')
+    aplicacao_data_final = args.get('aplicacao_data_final')
+    aplicacao_metodo = args.get('aplicacao_metodo', 'trimestral')
 
     print(f"DEBUG: status_timeline recebido: {status_timeline}")
 
@@ -156,6 +161,25 @@ def build_filtered_query(args):
             """)
         if status_conditions:
              where_clauses.append(f"({ ' OR '.join(status_conditions) })")
+
+    # Filtro de Controle de Aplicações
+    if aplicacao_data_inicial and aplicacao_data_final and aplicacao_metodo == 'trimestral':
+        # Para o trimestral, buscar pacientes cuja última aplicação foi há 90 dias antes do período escolhido
+        # Se o usuário escolheu o período 01/10/2025 a 10/10/2025
+        # Devemos buscar pacientes cuja aplicação foi entre 01/07/2025 e 10/07/2025 (90 dias antes)
+        where_clauses.append("""
+            (
+                m.metodo ILIKE '%%trimestral%%' AND
+                m.data_aplicacao IS NOT NULL AND
+                m.data_aplicacao != '' AND
+                TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') BETWEEN 
+                    (TO_DATE(%(aplicacao_data_inicial)s, 'YYYY-MM-DD') - INTERVAL '90 days') AND
+                    (TO_DATE(%(aplicacao_data_final)s, 'YYYY-MM-DD') - INTERVAL '90 days')
+            )
+        """)
+        query_params['aplicacao_data_inicial'] = aplicacao_data_inicial
+        query_params['aplicacao_data_final'] = aplicacao_data_final
+        print(f"DEBUG: Adicionado filtro de aplicações - Data inicial: {aplicacao_data_inicial}, Data final: {aplicacao_data_final}")
 
     # Lógica de Ordenação
     sort_mapping = {
@@ -716,6 +740,7 @@ def build_timeline_query_filters(args):
     search_term = args.get('search_timeline', None)
     status_timeline = args.get('status_timeline', 'Todos')
     sort_by = args.get('sort_by_timeline', 'proxima_acao_asc') # Novo padrão de ordenação
+    proxima_acao = args.get('proxima_acao', 'all')
 
     query_params = {}
     where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"] # Foco em adolescentes
@@ -735,7 +760,7 @@ def build_timeline_query_filters(args):
         # Se não tiver ' - ', pode ser apenas a microárea, mas a lógica atual do JS envia com ' - ' ou 'Todas as áreas'
 
     if search_term:
-        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search_timeline)s)")
+        where_clauses.append("(UPPER(m.nome_paciente) LIKE UPPER(%(search_timeline)s) OR UPPER(m.nome_responsavel) LIKE UPPER(%(search_timeline)s))")
         query_params['search_timeline'] = f"%{search_term}%"
 
     if status_timeline == 'SemMetodo':
@@ -767,6 +792,15 @@ def build_timeline_query_filters(args):
         where_clauses.append("m.status_gravidez = 'Grávida'")
     # 'Todos' não adiciona filtro de status específico do método
 
+    # Filtro por próxima ação
+    if proxima_acao != 'all':
+        try:
+            tipo_acao = int(proxima_acao)
+            where_clauses.append("pa_futura.tipo_abordagem = %(proxima_acao_tipo)s")
+            query_params['proxima_acao_tipo'] = tipo_acao
+        except (ValueError, TypeError):
+            pass  # Ignorar valores inválidos
+
     sort_mapping_timeline = {
         'nome_asc': 'm.nome_paciente ASC',
         'nome_desc': 'm.nome_paciente DESC',
@@ -778,7 +812,7 @@ def build_timeline_query_filters(args):
     order_by_clause = " ORDER BY " + sort_mapping_timeline.get(sort_by, 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC')
     
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-    return where_clause_str, order_by_clause, query_params
+    return where_clause_str, order_by_clause, query_params, proxima_acao
 
 @app.route('/api/timeline_adolescentes')
 def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
@@ -792,7 +826,7 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
         limit = int(request.args.get('limit', 10)) # Limite de 10 por página (padrão)
         offset = (page - 1) * limit
 
-        where_clause, order_by_clause, query_params = build_timeline_query_filters(request.args)
+        where_clause, order_by_clause, query_params, proxima_acao = build_timeline_query_filters(request.args)
 
         base_query_fields = """
             m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
@@ -816,8 +850,12 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
         ) pa_futura ON TRUE
         """
 
-        # FROM clause simplificado para a contagem, para evitar problemas de performance ou contagem incorreta com o JOIN LATERAL
-        from_clause_for_count = """
+        # Para contagem, usar FROM clause completo se filtro de próxima ação for aplicado
+        if proxima_acao != 'all':
+            from_clause_for_count = from_join_clause
+        else:
+            # FROM clause simplificado para a contagem, para evitar problemas de performance
+            from_clause_for_count = """
         FROM sistemaaps.mv_plafam m
         LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
         """

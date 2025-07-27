@@ -340,6 +340,7 @@
                         data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
             </div>
 
+
             <!-- Barra de Ferramentas da Tabela (Busca, Ordenação, Impressão) -->
             <div class="flex justify-between items-center mb-4">
                 <div> <!-- Espaço reservado à esquerda, ou pode ser removido se os botões de filtro preencherem -->
@@ -347,12 +348,42 @@
                 <div class="flex items-center space-x-2">
                     <!-- Busca -->
                     <div class="relative">
-                        <input type="text" id="search-timeline-input" placeholder="Buscar adolescente..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
+                        <input type="text" id="search-timeline-input" placeholder="Buscar por nome da adolescente ou mãe..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
                         <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                             <i class="ri-search-line"></i>
                         </div>
                     </div>
-                    <!-- Botão Ordenar (placeholder, funcionalidade a ser implementada no JS) -->
+                    <!-- Botão Filtrar Ações -->
+                    <div class="relative">
+                        <button id="proximaAcaoFilterBtn" class="px-3 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-filter-3-line mr-2"></i>
+                            <span id="proximaAcaoFilterText">Filtrar Ações</span>
+                        </button>
+                        <div id="proximaAcaoFilterDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-20 hidden overflow-hidden border">
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="all" data-text="Todas">
+                                <i class="ri-list-check mr-2"></i> Todas
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="1" data-text="Abordagem com pais">
+                                <i class="ri-parent-line mr-2"></i> Abordagem com pais
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="2" data-text="Abordagem direta">
+                                <i class="ri-user-line mr-2"></i> Abordagem direta
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="3" data-text="Iniciar método na UBS">
+                                <i class="ri-hospital-line mr-2"></i> Iniciar método na UBS
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="6" data-text="Iniciar método em domicílio">
+                                <i class="ri-home-line mr-2"></i> Iniciar método em domicílio
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="4" data-text="Entrega de convite">
+                                <i class="ri-mail-line mr-2"></i> Entrega de convite
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="5" data-text="Mudou de área">
+                                <i class="ri-map-pin-line mr-2"></i> Mudou de área
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Botão Ordenar -->
                     <div class="relative" id="timeline-sort-menu-container">
                         <button id="timeline-sort-btn" class="px-3 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
                             <i class="ri-sort-desc mr-2"></i>
@@ -370,6 +401,9 @@
                            </a>
                            <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="idade_desc" data-text="Idade (decrescente)">
                                <i class="ri-sort-numeric-desc mr-2"></i> Idade (decrescente)
+                           </a>
+                           <a href="#" class="timeline-sort-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-sort="proxima_acao_asc" data-text="Próxima Ação">
+                               <i class="ri-calendar-line mr-2"></i> Próxima Ação
                            </a>
                         </div>
                     </div>
@@ -391,7 +425,7 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Status</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Próxima ação</th>
+                                    Próxima Ação</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ações</th>
@@ -602,12 +636,22 @@
                                 <label class="custom-radio">
                                     <input type="radio" name="action-type" value="3">
                                     <span class="radio-mark"></span>
-                                    Consulta na UBS
+                                    Iniciar método na UBS
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="6">
+                                    <span class="radio-mark"></span>
+                                    Iniciar método em domicílio
                                 </label>
                                 <label class="custom-radio">
                                     <input type="radio" name="action-type" value="4">
                                     <span class="radio-mark"></span>
                                     Entrega de convite
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="5">
+                                    <span class="radio-mark"></span>
+                                    Mudou de área
                                 </label>
                             </div>
                         </div>
@@ -703,8 +747,10 @@
                                             <div class="p-2" id="nextActionDropdownOptionsContainer">
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Consulta na UBS</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciar método na UBS</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciar método em domicílio</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
                                             </div>
                                         </div>
                                     </div>

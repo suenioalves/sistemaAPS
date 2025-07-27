@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentTimelineStatusFilter = 'Todos'; // 'Todos', 'SemMetodo', 'MetodoVencido'
     let currentTimelineSort = 'nome_asc';
     let currentFetchedTimelineAdolescents = []; // Cache for adolescents on the currently displayed timeline page
+    let currentProximaAcaoFilter = 'all'; // Filtro de próxima ação
     const imprimirInformativosMaeBtn = document.getElementById('imprimir-informativos-mae-btn');
 
     // --- Elementos dos Modais ---
@@ -69,8 +70,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const timelineEventIcons = {
         1: 'ri-parent-line',        // Abordagem com pais
         2: 'ri-user-voice-line',    // Abordagem direta com adolescente
-        3: 'ri-hospital-line',      // Consulta na UBS
+        3: 'ri-hospital-line',      // Iniciar método na UBS
         4: 'ri-mail-send-line',     // Entrega de convite
+        5: 'ri-map-pin-line',       // Mudou de área
+        6: 'ri-home-line',          // Iniciar método em domicílio
         'default': 'ri-calendar-event-line'
     };
     const timelineEventColors = { // Tailwind CSS color classes for icon background
@@ -78,13 +81,17 @@ document.addEventListener('DOMContentLoaded', function () {
         2: 'bg-teal-100 text-teal-600',
         3: 'bg-purple-100 text-purple-600',
         4: 'bg-orange-100 text-orange-600',
+        5: 'bg-red-100 text-red-600',
+        6: 'bg-green-100 text-green-600',
         'default': 'bg-gray-100 text-gray-600'
     };
     const tipoAbordagemMap = {
         1: "Abordagem com pais",
         2: "Abordagem direta com adolescente",
-        3: "Consulta na UBS",
-        4: "Entrega de convite"
+        3: "Iniciar método na UBS",
+        4: "Entrega de convite",
+        5: "Mudou de área",
+        6: "Iniciar método em domicílio"
     };
     const resultadoAbordagemMap = {
         1: "Deseja iniciar um método contraceptivo",
@@ -604,6 +611,15 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (ado.ultimo_resultado_abordagem === 4) {
                 // Caso especial: "Já usa um método" - mostrar em verde
                 proximaAcaoDisplay = `<span class="text-green-600 font-medium">(Paciente em uso)</span><br><span class="text-xs text-green-500">(Atualizar no PEC)</span>`;
+            } else if (ado.proxima_acao_tipo === 5 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('mudou de área'))) {
+                // Caso especial: "Mudou de área" - mostrar em vermelho escuro
+                proximaAcaoDisplay = `<span class="text-red-700 font-medium">Mudou de área</span><br><span class="text-xs text-red-700">(identificar área)</span>`;
+            } else if (ado.proxima_acao_tipo === 3 || (ado.proxima_acao_descricao && (ado.proxima_acao_descricao.toLowerCase().includes('consulta na ubs') || ado.proxima_acao_descricao.toLowerCase().includes('iniciar método na ubs')))) {
+                // Caso especial: "Iniciar método na UBS" - mostrar em verde escuro
+                proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método na UBS</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da consulta'})</span>`;
+            } else if (ado.proxima_acao_tipo === 6 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('iniciar método em domicílio'))) {
+                // Caso especial: "Iniciar método em domicílio" - mostrar em verde escuro
+                proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método em domicílio</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da visita'})</span>`;
             } else if (ado.proxima_acao_descricao) {
                 // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
                 if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {
@@ -723,7 +739,8 @@ document.addEventListener('DOMContentLoaded', function () {
             search_timeline: currentTimelineSearch,
             status_timeline: currentTimelineStatusFilter,
             sort_by_timeline: currentTimelineSort,
-            limit: currentTimelineLimit // Adiciona o parâmetro de limite
+            limit: currentTimelineLimit, // Adiciona o parâmetro de limite
+            proxima_acao: currentProximaAcaoFilter // Adiciona o filtro de próxima ação
         });
 
         fetch(`/api/timeline_adolescentes?${params.toString()}`)
@@ -1177,7 +1194,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (defaultSortOption && defaultSortOption.dataset.text) {
             timelineSortBtnText.textContent = defaultSortOption.dataset.text;
         } else {
-            timelineSortBtnText.textContent = 'Próxima Ação'; // Fallback se a opção não for encontrada ou não tiver data-text
+            timelineSortBtnText.textContent = 'Ordenação'; // Fallback se a opção não for encontrada ou não tiver data-text
         }
     }
 
@@ -1238,6 +1255,38 @@ document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('timeline-filter-todos')) {
         document.getElementById('timeline-filter-todos').click();
     }
+
+    // Configurar dropdown de filtro de próxima ação
+    const proximaAcaoFilterBtn = document.getElementById('proximaAcaoFilterBtn');
+    const proximaAcaoFilterText = document.getElementById('proximaAcaoFilterText');
+    const proximaAcaoFilterDropdown = document.getElementById('proximaAcaoFilterDropdown');
+    const proximaAcaoFilterOptions = document.querySelectorAll('.proxima-acao-filter-option');
+
+    if (proximaAcaoFilterBtn) {
+        proximaAcaoFilterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            proximaAcaoFilterDropdown.classList.toggle('hidden');
+        });
+    }
+
+    proximaAcaoFilterOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentProximaAcaoFilter = e.currentTarget.dataset.acao;
+            // Manter o texto sempre como "Filtrar Ações" independente da seleção
+            proximaAcaoFilterText.textContent = "Filtrar Ações";
+            currentTimelinePage = 1;
+            fetchTimelineData();
+            proximaAcaoFilterDropdown.classList.add('hidden');
+        });
+    });
+
+    // Fechar dropdown ao clicar fora
+    document.addEventListener('click', () => {
+        if (proximaAcaoFilterDropdown) {
+            proximaAcaoFilterDropdown.classList.add('hidden');
+        }
+    });
 
     if (timelineSortBtn) {
         timelineSortBtn.addEventListener('click', (e) => {

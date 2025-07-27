@@ -8,6 +8,7 @@ let currentStatusFilter = 'Todos';
 let currentSearchTerm = '';
 let currentSortValue = '';
 let activeFilters = {};
+let activeAplicacoesFilter = {};
 
 // Função para obter status do acompanhamento (movida para escopo global)
 function getAcompanhamentoStatus(paciente) {
@@ -196,92 +197,141 @@ function generateInvitePDF(pacientesSelecionados) {
     doc.output('dataurlnewwindow');
 }
 
-// Função para exportar dados (Excel, CSV, PDF)
-function exportData(format) {
-    const params = new URLSearchParams({
-        equipe: equipeSelecionadaAtual,
-        microarea: agenteSelecionadoAtual,
-        status_timeline: currentStatusFilter
-    });
+// Função para calcular próxima aplicação
+function calcularProximaAplicacao(paciente) {
+    if (!paciente.data_aplicacao || paciente.gestante) return '';
     
-    // Adicionar filtros de busca se existir
-    const searchInput = document.getElementById('search-input');
-    if (searchInput && searchInput.value) {
-        params.append('search', searchInput.value);
+    try {
+        const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+        if (isNaN(dataAplicacao.getTime())) return '';
+        
+        const metodoLower = paciente.metodo ? paciente.metodo.toLowerCase() : '';
+        let diasIntervalo = 0;
+        
+        if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+            diasIntervalo = 30;
+        } else if (metodoLower.includes('trimestral')) {
+            diasIntervalo = 90;
+        } else {
+            return ''; // Métodos de longa duração não têm próxima aplicação definida
+        }
+        
+        const proximaAplicacao = new Date(dataAplicacao);
+        proximaAplicacao.setDate(proximaAplicacao.getDate() + diasIntervalo);
+        
+        return proximaAplicacao.toLocaleDateString('pt-BR');
+    } catch (error) {
+        return '';
+    }
+}
+
+// Função para exportar dados (Excel, CSV, PDF) - usando dados já filtrados da tabela
+function exportData(format) {
+    // Usar os dados já carregados e filtrados da tabela atual
+    if (!allPacientes || allPacientes.length === 0) {
+        alert('Nenhum dado para exportar. Execute uma busca primeiro.');
+        return;
     }
     
-    fetch(`/api/export_data?${params.toString()}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.erro || !Array.isArray(data) || data.length === 0) {
-                alert('Nenhum dado para exportar com os filtros atuais.');
-                return;
-            }
-            const dataToExport = data.map(p => ({
-                'Nome da Paciente': p.nome_paciente,
-                'CNS': p.cartao_sus,
-                'Idade': p.idade_calculada,
-                'Equipe': p.nome_equipe,
-                'Microárea': p.micro_area,
-                'Agente': p.nome_agente || 'A definir',
-                'Método Atual': p.metodo || 'Nenhum',
-                'Data Aplicação': p.data_aplicacao || '',
-                'Status Acompanhamento': getAcompanhamentoStatus(p),
-                'Gestante': p.gestante ? 'Sim' : 'Não',
-                'DPP': p.data_provavel_parto || '',
-            }));
-            if (format === 'xlsx') {
-                const { XLSX } = window;
-                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientes");
-                XLSX.writeFile(workbook, `Plafam_Exportacao.xlsx`);
-            } else if (format === 'csv') {
-                const header = Object.keys(dataToExport[0]).join(';');
-                const rows = dataToExport.map(row => Object.values(row).map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(';'));
-                const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `Plafam_Exportacao.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } else if (format === 'pdf') {
-                exportPDF(dataToExport);
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao exportar dados:', error);
-            alert('Falha ao exportar os dados.');
-        });
+    // Preparar dados para exportação com as novas colunas
+    const dataToExport = allPacientes.map(p => ({
+        'Nome da Paciente': p.nome_paciente || '',
+        'CNS': p.cartao_sus || '',
+        'Idade': p.idade_calculada || '',
+        'Equipe': p.nome_equipe || '',
+        'Agente': p.nome_agente || 'A definir',
+        'Método Atual': p.metodo || 'Nenhum',
+        'Última Aplicação': p.data_aplicacao ? new Date(p.data_aplicacao + 'T00:00:00').toLocaleDateString('pt-BR') : '',
+        'Próxima Aplicação': calcularProximaAplicacao(p)
+    }));
+    
+    // Ordenar por data da última aplicação (mais antiga para mais recente)
+    dataToExport.sort((a, b) => {
+        const dataA = a['Última Aplicação'] ? new Date(a['Última Aplicação'].split('/').reverse().join('-')) : new Date(0);
+        const dataB = b['Última Aplicação'] ? new Date(b['Última Aplicação'].split('/').reverse().join('-')) : new Date(0);
+        return dataA - dataB;
+    });
+    
+    if (format === 'xlsx') {
+        const { XLSX } = window;
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientes");
+        XLSX.writeFile(workbook, `Plafam_Exportacao.xlsx`);
+    } else if (format === 'csv') {
+        const header = Object.keys(dataToExport[0]).join(';');
+        const rows = dataToExport.map(row => Object.values(row).map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(';'));
+        const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Plafam_Exportacao.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } else if (format === 'pdf') {
+        exportPDF(dataToExport);
+    }
 }
 
 // Função para exportar PDF de relatório
 function exportPDF(dataToExport) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(18);
+    
+    // Título principal
+    doc.setFontSize(16);
     doc.setTextColor(40);
-    doc.text("Relatório de Pacientes - Planejamento Familiar", 14, 22);
-    const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Agente', 'Microárea', 'Método Atual', 'Status']];
+    doc.text("Relatório de Pacientes - Planejamento Familiar", 14, 20);
+    
+    // Subtítulo com informações do filtro
+    let subtitulo = `Total: ${dataToExport.length} mulheres`;
+    
+    // Verificar se há filtro de aplicações ativo
+    if (activeAplicacoesFilter && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
+        const dataInicialFormatada = new Date(activeAplicacoesFilter.dataInicial).toLocaleDateString('pt-BR');
+        const dataFinalFormatada = new Date(activeAplicacoesFilter.dataFinal).toLocaleDateString('pt-BR');
+        subtitulo += ` devem tomar o injetável trimestral entre os dias ${dataInicialFormatada} e ${dataFinalFormatada}`;
+    }
+    
+    doc.setFontSize(12);
+    doc.setTextColor(60);
+    doc.text(subtitulo, 14, 28);
+    
+    // Headers da tabela com as novas colunas
+    const headers = [['Nome da Paciente', 'CNS', 'Idade', 'Equipe', 'Agente', 'Método Atual', 'Última Aplicação', 'Próxima Aplicação']];
+    
+    // Dados da tabela
     const body = dataToExport.map(p => [
         p['Nome da Paciente'],
         p['CNS'],
         p['Idade'],
         p['Equipe'],
         p['Agente'],
-        p['Microárea'],
         p['Método Atual'],
-        p['Status Acompanhamento']
+        p['Última Aplicação'],
+        p['Próxima Aplicação']
     ]);
+    
     doc.autoTable({
         head: headers,
         body: body,
-        startY: 30,
+        startY: 35,
         theme: 'striped',
         headStyles: { fillColor: [29, 112, 184] },
+        styles: { fontSize: 8 },
+        columnStyles: {
+            0: { cellWidth: 45 }, // Nome da Paciente
+            1: { cellWidth: 30 }, // CNS
+            2: { cellWidth: 15 }, // Idade
+            3: { cellWidth: 30 }, // Equipe
+            4: { cellWidth: 30 }, // Agente
+            5: { cellWidth: 35 }, // Método Atual
+            6: { cellWidth: 25 }, // Última Aplicação
+            7: { cellWidth: 25 }  // Próxima Aplicação
+        }
     });
+    
     doc.save(`Plafam_Relatorio.pdf`);
 }
 
@@ -889,7 +939,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const { 
             searchTerm = '', 
             sortValue = '', 
-            includeFilters = false 
+            includeFilters = false,
+            includeAplicacoes = false 
         } = options;
         
         console.log('fetchPacientesUnificado chamada com:', { searchTerm, sortValue, includeFilters });
@@ -926,6 +977,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 faixasEtarias.forEach(faixa => params.append('faixa_etaria', faixa));
                 status.forEach(st => params.append('status', st));
             }
+        }
+        
+        // Adicionar filtros de aplicações se solicitado
+        if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
+            params.append('aplicacao_data_inicial', activeAplicacoesFilter.dataInicial);
+            params.append('aplicacao_data_final', activeAplicacoesFilter.dataFinal);
+            params.append('aplicacao_metodo', activeAplicacoesFilter.metodo);
         }
         
         console.log('Parâmetros da requisição:', params.toString());
@@ -1056,6 +1114,64 @@ document.addEventListener('DOMContentLoaded', function () {
         console.error('Elemento search-input não encontrado!');
     }
     
+    // Configurar dropdown de controle de aplicações
+    const controleAplicacoesBtn = document.getElementById('controle-aplicacoes-btn');
+    const controleAplicacoesDropdown = document.getElementById('controle-aplicacoes-dropdown');
+    const applyAplicacoesBtn = document.getElementById('apply-aplicacoes-btn');
+    const clearAplicacoesBtn = document.getElementById('clear-aplicacoes-btn');
+    
+    if (controleAplicacoesBtn && controleAplicacoesDropdown) {
+        controleAplicacoesBtn.addEventListener('click', function() {
+            controleAplicacoesDropdown.classList.toggle('hidden');
+            // Fechar outros dropdowns
+            if (filterDropdown) filterDropdown.classList.add('hidden');
+            if (sortDropdown) sortDropdown.classList.add('hidden');
+            if (exportDropdown) exportDropdown.classList.add('hidden');
+        });
+    }
+    
+    if (applyAplicacoesBtn) {
+        applyAplicacoesBtn.addEventListener('click', function() {
+            const dataInicial = document.getElementById('data-inicial-aplicacao').value;
+            const dataFinal = document.getElementById('data-final-aplicacao').value;
+            const metodo = document.getElementById('metodo-aplicacao-select').value;
+            
+            if (!dataInicial || !dataFinal) {
+                alert('Por favor, selecione as datas inicial e final.');
+                return;
+            }
+            
+            if (new Date(dataInicial) > new Date(dataFinal)) {
+                alert('A data inicial deve ser anterior à data final.');
+                return;
+            }
+            
+            // Armazenar filtro de aplicações ativo
+            activeAplicacoesFilter = {
+                dataInicial,
+                dataFinal,
+                metodo
+            };
+            
+            currentPage = 1;
+            fetchPacientesUnificado({ includeAplicacoes: true });
+            if (controleAplicacoesDropdown) controleAplicacoesDropdown.classList.add('hidden');
+        });
+    }
+    
+    if (clearAplicacoesBtn) {
+        clearAplicacoesBtn.addEventListener('click', function() {
+            // Limpar campos
+            document.getElementById('data-inicial-aplicacao').value = '';
+            document.getElementById('data-final-aplicacao').value = '';
+            document.getElementById('metodo-aplicacao-select').value = 'trimestral';
+            // Limpar filtro ativo
+            activeAplicacoesFilter = {};
+            currentPage = 1;
+            fetchPacientesUnificado({ includeAplicacoes: false });
+        });
+    }
+    
     // Configurar dropdown de filtros
     const filterBtn = document.getElementById('filter-btn');
     const filterDropdown = document.getElementById('filter-dropdown');
@@ -1172,6 +1288,9 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Atualizar o event listener para fechar dropdowns ao clicar fora
     document.addEventListener('click', function(e) {
+        if (controleAplicacoesBtn && controleAplicacoesDropdown && !controleAplicacoesBtn.contains(e.target) && !controleAplicacoesDropdown.contains(e.target)) {
+            controleAplicacoesDropdown.classList.add('hidden');
+        }
         if (filterBtn && filterDropdown && !filterBtn.contains(e.target) && !filterDropdown.contains(e.target)) {
             filterDropdown.classList.add('hidden');
         }

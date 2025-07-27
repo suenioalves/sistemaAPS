@@ -161,6 +161,20 @@ input:checked + .slider:before {
     display: block;
 }
 
+/* Estilos para dropdown de filtro de próxima ação */
+#proximaAcaoFilterDropdown {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.proxima-acao-filter-option {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.proxima-acao-filter-option:hover {
+    background-color: #f3f4f6; /* gray-100 */
+}
+
 /* Animações */
 @keyframes highlightBorder {
     from {
