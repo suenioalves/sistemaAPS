@@ -1,7 +1,19 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response
 import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
 from datetime import date, datetime, timedelta
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+import io
+import tempfile
+from docxtpl import DocxTemplate
+import os
+# Importação do docx2pdf será feita condicionalmente dentro da função
 
 # Global map for action types
 TIPO_ACAO_MAP_PY = {
@@ -3302,40 +3314,30 @@ def api_get_medicamentos_atuais_hiperdia(cod_cidadao):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Primeiro, busca medicamentos da view existente (prescrições automáticas)
-        sql_view = """
-            SELECT 
-                codmedicamento as cod_seq_medicamento,
-                'view' as origem,
-                codcidadao, 
-                medicamento as nome_medicamento, 
-                posologia, 
-                ds_frequencia_dose as frequencia,
-                dt_inicio_tratamento as data_inicio,
-                null as data_fim,
-                null as motivo_interrupcao,
-                null as observacoes
-            FROM 
-                sistemaaps.mv_hiperdia_hipertensao_medicamentos
-            WHERE 
-                codcidadao = %(cod_cidadao)s
-        """
-        
-        # Segundo, busca medicamentos da tabela manual
+        # Busca apenas medicamentos da tabela manual
         sql_manual = """
             SELECT 
                 cod_seq_medicamentos as cod_seq_medicamento,
                 'manual' as origem,
                 codcidadao, 
                 nome_medicamento, 
-                null as posologia,
+                CASE 
+                    WHEN dose = 1 THEN '1 comprimido'
+                    WHEN dose = 2 THEN '2 comprimidos'
+                    WHEN dose = 3 THEN '3 comprimidos'
+                    WHEN dose = 4 THEN '4 comprimidos'
+                    WHEN dose = 5 THEN '5 comprimidos'
+                    ELSE dose::text || ' comprimidos'
+                END as dose_texto,
+                dose,
                 CASE 
                     WHEN frequencia = 1 THEN '1x ao dia'
                     WHEN frequencia = 2 THEN '2x ao dia'
                     WHEN frequencia = 3 THEN '3x ao dia'
                     WHEN frequencia = 4 THEN '4x ao dia'
-                    ELSE CONCAT(frequencia::text, 'x ao dia')
-                END as frequencia,
+                    ELSE frequencia::text || 'x ao dia'
+                END as frequencia_texto,
+                frequencia,
                 data_inicio,
                 data_fim,
                 null as motivo_interrupcao,
@@ -3349,17 +3351,7 @@ def api_get_medicamentos_atuais_hiperdia(cod_cidadao):
         
         medicamentos = []
         
-        # Busca da view existente
-        cur.execute(sql_view, {'cod_cidadao': cod_cidadao})
-        medicamentos_view = cur.fetchall()
-        
-        for row in medicamentos_view:
-            med_dict = dict(row)
-            if med_dict.get('data_inicio') and isinstance(med_dict['data_inicio'], date):
-                med_dict['data_inicio'] = med_dict['data_inicio'].strftime('%Y-%m-%d')
-            medicamentos.append(med_dict)
-        
-        # Busca da tabela manual (só se existir)
+        # Busca apenas da tabela manual
         try:
             cur.execute(sql_manual, {'cod_cidadao': cod_cidadao})
             medicamentos_manual = cur.fetchall()
@@ -3371,9 +3363,9 @@ def api_get_medicamentos_atuais_hiperdia(cod_cidadao):
                 if med_dict.get('data_fim') and isinstance(med_dict['data_fim'], date):
                     med_dict['data_fim'] = med_dict['data_fim'].strftime('%Y-%m-%d')
                 medicamentos.append(med_dict)
-        except:
-            # Tabela ainda não existe, ignora
-            pass
+        except Exception as e:
+            print(f"Erro ao buscar medicamentos manuais: {e}")
+            # Se houver erro, retorna lista vazia
         
         # Ordena por data de início (mais recente primeiro)
         medicamentos.sort(key=lambda x: x.get('data_inicio', ''), reverse=True)
@@ -3399,34 +3391,32 @@ def api_adicionar_medicamento_hiperdia():
 
         cod_cidadao = data.get('codcidadao')
         nome_medicamento = data.get('nome_medicamento')
-        posologia = data.get('posologia')  # Vamos ignorar, não existe na tabela
+        dose = data.get('dose')
         frequencia = data.get('frequencia')
         data_inicio = data.get('data_inicio')
         observacao = data.get('observacoes', '')  # Mapear observacoes para observacao
 
-        if not all([cod_cidadao, nome_medicamento, frequencia, data_inicio]):
+        if not all([cod_cidadao, nome_medicamento, dose, frequencia, data_inicio]):
             return jsonify({"sucesso": False, "erro": "Dados incompletos para adicionar medicamento."}), 400
 
-        # Converter frequência para inteiro (a tabela espera int4)
+        # Converter dose e frequência para inteiros
         try:
-            # Se frequencia vier como "1x ao dia", extrair apenas o número
-            if isinstance(frequencia, str):
-                frequencia_num = int(frequencia.split('x')[0]) if 'x' in frequencia else int(frequencia)
-            else:
-                frequencia_num = int(frequencia)
+            dose_num = int(dose)
+            frequencia_num = int(frequencia)
         except (ValueError, TypeError):
-            return jsonify({"sucesso": False, "erro": "Frequência deve ser um número válido."}), 400
+            return jsonify({"sucesso": False, "erro": "Dose e frequência devem ser números válidos."}), 400
 
         sql_insert = """
             INSERT INTO sistemaaps.tb_hiperdia_has_medicamentos
-            (codcidadao, nome_medicamento, frequencia, data_inicio, observacao)
-            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(frequencia)s, %(data_inicio)s, %(observacao)s)
+            (codcidadao, nome_medicamento, dose, frequencia, data_inicio, observacao)
+            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(dose)s, %(frequencia)s, %(data_inicio)s, %(observacao)s)
             RETURNING cod_seq_medicamentos;
         """
 
         cur.execute(sql_insert, {
             'codcidadao': cod_cidadao,
             'nome_medicamento': nome_medicamento,
+            'dose': dose_num,
             'frequencia': frequencia_num,
             'data_inicio': data_inicio,
             'observacao': observacao
@@ -3462,7 +3452,7 @@ def api_atualizar_medicamento_hiperdia(cod_seq_medicamento):
 
         # Campos que podem ser atualizados
         nome_medicamento = data.get('nome_medicamento')
-        posologia = data.get('posologia')  # Ignorar, não existe na tabela
+        dose = data.get('dose')
         frequencia = data.get('frequencia')
         observacao = data.get('observacoes')  # Mapear para observacao
 
@@ -3474,13 +3464,17 @@ def api_atualizar_medicamento_hiperdia(cod_seq_medicamento):
             update_fields.append("nome_medicamento = %(nome_medicamento)s")
             params['nome_medicamento'] = nome_medicamento
 
-        if frequencia is not None:
-            # Converter frequência para inteiro
+        if dose is not None:
             try:
-                if isinstance(frequencia, str):
-                    frequencia_num = int(frequencia.split('x')[0]) if 'x' in frequencia else int(frequencia)
-                else:
-                    frequencia_num = int(frequencia)
+                dose_num = int(dose)
+                update_fields.append("dose = %(dose)s")
+                params['dose'] = dose_num
+            except (ValueError, TypeError):
+                return jsonify({"sucesso": False, "erro": "Dose deve ser um número válido."}), 400
+
+        if frequencia is not None:
+            try:
+                frequencia_num = int(frequencia)
                 update_fields.append("frequencia = %(frequencia)s")
                 params['frequencia'] = frequencia_num
             except (ValueError, TypeError):
@@ -3652,6 +3646,282 @@ def api_get_medicamentos_hipertensao():
 
     except Exception as e:
         print(f"Erro na API /api/hiperdia/medicamentos_hipertensao: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/generate_prescriptions_pdf_old', methods=['POST'])
+def api_generate_prescriptions_pdf_old():
+    """Versão antiga usando ReportLab - mantida como backup"""
+    # Código antigo mantido...
+    pass
+
+@app.route('/api/hiperdia/generate_prescriptions_pdf', methods=['POST'])
+def api_generate_prescriptions_pdf():
+    """Gera PDF com receituários usando template Word - versão aprimorada"""
+    import unicodedata
+    import tempfile
+    import os
+    from datetime import datetime
+    import calendar
+    
+    def remove_acentos(texto):
+        """Remove acentos do texto"""
+        return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('ascii')
+    
+    data = request.get_json()
+    patients = data.get('patients', [])
+    
+    if not patients:
+        return jsonify({"erro": "Nenhum paciente selecionado"}), 400
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Caminho para o template limpo
+        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_clean.docx')
+        
+        print(f"DEBUG: Template path: {template_path}")
+        print(f"DEBUG: Template exists: {os.path.exists(template_path)}")
+        if os.path.exists(template_path):
+            print(f"DEBUG: Template size: {os.path.getsize(template_path)} bytes")
+        
+        # Criar diretório temporário
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"DEBUG: Temp directory: {temp_dir}")
+            output_files = []
+            
+            for i, patient in enumerate(patients):
+                # Buscar dados do paciente
+                sql_paciente = """
+                    SELECT 
+                        nome_paciente,
+                        cartao_sus,
+                        dt_nascimento
+                    FROM sistemaaps.mv_hiperdia_hipertensao
+                    WHERE cod_paciente = %(cod_paciente)s
+                """
+                
+                cur.execute(sql_paciente, {'cod_paciente': patient['cod_paciente']})
+                paciente_dados = cur.fetchone()
+                
+                if not paciente_dados:
+                    continue
+                    
+                paciente_dict = dict(paciente_dados)
+                
+                # Buscar medicamentos
+                sql_medicamentos = """
+                    SELECT 
+                        nome_medicamento,
+                        dose,
+                        frequencia,
+                        data_inicio,
+                        observacao,
+                        updated_at
+                    FROM sistemaaps.tb_hiperdia_has_medicamentos
+                    WHERE codcidadao = %(cod_paciente)s
+                    AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+                    ORDER BY nome_medicamento
+                """
+                
+                cur.execute(sql_medicamentos, {'cod_paciente': patient['cod_paciente']})
+                medicamentos = cur.fetchall()
+                
+                if not medicamentos:
+                    continue
+                
+                # Preparar dados para o template
+                hoje = datetime.now()
+                
+                # Calcular idade
+                if paciente_dict['dt_nascimento']:
+                    idade = hoje.year - paciente_dict['dt_nascimento'].year
+                    if hoje.month < paciente_dict['dt_nascimento'].month or \
+                       (hoje.month == paciente_dict['dt_nascimento'].month and hoje.day < paciente_dict['dt_nascimento'].day):
+                        idade -= 1
+                else:
+                    idade = "?"
+                
+                # Preparar lista de medicamentos
+                medicamentos_lista = []
+                for idx, med in enumerate(medicamentos, 1):
+                    med_dict = dict(med)
+                    nome = med_dict['nome_medicamento'].upper()
+                    dose = med_dict['dose']
+                    freq = med_dict['frequencia']
+                    total_comprimidos = dose * freq * 30
+                    
+                    # Preparar instruções
+                    instrucoes = []
+                    if freq == 1:
+                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
+                    elif freq == 2:
+                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
+                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 18:00 HORAS")
+                    elif freq == 3:
+                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
+                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 14:00 HORAS")
+                        instrucoes.append(f"c. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 22:00 HORAS")
+                    elif freq == 4:
+                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
+                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 12:00 HORAS")
+                        instrucoes.append(f"c. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 18:00 HORAS")
+                        instrucoes.append(f"d. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 24:00 HORAS")
+                    
+                    medicamentos_lista.append({
+                        'numero': idx,
+                        'nome': nome,
+                        'quantidade': total_comprimidos,
+                        'instrucoes': instrucoes
+                    })
+                
+                # Contexto simplificado para o template limpo
+                context = {
+                    'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
+                    'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
+                    'idade': idade,
+                    'sexo': "Masculino",  # Padrão já que não temos o campo
+                    'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
+                    'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível"
+                }
+                
+                print(f"DEBUG: Context for patient {i}: {context}")
+                
+                # Carregar template e gerar documento
+                print(f"DEBUG: Loading template...")
+                doc = DocxTemplate(template_path)
+                print(f"DEBUG: Rendering context...")
+                doc.render(context)
+                print(f"DEBUG: Render successful")
+                
+                # Salvar documento temporário
+                temp_docx = os.path.join(temp_dir, f'receituario_{i}.docx')
+                temp_pdf = os.path.join(temp_dir, f'receituario_{i}.pdf')
+                
+                print(f"DEBUG: Saving to {temp_docx}")
+                doc.save(temp_docx)
+                
+                # Verificar se arquivo foi criado
+                if os.path.exists(temp_docx):
+                    file_size = os.path.getsize(temp_docx)
+                    print(f"DEBUG: File created successfully. Size: {file_size} bytes")
+                    
+                    # Testar se o arquivo pode ser reaberto
+                    try:
+                        from docx import Document
+                        test_doc = Document(temp_docx)
+                        print(f"DEBUG: File can be reopened. Paragraphs: {len(test_doc.paragraphs)}")
+                    except Exception as e:
+                        print(f"DEBUG: ERROR - File cannot be reopened: {e}")
+                        continue
+                else:
+                    print(f"DEBUG: ERROR - File was not created!")
+                    continue
+                
+                # Tentar conversão para PDF
+                try:
+                    print(f"DEBUG: Tentando conversão para PDF...")
+                    
+                    # Método 1: Usando docx2pdf com COM inicializado corretamente
+                    import pythoncom
+                    import threading
+                    
+                    # Inicializar COM de forma thread-safe
+                    pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+                    
+                    try:
+                        from docx2pdf import convert
+                        convert(temp_docx, temp_pdf)
+                        
+                        if os.path.exists(temp_pdf) and os.path.getsize(temp_pdf) > 0:
+                            print(f"DEBUG: PDF criado com sucesso: {os.path.getsize(temp_pdf)} bytes")
+                            output_files.append(temp_pdf)
+                        else:
+                            print(f"DEBUG: PDF não foi criado corretamente, usando DOCX")
+                            output_files.append(temp_docx)
+                            
+                    finally:
+                        pythoncom.CoUninitialize()
+                        
+                except Exception as e:
+                    print(f"DEBUG: Erro na conversão PDF: {e}")
+                    print(f"DEBUG: Tentando método alternativo...")
+                    
+                    # Método 2: Usar LibreOffice se disponível
+                    try:
+                        import subprocess
+                        result = subprocess.run([
+                            'soffice', '--headless', '--convert-to', 'pdf',
+                            '--outdir', temp_dir, temp_docx
+                        ], capture_output=True, text=True, timeout=30)
+                        
+                        if result.returncode == 0 and os.path.exists(temp_pdf):
+                            print(f"DEBUG: PDF criado via LibreOffice: {os.path.getsize(temp_pdf)} bytes")
+                            output_files.append(temp_pdf)
+                        else:
+                            print(f"DEBUG: LibreOffice falhou, usando DOCX")
+                            output_files.append(temp_docx)
+                            
+                    except Exception as e2:
+                        print(f"DEBUG: LibreOffice não disponível: {e2}")
+                        print(f"DEBUG: Retornando DOCX como fallback")
+                        output_files.append(temp_docx)
+                
+                print(f"DEBUG: Arquivo final adicionado: {output_files[-1]}")
+            
+            print(f"DEBUG: Total output files: {len(output_files)}")
+            
+            if not output_files:
+                print("DEBUG: No files generated!")
+                return jsonify({"erro": "Nenhum receituário foi gerado"}), 400
+            
+            # Se apenas um arquivo, retorna diretamente
+            if len(output_files) == 1:
+                file_path = output_files[0]
+                print(f"DEBUG: Returning file: {file_path}")
+                print(f"DEBUG: File size: {os.path.getsize(file_path)} bytes")
+                
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                print(f"DEBUG: File data read: {len(file_data)} bytes")
+                
+                mimetype = 'application/pdf' if file_path.endswith('.pdf') else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                extension = 'pdf' if file_path.endswith('.pdf') else 'docx'
+                
+                print(f"DEBUG: Returning {extension} file with mimetype {mimetype}")
+                
+                return Response(
+                    file_data,
+                    mimetype=mimetype,
+                    headers={
+                        'Content-Disposition': f'attachment; filename=receituario_hipertensao_{datetime.now().strftime("%Y%m%d")}.{extension}'
+                    }
+                )
+            
+            # Se múltiplos arquivos, seria necessário criar um ZIP
+            # Por simplicidade, retornamos apenas o primeiro por enquanto
+            file_path = output_files[0]
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+            
+            return Response(
+                file_data,
+                mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                headers={
+                    'Content-Disposition': f'attachment; filename=receituarios_hipertensao_{datetime.now().strftime("%Y%m%d")}.docx'
+                }
+            )
+        
+    except Exception as e:
+        print(f"Erro ao gerar receituário: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()

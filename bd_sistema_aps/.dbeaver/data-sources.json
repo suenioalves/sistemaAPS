@@ -22,6 +22,7 @@
 			}
 		}
 	},
+	"virtual-models": {"postgres-jdbc-197f77253d1-4a7b92a8551b6029":{"esus":{"sistemaaps":{":tb_hiperdia_has_medicamentos":{"constraints":{"VIRTUAL_PK":{"type":"vpk","attributes":["cod_seq_medicamentos"]}}}}}}},
 	"connection-types": {
 		"dev": {
 			"name": "Desenvolvimento",

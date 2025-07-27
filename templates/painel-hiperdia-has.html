@@ -152,14 +152,21 @@
         <div class="bg-white rounded shadow-sm p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 id="hiperdiaTimelineTitle" class="text-xl font-semibold text-gray-800">Lista de Pacientes Hipertensos</h2>
-                <div class="relative">
-                    <div class="flex items-center border border-gray-300 rounded-full px-3 py-1">
-                        <div class="w-4 h-4 flex items-center justify-center text-gray-500 mr-2">
-                            <i class="ri-search-line"></i>
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <div class="flex items-center border border-gray-300 rounded-full px-3 py-1">
+                            <div class="w-4 h-4 flex items-center justify-center text-gray-500 mr-2">
+                                <i class="ri-search-line"></i>
+                            </div>
+                            <input id="hiperdia-search-input" type="text" placeholder="Buscar paciente"
+                                class="border-none focus:outline-none text-sm w-48">
                         </div>
-                        <input id="hiperdia-search-input" type="text" placeholder="Buscar paciente"
-                            class="border-none focus:outline-none text-sm w-48">
                     </div>
+                    <button id="hiperdia-print-prescriptions-btn" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors">
+                        <i class="ri-printer-line"></i>
+                        <span>Imprimir Receituários</span>
+                    </button>
                 </div>
             </div>
             <div class="overflow-hidden">
@@ -217,6 +224,14 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ações</th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <input type="checkbox" id="hiperdia-select-all-print" 
+                                            class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
+                                        <span>Imprimir</span>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="hiperdia-tabela-pacientes-body" class="bg-white divide-y divide-gray-200">
@@ -858,14 +873,26 @@
                                                 </select>
                                             </div>
                                             <div>
+                                                <label for="hiperdia-novoMedicamentoDose" class="block text-sm font-medium text-gray-700 mb-1">Dose (comprimidos por vez)</label>
+                                                <select id="hiperdia-novoMedicamentoDose"
+                                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                                    <option value="">Selecione a dose</option>
+                                                    <option value="1">1 comprimido</option>
+                                                    <option value="2">2 comprimidos</option>
+                                                    <option value="3">3 comprimidos</option>
+                                                    <option value="4">4 comprimidos</option>
+                                                    <option value="5">5 comprimidos</option>
+                                                </select>
+                                            </div>
+                                            <div>
                                                 <label for="hiperdia-novoMedicamentoFrequencia" class="block text-sm font-medium text-gray-700 mb-1">Frequência (vezes por dia)</label>
                                                 <select id="hiperdia-novoMedicamentoFrequencia"
                                                     class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                                                     <option value="">Selecione a frequência</option>
-                                                    <option value="1x ao dia">1x ao dia</option>
-                                                    <option value="2x ao dia">2x ao dia</option>
-                                                    <option value="3x ao dia">3x ao dia</option>
-                                                    <option value="4x ao dia">4x ao dia</option>
+                                                    <option value="1">1x ao dia</option>
+                                                    <option value="2">2x ao dia</option>
+                                                    <option value="3">3x ao dia</option>
+                                                    <option value="4">4x ao dia</option>
                                                 </select>
                                             </div>
                                             <div>

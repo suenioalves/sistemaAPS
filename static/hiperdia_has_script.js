@@ -248,8 +248,8 @@ document.addEventListener('DOMContentLoaded', function () {
     async function adicionarNovoMedicamento() {
         const medicamentoData = hiperdiaDom.getNovoMedicamentoData();
         
-        if (!medicamentoData.nome_medicamento || !medicamentoData.frequencia) {
-            alert('Por favor, preencha o nome do medicamento e frequência.');
+        if (!medicamentoData.nome_medicamento || !medicamentoData.dose || !medicamentoData.frequencia) {
+            alert('Por favor, preencha o nome do medicamento, dose e frequência.');
             return;
         }
 
@@ -1041,6 +1041,81 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
+    // Função para gerenciar checkboxes de impressão
+    function setupPrintCheckboxes() {
+        const selectAllCheckbox = document.getElementById('hiperdia-select-all-print');
+        const printButton = document.getElementById('hiperdia-print-prescriptions-btn');
+
+        // Selecionar/deselecionar todos
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.hiperdia-print-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+            });
+        }
+
+        // Botão de imprimir receituários
+        if (printButton) {
+            printButton.addEventListener('click', async function() {
+                const selectedCheckboxes = document.querySelectorAll('.hiperdia-print-checkbox:checked');
+                
+                if (selectedCheckboxes.length === 0) {
+                    alert('Por favor, selecione pelo menos um paciente para imprimir o receituário.');
+                    return;
+                }
+
+                const selectedPatients = Array.from(selectedCheckboxes).map(checkbox => ({
+                    cod_paciente: checkbox.getAttribute('data-cod-paciente'),
+                    nome_paciente: checkbox.getAttribute('data-nome-paciente'),
+                    cpf: checkbox.getAttribute('data-cpf'),
+                    equipe: checkbox.getAttribute('data-equipe'),
+                    microarea: checkbox.getAttribute('data-microarea')
+                }));
+
+                try {
+                    await generatePrescriptionPDF(selectedPatients);
+                } catch (error) {
+                    console.error('Erro ao gerar PDF:', error);
+                    alert('Erro ao gerar receituários. Tente novamente.');
+                }
+            });
+        }
+    }
+
+    // Função para gerar PDF dos receituários
+    async function generatePrescriptionPDF(patients) {
+        try {
+            const response = await fetch('/api/hiperdia/generate_prescriptions_pdf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ patients })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Download do PDF
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `receituarios_hipertensao_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error('Erro ao gerar PDF:', error);
+            throw error;
+        }
+    }
+
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);
@@ -1049,4 +1124,5 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchPacientesHiperdia();
     updateSummaryCards();
     hiperdiaDom.updateStatusFilterButtons(document.querySelector('.hiperdia-status-tab-btn[data-status-filter="Todos"]'));
+    setupPrintCheckboxes();
 });

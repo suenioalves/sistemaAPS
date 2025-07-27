@@ -125,6 +125,7 @@ export const hiperdiaDom = {
         
         // Campos do formulário de novo medicamento
         _elements.novoMedicamentoNome = document.getElementById('hiperdia-novoMedicamentoNome');
+        _elements.novoMedicamentoDose = document.getElementById('hiperdia-novoMedicamentoDose');
         _elements.novoMedicamentoFrequencia = document.getElementById('hiperdia-novoMedicamentoFrequencia');
         _elements.novoMedicamentoDataInicio = document.getElementById('hiperdia-novoMedicamentoDataInicio');
         _elements.novoMedicamentoObservacoes = document.getElementById('hiperdia-novoMedicamentoObservacoes');
@@ -232,11 +233,19 @@ export const hiperdiaDom = {
                             Registrar Ações
                         </button>
                     </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <input type="checkbox" class="hiperdia-print-checkbox h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                               data-cod-paciente="${paciente.cod_paciente}" 
+                               data-nome-paciente="${paciente.nome_paciente || 'N/A'}"
+                               data-cpf="${paciente.numero_cartao_sus || ''}"
+                               data-equipe="${paciente.nome_equipe || 'N/A'}"
+                               data-microarea="${paciente.microarea || 'N/A'}">
+                    </td>
                 `;
                 _elements.tabelaPacientesBody.appendChild(row); // Corrected: _elements.tabelaPacientesBody
             });
         } else {
-            _elements.tabelaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`;
+            _elements.tabelaPacientesBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhum paciente encontrado.</td></tr>`;
         }
     },
 
@@ -1366,22 +1375,17 @@ export const hiperdiaDom = {
             const statusClass = medicamento.data_fim ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
             const statusText = medicamento.data_fim ? 'Interrompido' : 'Ativo';
             
-            // Determina se é um medicamento editável (origem manual) ou somente leitura (origem view/sistema)
-            const isEditable = medicamento.origem === 'manual';
-            const origemBadge = medicamento.origem === 'view' ? 
-                '<span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Sistema</span>' : 
-                '<span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Manual</span>';
+            // Todos os medicamentos agora são editáveis (somente manuais)
+            const isEditable = true;
             
             medicamentoCard.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
                     <h6 class="font-medium text-gray-900">${medicamento.nome_medicamento || 'Medicamento não especificado'}</h6>
-                    <div class="flex space-x-1">
-                        ${origemBadge}
-                        <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
-                    </div>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
                 </div>
                 <div class="space-y-1 text-sm text-gray-600">
-                    <p><span class="font-medium">Frequência:</span> ${medicamento.frequencia || 'N/A'}</p>
+                    <p><span class="font-medium">Dose:</span> ${medicamento.dose_texto || 'N/A'}</p>
+                    <p><span class="font-medium">Frequência:</span> ${medicamento.frequencia_texto || 'N/A'}</p>
                     <p><span class="font-medium">Início:</span> ${medicamento.data_inicio ? new Date(medicamento.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
                     ${medicamento.data_fim ? `<p><span class="font-medium">Fim:</span> ${new Date(medicamento.data_fim + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>` : ''}
                     ${medicamento.motivo_interrupcao ? `<p><span class="font-medium">Motivo:</span> ${medicamento.motivo_interrupcao}</p>` : ''}
@@ -1415,8 +1419,8 @@ export const hiperdiaDom = {
         if (medicamentos && medicamentos.length > 0) {
             medicamentos.filter(med => !med.data_fim).forEach(medicamento => {
                 const option = document.createElement('option');
-                option.value = medicamento.cod_seq_medicamentos;
-                option.textContent = `${medicamento.nome_medicamento} - ${medicamento.frequencia}x/dia`;
+                option.value = medicamento.cod_seq_medicamento;
+                option.textContent = `${medicamento.nome_medicamento} - ${medicamento.dose_texto} - ${medicamento.frequencia_texto}`;
                 _elements.selectMedicamentoModificar.appendChild(option);
             });
         }
@@ -1443,7 +1447,8 @@ export const hiperdiaDom = {
     getNovoMedicamentoData: () => {
         return {
             nome_medicamento: _elements.novoMedicamentoNome?.value || '',
-            frequencia: _elements.novoMedicamentoFrequencia?.value || '',
+            dose: parseInt(_elements.novoMedicamentoDose?.value) || null,
+            frequencia: parseInt(_elements.novoMedicamentoFrequencia?.value) || null,
             data_inicio: _elements.novoMedicamentoDataInicio?.value || null,
             observacoes: _elements.novoMedicamentoObservacoes?.value || null
         };

@@ -9,7 +9,14 @@
       "Bash(python:*)",
       "Bash(py app.py)",
       "Bash(mv:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(py:*)",
+      "Bash(del test_pdf.py)",
+      "Bash(rm:*)",
+      "Bash(copy \"PRESCRIÇÃO - HIPERTENSÃO - MODELO.docx\" \"template_receituario.docx\")",
+      "Bash(cp:*)"
     ],
     "deny": []
   }
