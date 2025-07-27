@@ -89,7 +89,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultadoAbordagemMap = {
         1: "Deseja iniciar um método contraceptivo",
         2: "Recusou método contraceptivo",
-        3: "Ausente em domicílio"
+        3: "Ausente em domicílio",
+        4: "Já usa um método"
     };
 
     const registerModal = document.getElementById('registerModal');
@@ -600,8 +601,16 @@ document.addEventListener('DOMContentLoaded', function () {
             let proximaAcaoDisplay = 'A definir';
             if (shouldHideActions) {
                 proximaAcaoDisplay = '';
+            } else if (ado.ultimo_resultado_abordagem === 4) {
+                // Caso especial: "Já usa um método" - mostrar em verde
+                proximaAcaoDisplay = `<span class="text-green-600 font-medium">(Paciente em uso)</span><br><span class="text-xs text-green-500">(Atualizar no PEC)</span>`;
             } else if (ado.proxima_acao_descricao) {
-                proximaAcaoDisplay = `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
+                if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {
+                    proximaAcaoDisplay = `<span class="text-yellow-700 font-medium">${ado.proxima_acao_descricao}</span> <br> <span class="text-xs text-yellow-700">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                } else {
+                    proximaAcaoDisplay = `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                }
             }
 
             let imprimirCheckboxHtml = '';

@@ -632,13 +632,14 @@
                                     <div class="p-2" id="resultDropdownOptionsContainer">
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Já usa um método</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div id="methodSection" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Método escolhido</label>
+                            <label id="methodSectionLabel" class="block text-sm font-medium text-gray-700 mb-1">Método escolhido</label>
                             <div class="space-y-2">
                                 <label class="custom-radio">
                                     <input type="radio" name="method-type" value="Pílula anticoncepcional">
@@ -786,8 +787,13 @@
                             // Lógica específica como a do methodSection
                             if (item.button === 'resultButton') {
                                 const methodSection = document.getElementById('methodSection');
+                                const methodSectionLabel = document.getElementById('methodSectionLabel');
                                 if (this.dataset.value === '1') { // "Deseja iniciar um método contraceptivo"
                                     methodSection.classList.remove('hidden');
+                                    methodSectionLabel.textContent = 'Método escolhido';
+                                } else if (this.dataset.value === '4') { // "Já usa um método"
+                                    methodSection.classList.remove('hidden');
+                                    methodSectionLabel.textContent = 'Método em uso';
                                 } else {
                                     methodSection.classList.add('hidden');
                                 }

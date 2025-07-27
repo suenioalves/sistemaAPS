@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(node:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(taskkill:*)",
+      "Bash(python:*)",
+      "Bash(py app.py)"
     ],
     "deny": []
   }
