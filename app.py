@@ -3682,7 +3682,7 @@ def api_generate_prescriptions_pdf():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Caminho para o template baseado no modelo modificado
+        # Caminho para o template existente
         template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_novo.docx')
         
         print(f"DEBUG: Template path: {template_path}")
@@ -3756,22 +3756,22 @@ def api_generate_prescriptions_pdf():
                     freq = med_dict['frequencia']
                     total_comprimidos = dose * freq * 30
                     
-                    # Preparar instruções
+                    # Preparar instruções - um horário por linha
                     instrucoes = []
                     if freq == 1:
-                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 06:00 horas")
                     elif freq == 2:
-                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
-                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 18:00 HORAS")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 06:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 18:00 horas")
                     elif freq == 3:
-                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
-                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 14:00 HORAS")
-                        instrucoes.append(f"c. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 22:00 HORAS")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 06:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 14:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 22:00 horas")
                     elif freq == 4:
-                        instrucoes.append(f"a. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 06:00 HORAS")
-                        instrucoes.append(f"b. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 12:00 HORAS")
-                        instrucoes.append(f"c. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 18:00 HORAS")
-                        instrucoes.append(f"d. TOMAR {dose:02d} COMPRIMIDO{'S' if dose > 1 else ''} AS 24:00 HORAS")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 06:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 12:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 18:00 horas")
+                        instrucoes.append(f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} as 24:00 horas")
                     
                     medicamentos_lista.append({
                         'numero': idx,
@@ -3790,28 +3790,31 @@ def api_generate_prescriptions_pdf():
                     'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível"
                 }
                 
-                # Adicionar medicamentos de forma fixa (máximo 2 para evitar problemas)
+                # Adicionar medicamentos com formato específico - alinhado à esquerda
                 if len(medicamentos_lista) > 0:
                     med1 = medicamentos_lista[0]
-                    context['medicamento1_nome'] = med1['nome']
+                    context['medicamento1_nome'] = f"1) {med1['nome']}"
                     context['medicamento1_quantidade'] = med1['quantidade']
-                    context['medicamento1_instrucao1'] = med1['instrucoes'][0] if len(med1['instrucoes']) > 0 else ""
-                    context['medicamento1_instrucao2'] = med1['instrucoes'][1] if len(med1['instrucoes']) > 1 else ""
+                    # Todas as instruções juntas em uma string
+                    context['medicamento1_instrucao1'] = '\n'.join(med1['instrucoes'])
+                    context['medicamento1_instrucao2'] = ""  # Não usar o segundo campo
                 else:
-                    context['medicamento1_nome'] = "MEDICAMENTO 1"
+                    context['medicamento1_nome'] = "1) MEDICAMENTO 1"
                     context['medicamento1_quantidade'] = "30"
-                    context['medicamento1_instrucao1'] = "CONFORME ORIENTAÇÃO MÉDICA"
+                    context['medicamento1_instrucao1'] = "Conforme orientação médica"
                     context['medicamento1_instrucao2'] = ""
                 
                 if len(medicamentos_lista) > 1:
                     med2 = medicamentos_lista[1]
-                    context['medicamento2_nome'] = med2['nome']
+                    context['medicamento2_nome'] = f"2) {med2['nome']}"
                     context['medicamento2_quantidade'] = med2['quantidade']
-                    context['medicamento2_instrucao1'] = med2['instrucoes'][0] if len(med2['instrucoes']) > 0 else ""
+                    context['medicamento2_instrucao1'] = '\n'.join(med2['instrucoes'])
+                    context['medicamento2_instrucao2'] = ""  # Não usar o segundo campo
                 else:
-                    context['medicamento2_nome'] = "MEDICAMENTO 2" 
+                    context['medicamento2_nome'] = "2) MEDICAMENTO 2" 
                     context['medicamento2_quantidade'] = "30"
-                    context['medicamento2_instrucao1'] = "CONFORME ORIENTAÇÃO MÉDICA"
+                    context['medicamento2_instrucao1'] = "Conforme orientação médica"
+                    context['medicamento2_instrucao2'] = ""
                 
                 print(f"DEBUG: Context for patient {i}: {context}")
                 
