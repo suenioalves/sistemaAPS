@@ -3682,8 +3682,8 @@ def api_generate_prescriptions_pdf():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Caminho para o template existente
-        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_novo.docx')
+        # Caminho para o template dinâmico
+        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_dynamic.docx')
         
         print(f"DEBUG: Template path: {template_path}")
         print(f"DEBUG: Template exists: {os.path.exists(template_path)}")
@@ -3780,41 +3780,34 @@ def api_generate_prescriptions_pdf():
                         'instrucoes': instrucoes
                     })
                 
-                # Contexto simplificado com medicamentos fixos (máximo 2)
+                # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
+                medicamentos_texto = ""
+                for idx, med in enumerate(medicamentos_lista, 1):
+                    # Nome e quantidade do medicamento (em negrito no template)
+                    medicamentos_texto += f"{idx}) {med['nome']} -------- {med['quantidade']} comprimidos\n"
+                    
+                    # Adicionar todas as instruções
+                    for instrucao in med['instrucoes']:
+                        medicamentos_texto += f"{instrucao}\n"
+                    
+                    # Espaçamento mínimo entre medicamentos (apenas se não for o último)
+                    if idx < len(medicamentos_lista):
+                        medicamentos_texto += "\n"
+                
+                # Se não há medicamentos, usar texto padrão
+                if not medicamentos_texto:
+                    medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------- 30 comprimidos\n\nConforme orientação médica"
+                
+                # Contexto com medicamentos dinâmicos
                 context = {
                     'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
                     'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
                     'idade': idade,
                     'sexo': "Masculino",  # Padrão já que não temos o campo
                     'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
-                    'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível"
+                    'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
+                    'medicamentos_texto': medicamentos_texto
                 }
-                
-                # Adicionar medicamentos com formato específico - alinhado à esquerda
-                if len(medicamentos_lista) > 0:
-                    med1 = medicamentos_lista[0]
-                    context['medicamento1_nome'] = f"1) {med1['nome']}"
-                    context['medicamento1_quantidade'] = med1['quantidade']
-                    # Todas as instruções juntas em uma string
-                    context['medicamento1_instrucao1'] = '\n'.join(med1['instrucoes'])
-                    context['medicamento1_instrucao2'] = ""  # Não usar o segundo campo
-                else:
-                    context['medicamento1_nome'] = "1) MEDICAMENTO 1"
-                    context['medicamento1_quantidade'] = "30"
-                    context['medicamento1_instrucao1'] = "Conforme orientação médica"
-                    context['medicamento1_instrucao2'] = ""
-                
-                if len(medicamentos_lista) > 1:
-                    med2 = medicamentos_lista[1]
-                    context['medicamento2_nome'] = f"2) {med2['nome']}"
-                    context['medicamento2_quantidade'] = med2['quantidade']
-                    context['medicamento2_instrucao1'] = '\n'.join(med2['instrucoes'])
-                    context['medicamento2_instrucao2'] = ""  # Não usar o segundo campo
-                else:
-                    context['medicamento2_nome'] = "2) MEDICAMENTO 2" 
-                    context['medicamento2_quantidade'] = "30"
-                    context['medicamento2_instrucao1'] = "Conforme orientação médica"
-                    context['medicamento2_instrucao2'] = ""
                 
                 print(f"DEBUG: Context for patient {i}: {context}")
                 
