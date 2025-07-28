@@ -3845,27 +3845,20 @@ def api_generate_prescriptions_pdf():
                 
                 # Calcular tamanho da fonte baseado na quantidade de medicamentos
                 num_medicamentos = len(medicamentos_lista)
-                total_lines = 0
                 
-                # Calcular número aproximado de linhas que o conteúdo vai ocupar
-                for med in medicamentos_lista:
-                    total_lines += 1  # linha do nome do medicamento
-                    total_lines += len(med['instrucoes'])  # linhas das instruções
-                    total_lines += 1  # linha de espaçamento entre medicamentos
-                
-                # Definir tamanho da fonte baseado no número de linhas
-                if total_lines <= 12:  # 1-2 medicamentos
-                    font_size = 11
-                elif total_lines <= 18:  # 3 medicamentos
+                # Definir tamanho da fonte baseado na quantidade de medicamentos
+                if num_medicamentos <= 2:  # 1-2 medicamentos
+                    font_size = 14
+                elif num_medicamentos == 3:  # 3 medicamentos
+                    font_size = 12
+                elif num_medicamentos == 4:  # 4 medicamentos
                     font_size = 10
-                elif total_lines <= 24:  # 4 medicamentos
-                    font_size = 9
-                elif total_lines <= 30:  # 5 medicamentos
+                elif num_medicamentos == 5:  # 5 medicamentos
                     font_size = 8
-                else:  # 6+ medicamentos
-                    font_size = 7
+                else:  # 6+ medicamentos (usar menor fonte disponível)
+                    font_size = 8
                 
-                print(f"DEBUG: {num_medicamentos} medicamentos, {total_lines} linhas estimadas, fonte {font_size}pt")
+                print(f"DEBUG: {num_medicamentos} medicamentos, fonte {font_size}pt")
                 
                 # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
                 medicamentos_texto = ""
@@ -3913,6 +3906,34 @@ def api_generate_prescriptions_pdf():
                 
                 print(f"DEBUG: Saving to {temp_docx}")
                 doc.save(temp_docx)
+                
+                # Aplicar formatação específica aos medicamentos após renderização
+                print(f"DEBUG: Aplicando formatação de fonte {font_size}pt e negrito...")
+                from docx import Document as DocDocument
+                from docx.shared import Pt
+                rendered_doc = DocDocument(temp_docx)
+                
+                for paragraph in rendered_doc.paragraphs:
+                    text = paragraph.text.strip()
+                    
+                    # Se é uma linha de medicamento (contém ") nome -------- quantidade comprimidos")
+                    if (') ' in text and '--------' in text and 'comprimidos' in text.lower()):
+                        # Aplicar negrito e tamanho de fonte à linha do medicamento
+                        for run in paragraph.runs:
+                            run.font.bold = True
+                            run.font.size = Pt(font_size)
+                        print(f"  -> Medicamento em negrito: {text[:50]}...")
+                        
+                    # Se é uma linha de instrução (começa com "Tomar")
+                    elif text.startswith('Tomar '):
+                        # Aplicar apenas tamanho de fonte (sem negrito) às instruções
+                        for run in paragraph.runs:
+                            run.font.bold = False
+                            run.font.size = Pt(font_size)
+                        
+                # Salvar documento com formatação aplicada
+                rendered_doc.save(temp_docx)
+                print(f"DEBUG: Formatação aplicada e documento salvo")
                 
                 # Verificar se arquivo foi criado
                 if os.path.exists(temp_docx):
