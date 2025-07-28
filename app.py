@@ -3682,8 +3682,8 @@ def api_generate_prescriptions_pdf():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Caminho para o template limpo
-        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_clean.docx')
+        # Caminho para o template baseado no modelo modificado
+        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_novo.docx')
         
         print(f"DEBUG: Template path: {template_path}")
         print(f"DEBUG: Template exists: {os.path.exists(template_path)}")
@@ -3780,7 +3780,7 @@ def api_generate_prescriptions_pdf():
                         'instrucoes': instrucoes
                     })
                 
-                # Contexto simplificado para o template limpo
+                # Contexto simplificado com medicamentos fixos (máximo 2)
                 context = {
                     'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
                     'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
@@ -3789,6 +3789,29 @@ def api_generate_prescriptions_pdf():
                     'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
                     'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível"
                 }
+                
+                # Adicionar medicamentos de forma fixa (máximo 2 para evitar problemas)
+                if len(medicamentos_lista) > 0:
+                    med1 = medicamentos_lista[0]
+                    context['medicamento1_nome'] = med1['nome']
+                    context['medicamento1_quantidade'] = med1['quantidade']
+                    context['medicamento1_instrucao1'] = med1['instrucoes'][0] if len(med1['instrucoes']) > 0 else ""
+                    context['medicamento1_instrucao2'] = med1['instrucoes'][1] if len(med1['instrucoes']) > 1 else ""
+                else:
+                    context['medicamento1_nome'] = "MEDICAMENTO 1"
+                    context['medicamento1_quantidade'] = "30"
+                    context['medicamento1_instrucao1'] = "CONFORME ORIENTAÇÃO MÉDICA"
+                    context['medicamento1_instrucao2'] = ""
+                
+                if len(medicamentos_lista) > 1:
+                    med2 = medicamentos_lista[1]
+                    context['medicamento2_nome'] = med2['nome']
+                    context['medicamento2_quantidade'] = med2['quantidade']
+                    context['medicamento2_instrucao1'] = med2['instrucoes'][0] if len(med2['instrucoes']) > 0 else ""
+                else:
+                    context['medicamento2_nome'] = "MEDICAMENTO 2" 
+                    context['medicamento2_quantidade'] = "30"
+                    context['medicamento2_instrucao1'] = "CONFORME ORIENTAÇÃO MÉDICA"
                 
                 print(f"DEBUG: Context for patient {i}: {context}")
                 
