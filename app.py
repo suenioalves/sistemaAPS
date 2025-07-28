@@ -176,17 +176,17 @@ def build_filtered_query(args):
 
     # Filtro de Controle de Aplicações
     if aplicacao_data_inicial and aplicacao_data_final and aplicacao_metodo == 'trimestral':
-        # Para o trimestral, buscar pacientes cuja última aplicação foi há 90 dias antes do período escolhido
+        # Para o trimestral, buscar pacientes cuja próxima aplicação deve ocorrer no período escolhido
         # Se o usuário escolheu o período 01/10/2025 a 10/10/2025
-        # Devemos buscar pacientes cuja aplicação foi entre 01/07/2025 e 10/07/2025 (90 dias antes)
+        # Devemos buscar pacientes cuja aplicação + 90 dias está entre 01/10/2025 e 10/10/2025
         where_clauses.append("""
             (
                 m.metodo ILIKE '%%trimestral%%' AND
                 m.data_aplicacao IS NOT NULL AND
                 m.data_aplicacao != '' AND
-                TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') BETWEEN 
-                    (TO_DATE(%(aplicacao_data_inicial)s, 'YYYY-MM-DD') - INTERVAL '90 days') AND
-                    (TO_DATE(%(aplicacao_data_final)s, 'YYYY-MM-DD') - INTERVAL '90 days')
+                (TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') + INTERVAL '90 days') BETWEEN 
+                    TO_DATE(%(aplicacao_data_inicial)s, 'YYYY-MM-DD') AND
+                    TO_DATE(%(aplicacao_data_final)s, 'YYYY-MM-DD')
             )
         """)
         query_params['aplicacao_data_inicial'] = aplicacao_data_inicial
@@ -3556,6 +3556,68 @@ def api_interromper_medicamento_hiperdia(cod_seq_medicamento):
             conn.rollback()
         print(f"Erro na API interromper medicamento: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/export_plafam')
+def api_export_plafam():
+    """API para exportação completa de dados do Plafam sem limitação de paginação"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Usar a mesma lógica de filtros da API principal, mas sem paginação
+        where_clause, order_by_clause, query_params = build_filtered_query(request.args)
+        
+        base_query = """
+        SELECT
+            m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, m.microarea,
+            m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
+            pa.status_acompanhamento, pa.data_acompanhamento,
+            ag.nome_agente
+        FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
+        """
+        
+        # Construir query final sem limit e offset
+        final_query = base_query + where_clause + " " + order_by_clause
+        
+        print(f"DEBUG Export Plafam Query: {final_query}")
+        print(f"DEBUG Export Plafam Params: {query_params}")
+        
+        cur.execute(final_query, query_params)
+        pacientes = cur.fetchall()
+        
+        # Converter para formato JSON
+        pacientes_list = []
+        for pac in pacientes:
+            pac_dict = {
+                'cod_paciente': pac[0],
+                'nome_paciente': pac[1],
+                'cartao_sus': pac[2],
+                'idade_calculada': pac[3],
+                'microarea': pac[4],
+                'metodo': pac[5],
+                'nome_equipe': pac[6],
+                'data_aplicacao': pac[7],
+                'status_gravidez': pac[8],
+                'data_provavel_parto': pac[9],
+                'status_acompanhamento': pac[10],
+                'data_acompanhamento': pac[11],
+                'nome_agente': pac[12]
+            }
+            pacientes_list.append(pac_dict)
+        
+        print(f"DEBUG Export Plafam: Retornando {len(pacientes_list)} registros")
+        return jsonify(pacientes_list)
+        
+    except Exception as e:
+        print(f"Erro na API export_plafam: {e}")
+        return jsonify({'erro': f'Erro no servidor: {e}'}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

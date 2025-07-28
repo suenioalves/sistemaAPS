@@ -225,53 +225,205 @@ function calcularProximaAplicacao(paciente) {
     }
 }
 
-// Função para exportar dados (Excel, CSV, PDF) - usando dados já filtrados da tabela
+// Função para exportar dados (Excel, CSV, PDF) - busca TODOS os registros via API
 function exportData(format) {
-    // Usar os dados já carregados e filtrados da tabela atual
-    if (!allPacientes || allPacientes.length === 0) {
-        alert('Nenhum dado para exportar. Execute uma busca primeiro.');
-        return;
+    // Construir parâmetros de busca baseados nos filtros atuais
+    const params = new URLSearchParams();
+    
+    // Aplicar filtros atuais
+    if (equipeSelecionadaAtual && equipeSelecionadaAtual !== 'Todas') {
+        params.append('equipe', equipeSelecionadaAtual);
+    }
+    if (agenteSelecionadoAtual && agenteSelecionadoAtual !== 'Todas') {
+        params.append('agente_selecionado', agenteSelecionadoAtual);
+    }
+    if (currentSearchTerm) {
+        params.append('search', currentSearchTerm);
+    }
+    if (currentStatusFilter && currentStatusFilter !== 'Todos') {
+        params.append('status_timeline', currentStatusFilter);  
     }
     
-    // Preparar dados para exportação com as novas colunas
-    const dataToExport = allPacientes.map(p => ({
-        'Nome da Paciente': p.nome_paciente || '',
-        'CNS': p.cartao_sus || '',
-        'Idade': p.idade_calculada || '',
-        'Equipe': p.nome_equipe || '',
-        'Agente': p.nome_agente || 'A definir',
-        'Método Atual': p.metodo || 'Nenhum',
-        'Última Aplicação': p.data_aplicacao ? new Date(p.data_aplicacao + 'T00:00:00').toLocaleDateString('pt-BR') : '',
-        'Próxima Aplicação': calcularProximaAplicacao(p)
-    }));
-    
-    // Ordenar por data da última aplicação (mais antiga para mais recente)
-    dataToExport.sort((a, b) => {
-        const dataA = a['Última Aplicação'] ? new Date(a['Última Aplicação'].split('/').reverse().join('-')) : new Date(0);
-        const dataB = b['Última Aplicação'] ? new Date(b['Última Aplicação'].split('/').reverse().join('-')) : new Date(0);
-        return dataA - dataB;
-    });
-    
-    if (format === 'xlsx') {
-        const { XLSX } = window;
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientes");
-        XLSX.writeFile(workbook, `Plafam_Exportacao.xlsx`);
-    } else if (format === 'csv') {
-        const header = Object.keys(dataToExport[0]).join(';');
-        const rows = dataToExport.map(row => Object.values(row).map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(';'));
-        const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `Plafam_Exportacao.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } else if (format === 'pdf') {
-        exportPDF(dataToExport);
+    // Aplicar filtros avançados se ativos
+    if (activeFilters && Object.keys(activeFilters).length > 0) {
+        Object.entries(activeFilters).forEach(([filterName, filterValues]) => {
+            filterValues.forEach(value => {
+                params.append(filterName, value);
+            });
+        });
     }
+    
+    // Aplicar filtros de aplicações se ativos
+    if (activeAplicacoesFilter) {
+        if (activeAplicacoesFilter.dataInicial) {
+            params.append('aplicacao_data_inicial', activeAplicacoesFilter.dataInicial);
+        }
+        if (activeAplicacoesFilter.dataFinal) {
+            params.append('aplicacao_data_final', activeAplicacoesFilter.dataFinal);
+        }
+        if (activeAplicacoesFilter.metodo) {
+            params.append('aplicacao_metodo', activeAplicacoesFilter.metodo);
+        }
+    }
+    
+    // Mostrar loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.textContent = 'Preparando exportação...';
+    loadingMsg.style.position = 'fixed';
+    loadingMsg.style.top = '50%';
+    loadingMsg.style.left = '50%';
+    loadingMsg.style.transform = 'translate(-50%, -50%)';
+    loadingMsg.style.background = 'white';
+    loadingMsg.style.padding = '20px';
+    loadingMsg.style.border = '1px solid #ccc';
+    loadingMsg.style.zIndex = '9999';
+    document.body.appendChild(loadingMsg);
+    
+    // Fazer requisição para buscar TODOS os dados
+    fetch('/api/export_plafam?' + params.toString())
+        .then(response => response.json())
+        .then(allExportData => {
+            // Remover loading
+            document.body.removeChild(loadingMsg);
+            
+            if (!allExportData || allExportData.length === 0) {
+                alert('Nenhum dado encontrado para exportar com os filtros atuais.');
+                return;
+            }
+            
+            // Preparar dados para exportação com as novas colunas
+            const dataToExport = allExportData.map(p => {
+                // Processar data da última aplicação
+                let ultimaAplicacao = '';
+                if (p.data_aplicacao) {
+                    try {
+                        // Se a data já está no formato DD/MM/YYYY, usar diretamente
+                        if (p.data_aplicacao.includes('/')) {
+                            ultimaAplicacao = p.data_aplicacao;
+                        } else {
+                            // Se está no formato YYYY-MM-DD, converter
+                            const dateObj = new Date(p.data_aplicacao + 'T00:00:00');
+                            if (!isNaN(dateObj.getTime())) {
+                                ultimaAplicacao = dateObj.toLocaleDateString('pt-BR');
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Erro ao processar data aplicação:', p.data_aplicacao, error);
+                        ultimaAplicacao = '';
+                    }
+                }
+                
+                // Calcular próxima aplicação
+                let proximaAplicacao = '';
+                if (p.data_aplicacao && p.metodo) {
+                    try {
+                        let dataBase;
+                        if (p.data_aplicacao.includes('/')) {
+                            // Converter DD/MM/YYYY para Date
+                            const partes = p.data_aplicacao.split('/');
+                            dataBase = new Date(partes[2], partes[1] - 1, partes[0]);
+                        } else {
+                            dataBase = new Date(p.data_aplicacao + 'T00:00:00');
+                        }
+                        
+                        if (!isNaN(dataBase.getTime())) {
+                            const metodoLower = p.metodo.toLowerCase();
+                            let diasSomar = 0;
+                            
+                            if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+                                diasSomar = 30;
+                            } else if (metodoLower.includes('trimestral')) {
+                                diasSomar = 90;
+                            } else if (metodoLower.includes('implante')) {
+                                diasSomar = 1095; // 3 anos
+                            } else if (metodoLower.includes('diu')) {
+                                diasSomar = 3650; // 10 anos
+                            }
+                            
+                            if (diasSomar > 0) {
+                                const proximaData = new Date(dataBase);
+                                proximaData.setDate(proximaData.getDate() + diasSomar);
+                                proximaAplicacao = proximaData.toLocaleDateString('pt-BR');
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Erro ao calcular próxima aplicação:', p.data_aplicacao, error);
+                    }
+                }
+                
+                return {
+                    'Nome da Paciente': p.nome_paciente || '',
+                    'CNS': p.cartao_sus || '',
+                    'Idade': p.idade_calculada || '',
+                    'Equipe': p.nome_equipe || '',
+                    'Agente': p.nome_agente || 'A definir',
+                    'Método Atual': p.metodo || 'Nenhum',
+                    'Última Aplicação': ultimaAplicacao,
+                    'Próxima Aplicação': proximaAplicacao
+                };
+            });
+            
+            // Ordenar por data da última aplicação (mais antiga para mais recente)
+            dataToExport.sort((a, b) => {
+                let dataA = new Date(0);
+                let dataB = new Date(0);
+                
+                try {
+                    if (a['Última Aplicação']) {
+                        const partesA = a['Última Aplicação'].split('/');
+                        if (partesA.length === 3) {
+                            dataA = new Date(partesA[2], partesA[1] - 1, partesA[0]);
+                        }
+                    }
+                } catch (e) {
+                    dataA = new Date(0);
+                }
+                
+                try {
+                    if (b['Última Aplicação']) {
+                        const partesB = b['Última Aplicação'].split('/');
+                        if (partesB.length === 3) {
+                            dataB = new Date(partesB[2], partesB[1] - 1, partesB[0]);
+                        }
+                    }
+                } catch (e) {
+                    dataB = new Date(0);
+                }
+                
+                return dataA - dataB;
+            });
+            
+            console.log(`Exportando ${dataToExport.length} registros para ${format}`);
+            
+            if (format === 'xlsx') {
+                const { XLSX } = window;
+                const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Pacientes");
+                XLSX.writeFile(workbook, `Plafam_Exportacao_Completa.xlsx`);
+            } else if (format === 'csv') {
+                const header = Object.keys(dataToExport[0]).join(';');
+                const rows = dataToExport.map(row => Object.values(row).map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(';'));
+                const csvContent = "data:text/csv;charset=utf-8," + "\uFEFF" + header + "\n" + rows.join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `Plafam_Exportacao_Completa.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else if (format === 'pdf') {
+                exportPDF(dataToExport);
+            }
+        })
+        .catch(error => {
+            // Remover loading em caso de erro
+            if (document.body.contains(loadingMsg)) {
+                document.body.removeChild(loadingMsg);
+            }
+            console.error('Erro ao buscar dados para exportação:', error);
+            alert('Erro ao preparar exportação. Tente novamente.');
+        });
 }
 
 // Função para exportar PDF de relatório
@@ -318,21 +470,28 @@ function exportPDF(dataToExport) {
         body: body,
         startY: 35,
         theme: 'striped',
-        headStyles: { fillColor: [29, 112, 184] },
-        styles: { fontSize: 8 },
+        headStyles: { fillColor: [29, 112, 184], fontSize: 8, fontStyle: 'bold' },
+        styles: { 
+            fontSize: 7, 
+            cellPadding: 1.5,
+            overflow: 'linebreak',
+            cellWidth: 'wrap'
+        },
+        tableWidth: 'wrap',
+        margin: { left: 8, right: 8 },
         columnStyles: {
-            0: { cellWidth: 45 }, // Nome da Paciente
-            1: { cellWidth: 30 }, // CNS
-            2: { cellWidth: 15 }, // Idade
-            3: { cellWidth: 30 }, // Equipe
-            4: { cellWidth: 30 }, // Agente
-            5: { cellWidth: 35 }, // Método Atual
-            6: { cellWidth: 25 }, // Última Aplicação
-            7: { cellWidth: 25 }  // Próxima Aplicação
+            0: { cellWidth: 'auto', minCellWidth: 25 }, // Nome da Paciente
+            1: { cellWidth: 'auto', minCellWidth: 18 }, // CNS
+            2: { cellWidth: 'auto', minCellWidth: 8 },  // Idade
+            3: { cellWidth: 'auto', minCellWidth: 18 }, // Equipe
+            4: { cellWidth: 'auto', minCellWidth: 18 }, // Agente
+            5: { cellWidth: 'auto', minCellWidth: 20 }, // Método Atual
+            6: { cellWidth: 'auto', minCellWidth: 15 }, // Última Aplicação
+            7: { cellWidth: 'auto', minCellWidth: 15 }  // Próxima Aplicação
         }
     });
     
-    doc.save(`Plafam_Relatorio.pdf`);
+    doc.save(`Plafam_Relatorio_Completo.pdf`);
 }
 
 document.addEventListener('DOMContentLoaded', function () {
