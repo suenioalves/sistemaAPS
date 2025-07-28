@@ -3763,7 +3763,8 @@ def api_generate_prescriptions_pdf():
                     SELECT 
                         nome_paciente,
                         cartao_sus,
-                        dt_nascimento
+                        dt_nascimento,
+                        sexo
                     FROM sistemaaps.mv_hiperdia_hipertensao
                     WHERE cod_paciente = %(cod_paciente)s
                 """
@@ -3842,6 +3843,30 @@ def api_generate_prescriptions_pdf():
                         'instrucoes': instrucoes
                     })
                 
+                # Calcular tamanho da fonte baseado na quantidade de medicamentos
+                num_medicamentos = len(medicamentos_lista)
+                total_lines = 0
+                
+                # Calcular número aproximado de linhas que o conteúdo vai ocupar
+                for med in medicamentos_lista:
+                    total_lines += 1  # linha do nome do medicamento
+                    total_lines += len(med['instrucoes'])  # linhas das instruções
+                    total_lines += 1  # linha de espaçamento entre medicamentos
+                
+                # Definir tamanho da fonte baseado no número de linhas
+                if total_lines <= 12:  # 1-2 medicamentos
+                    font_size = 11
+                elif total_lines <= 18:  # 3 medicamentos
+                    font_size = 10
+                elif total_lines <= 24:  # 4 medicamentos
+                    font_size = 9
+                elif total_lines <= 30:  # 5 medicamentos
+                    font_size = 8
+                else:  # 6+ medicamentos
+                    font_size = 7
+                
+                print(f"DEBUG: {num_medicamentos} medicamentos, {total_lines} linhas estimadas, fonte {font_size}pt")
+                
                 # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
                 medicamentos_texto = ""
                 for idx, med in enumerate(medicamentos_lista, 1):
@@ -3859,16 +3884,18 @@ def api_generate_prescriptions_pdf():
                 # Se não há medicamentos, usar texto padrão
                 if not medicamentos_texto:
                     medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------- 30 comprimidos\n\nConforme orientação médica"
+                    font_size = 11
                 
                 # Contexto com medicamentos dinâmicos
                 context = {
                     'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
                     'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
                     'idade': idade,
-                    'sexo': "Masculino",  # Padrão já que não temos o campo
+                    'sexo': paciente_dict.get('sexo', 'Não informado'),
                     'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
                     'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
-                    'medicamentos_texto': medicamentos_texto
+                    'medicamentos_texto': medicamentos_texto,
+                    'font_size': font_size
                 }
                 
                 print(f"DEBUG: Context for patient {i}: {context}")
