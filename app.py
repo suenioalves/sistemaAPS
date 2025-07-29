@@ -3863,8 +3863,8 @@ def api_generate_prescriptions_pdf():
                 # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
                 medicamentos_texto = ""
                 for idx, med in enumerate(medicamentos_lista, 1):
-                    # Nome e quantidade do medicamento (em negrito no template)
-                    medicamentos_texto += f"{idx}) {med['nome']} -------- {med['quantidade']} comprimidos\n"
+                    # Nome e quantidade do medicamento (em negrito no template) - mais traços
+                    medicamentos_texto += f"{idx}) {med['nome']} ---------------------------------------- {med['quantidade']} comprimidos\n"
                     
                     # Adicionar todas as instruções
                     for instrucao in med['instrucoes']:
@@ -3931,9 +3931,40 @@ def api_generate_prescriptions_pdf():
                             run.font.bold = False
                             run.font.size = Pt(font_size)
                         
-                # Salvar documento com formatação aplicada
+                # Duplicar o conteúdo para criar segunda página idêntica
+                print(f"DEBUG: Duplicando receituário para segunda página...")
+                
+                # Adicionar quebra de página
+                from docx.shared import Inches
+                from docx.enum.section import WD_SECTION
+                
+                # Inserir quebra de página
+                rendered_doc.add_page_break()
+                
+                # Copiar todo o conteúdo novamente para a segunda página
+                # Clonar cada parágrafo do documento original
+                original_paragraphs = []
+                for paragraph in rendered_doc.paragraphs:
+                    # Parar quando chegar na quebra de página
+                    if paragraph._element.tag.endswith('pageBreak'):
+                        break
+                    original_paragraphs.append(paragraph)
+                
+                # Adicionar cópia de cada parágrafo após a quebra de página
+                for orig_paragraph in original_paragraphs:
+                    new_p = rendered_doc.add_paragraph()
+                    new_p.alignment = orig_paragraph.alignment
+                    
+                    # Copiar conteúdo e formatação
+                    for run in orig_paragraph.runs:
+                        new_run = new_p.add_run(run.text)
+                        new_run.font.bold = run.font.bold
+                        new_run.font.size = run.font.size
+                        new_run.font.underline = run.font.underline
+                
+                # Salvar documento com receituário duplicado
                 rendered_doc.save(temp_docx)
-                print(f"DEBUG: Formatação aplicada e documento salvo")
+                print(f"DEBUG: Receituário duplicado criado - 2 páginas idênticas")
                 
                 # Verificar se arquivo foi criado
                 if os.path.exists(temp_docx):

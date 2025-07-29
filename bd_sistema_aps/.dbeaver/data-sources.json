@@ -19,6 +19,12 @@
 					"@dbeaver-show-non-default-db@": "false"
 				},
 				"auth-model": "native"
+			},
+			"extensions": {
+				"ai.assistant": {
+					"confirmed": true,
+					"scope": "CURRENT_SCHEMA"
+				}
 			}
 		}
 	},
