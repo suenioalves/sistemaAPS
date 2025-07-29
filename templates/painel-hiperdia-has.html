@@ -204,6 +204,11 @@
                         data-status-filter="AcoesPendentes" data-active-bg="bg-orange-500" data-active-text="text-white"
                         data-active-border="border-orange-500" data-inactive-bg="bg-white"
                         data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Ações Pendentes</button>
+                    <button
+                        class="hiperdia-status-tab-btn bg-white text-gray-700 py-1 px-3 rounded-full text-sm border border-gray-300 !rounded-button whitespace-nowrap"
+                        data-status-filter="ComTratamento" data-active-bg="bg-purple-500" data-active-text="text-white"
+                        data-active-border="border-purple-500" data-inactive-bg="bg-white"
+                        data-inactive-text="text-gray-700" data-inactive-border="border-gray-300">Tratamento</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -896,9 +901,10 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label for="hiperdia-novoMedicamentoDataInicio" class="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
+                                                <label for="hiperdia-novoMedicamentoDataInicio" class="block text-sm font-medium text-gray-700 mb-1">Data de Início <span class="text-gray-500 text-xs">(opcional)</span></label>
                                                 <input type="date" id="hiperdia-novoMedicamentoDataInicio"
-                                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                                    class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                    placeholder="Deixe em branco para usar data atual">
                                             </div>
                                             <div>
                                                 <label for="hiperdia-novoMedicamentoObservacoes" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>

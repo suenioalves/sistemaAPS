@@ -1084,34 +1084,69 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Função para gerar PDF dos receituários
+    // Função para gerar múltiplos PDFs dos receituários
     async function generatePrescriptionPDF(patients) {
         try {
-            const response = await fetch('/api/hiperdia/generate_prescriptions_pdf', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ patients })
-            });
+            const totalPatients = patients.length;
+            let processedCount = 0;
+            
+            // Mostrar progresso se mais de 1 paciente
+            if (totalPatients > 1) {
+                console.log(`Gerando ${totalPatients} receituários individuais...`);
+            }
+            
+            // Gerar PDF para cada paciente individualmente
+            for (const patient of patients) {
+                try {
+                    const response = await fetch('/api/hiperdia/generate_prescription_pdf_individual', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ patient })
+                    });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        console.error(`Erro ao gerar PDF para ${patient.nome_paciente}: ${response.status}`);
+                        continue;
+                    }
+
+                    // Download do PDF individual
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    // Formato: RECEITUARIO (data) - HIPERTENSAO - NOME DO PACIENTE.PDF
+                    const currentDate = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+                    const patientName = patient.nome_paciente.toUpperCase().replace(/[^A-Z0-9\s]/g, '');
+                    link.download = `RECEITUARIO (${currentDate}) - HIPERTENSAO - ${patientName}.pdf`;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                    
+                    processedCount++;
+                    
+                    // Pequena pausa entre downloads para não sobrecarregar o browser
+                    if (totalPatients > 1) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    
+                } catch (patientError) {
+                    console.error(`Erro específico para paciente ${patient.nome_paciente}:`, patientError);
+                }
+            }
+            
+            if (processedCount > 0) {
+                alert(`${processedCount} receituário(s) gerado(s) com sucesso!`);
+            } else {
+                alert('Erro: Nenhum receituário pôde ser gerado.');
             }
 
-            // Download do PDF
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `receituarios_hipertensao_${new Date().toISOString().split('T')[0]}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-
         } catch (error) {
-            console.error('Erro ao gerar PDF:', error);
+            console.error('Erro geral ao gerar PDFs:', error);
             throw error;
         }
     }

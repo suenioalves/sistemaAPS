@@ -1305,9 +1305,9 @@ export const hiperdiaDom = {
         _elements.treatmentModalPacienteIdade.textContent = `${paciente.idade_calculada || 'N/A'} anos`;
         _elements.treatmentModalPacienteInfo.textContent = `Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'}`;
 
-        // Definir data atual como padrão
+        // Limpar campo de data (opcional)
         if (_elements.novoMedicamentoDataInicio) {
-            _elements.novoMedicamentoDataInicio.value = new Date().toISOString().split('T')[0];
+            _elements.novoMedicamentoDataInicio.value = '';
         }
 
         // Resetar formulário

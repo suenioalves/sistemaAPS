@@ -409,3 +409,16 @@ input:checked + .slider:before {
     border-color: #16a34a;
     box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
 }
+
+/* Estilos específicos para botão de tratamento */
+.hiperdia-status-tab-btn[data-status-filter="ComTratamento"].active {
+    background-color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+    color: white !important;
+}
+
+.hiperdia-status-tab-btn[data-status-filter="ComTratamento"]:hover:not(.active) {
+    background-color: rgba(139, 92, 246, 0.1);
+    border-color: #8b5cf6;
+    color: #8b5cf6;
+}
