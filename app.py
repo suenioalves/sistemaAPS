@@ -3908,11 +3908,17 @@ def api_generate_prescriptions_pdf():
                 
                 print(f"DEBUG: {num_medicamentos} medicamentos, fonte {font_size}pt")
                 
+                # Definir quantidade de traços baseada no tamanho da fonte
+                if num_medicamentos <= 2:  # Fonte maior (14pt)
+                    tracos = "--------------------------------"  # 32 traços
+                else:  # Fonte menor (12pt, 10pt, 8pt)
+                    tracos = "---------------------------------------------"  # 45 traços
+                
                 # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
                 medicamentos_texto = ""
                 for idx, med in enumerate(medicamentos_lista, 1):
-                    # Nome e quantidade do medicamento (em negrito no template) - mais traços
-                    medicamentos_texto += f"{idx}) {med['nome']} ---------------------------------------- {med['quantidade']} comprimidos\n"
+                    # Nome e quantidade do medicamento (em negrito no template) - traços ajustados
+                    medicamentos_texto += f"{idx}) {med['nome']} {tracos} {med['quantidade']} comprimidos\n"
                     
                     # Adicionar todas as instruções
                     for instrucao in med['instrucoes']:
@@ -3924,7 +3930,7 @@ def api_generate_prescriptions_pdf():
                 
                 # Se não há medicamentos, usar texto padrão
                 if not medicamentos_texto:
-                    medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------- 30 comprimidos\n\nConforme orientação médica"
+                    medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------------------------------- 30 comprimidos\n\nConforme orientação médica"
                     font_size = 11
                 
                 # Contexto com medicamentos dinâmicos
@@ -3965,7 +3971,7 @@ def api_generate_prescriptions_pdf():
                     text = paragraph.text.strip()
                     
                     # Se é uma linha de medicamento (contém ") nome -------- quantidade comprimidos")
-                    if (') ' in text and '--------' in text and 'comprimidos' in text.lower()):
+                    if (') ' in text and ('--------' in text or '-----' in text) and 'comprimidos' in text.lower()):
                         # Aplicar negrito e tamanho de fonte à linha do medicamento
                         for run in paragraph.runs:
                             run.font.bold = True
@@ -4263,11 +4269,17 @@ def api_generate_prescription_pdf_individual():
         else:
             font_size = 8
         
+        # Definir quantidade de traços baseada no tamanho da fonte
+        if num_medicamentos <= 2:  # Fonte maior (14pt)
+            tracos = "--------------------------------"  # 32 traços
+        else:  # Fonte menor (12pt, 10pt, 8pt)
+            tracos = "---------------------------------------------"  # 45 traços
+        
         # Gerar texto completo de medicamentos dinamicamente
         medicamentos_texto = ""
         for idx, med in enumerate(medicamentos_lista, 1):
             # Nome e quantidade do medicamento
-            medicamentos_texto += f"{idx}) {med['nome']} ---------------------------------------- {med['quantidade']} comprimidos\n"
+            medicamentos_texto += f"{idx}) {med['nome']} {tracos} {med['quantidade']} comprimidos\n"
             
             # Adicionar todas as instruções
             for instrucao in med['instrucoes']:
@@ -4279,7 +4291,7 @@ def api_generate_prescription_pdf_individual():
         
         # Se não há medicamentos, usar texto padrão
         if not medicamentos_texto:
-            medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------- 30 comprimidos\n\nConforme orientação médica"
+            medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------------------------------- 30 comprimidos\n\nConforme orientação médica"
             font_size = 11
         
         # Contexto completo para o template
@@ -4318,7 +4330,7 @@ def api_generate_prescription_pdf_individual():
                 text = paragraph.text.strip()
                 
                 # Se é uma linha de medicamento (contém ") nome -------- quantidade comprimidos")
-                if ') ' in text and '--------' in text and 'comprimidos' in text.lower():
+                if ') ' in text and ('--------' in text or '-----' in text) and 'comprimidos' in text.lower():
                     # Aplicar negrito e tamanho de fonte à linha do medicamento
                     for run in paragraph.runs:
                         run.font.bold = True
