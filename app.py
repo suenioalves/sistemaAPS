@@ -3849,15 +3849,6 @@ def api_generate_prescriptions_pdf():
                 # Preparar dados para o template
                 hoje = datetime.now()
                 
-                # Calcular idade
-                if paciente_dict['dt_nascimento']:
-                    idade = hoje.year - paciente_dict['dt_nascimento'].year
-                    if hoje.month < paciente_dict['dt_nascimento'].month or \
-                       (hoje.month == paciente_dict['dt_nascimento'].month and hoje.day < paciente_dict['dt_nascimento'].day):
-                        idade -= 1
-                else:
-                    idade = "?"
-                
                 # Preparar lista de medicamentos
                 medicamentos_lista = []
                 for idx, med in enumerate(medicamentos, 1):
@@ -3933,11 +3924,10 @@ def api_generate_prescriptions_pdf():
                     medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------------------------------- 30 comprimidos\n\nConforme orientação médica"
                     font_size = 11
                 
-                # Contexto com medicamentos dinâmicos
+                # Contexto com medicamentos dinâmicos (sem idade)
                 context = {
                     'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
                     'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
-                    'idade': idade,
                     'sexo': paciente_dict.get('sexo', 'Não informado'),
                     'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
                     'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
@@ -3969,6 +3959,17 @@ def api_generate_prescriptions_pdf():
                 
                 for paragraph in rendered_doc.paragraphs:
                     text = paragraph.text.strip()
+                    
+                    # Remover qualquer referência restante de idade no texto
+                    if "( anos)" in text or "(  anos)" in text or "{{ idade }}" in text:
+                        # Limpar o texto de referências de idade
+                        new_text = text.replace("( anos)", "").replace("(  anos)", "").replace("{{ idade }}", "")
+                        new_text = new_text.replace("  ", " ").strip()  # Remover espaços duplos
+                        
+                        # Limpar o parágrafo e reescrever
+                        paragraph.clear()
+                        new_run = paragraph.add_run(new_text)
+                        print(f"  -> Limpeza de idade: '{text}' -> '{new_text}'")
                     
                     # Se é uma linha de medicamento (contém ") nome -------- quantidade comprimidos")
                     if (') ' in text and ('--------' in text or '-----' in text) and 'comprimidos' in text.lower()):
@@ -4233,15 +4234,6 @@ def api_generate_prescription_pdf_individual():
         # Preparar dados para o template
         hoje = datetime.now()
         
-        # Calcular idade
-        if paciente_dict['dt_nascimento']:
-            idade = hoje.year - paciente_dict['dt_nascimento'].year
-            if hoje.month < paciente_dict['dt_nascimento'].month or \
-               (hoje.month == paciente_dict['dt_nascimento'].month and hoje.day < paciente_dict['dt_nascimento'].day):
-                idade -= 1
-        else:
-            idade = "?"
-        
         # Preparar lista de medicamentos
         medicamentos_lista = []
         for idx, med in enumerate(medicamentos, 1):
@@ -4313,11 +4305,10 @@ def api_generate_prescription_pdf_individual():
             medicamentos_texto = "1) MEDICAMENTO CONFORME ORIENTAÇÃO MÉDICA -------------------------------- 30 comprimidos\n\nConforme orientação médica"
             font_size = 11
         
-        # Contexto completo para o template
+        # Contexto completo para o template (sem idade)
         context = {
             'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
             'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
-            'idade': idade,
             'sexo': paciente_dict.get('sexo', 'Não informado'),
             'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
             'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
@@ -4347,6 +4338,17 @@ def api_generate_prescription_pdf_individual():
             
             for paragraph in rendered_doc.paragraphs:
                 text = paragraph.text.strip()
+                
+                # Remover qualquer referência restante de idade no texto
+                if "( anos)" in text or "(  anos)" in text or "{{ idade }}" in text:
+                    # Limpar o texto de referências de idade
+                    new_text = text.replace("( anos)", "").replace("(  anos)", "").replace("{{ idade }}", "")
+                    new_text = new_text.replace("  ", " ").strip()  # Remover espaços duplos
+                    
+                    # Limpar o parágrafo e reescrever
+                    paragraph.clear()
+                    new_run = paragraph.add_run(new_text)
+                    print(f"  -> Limpeza de idade individual: '{text}' -> '{new_text}'")
                 
                 # Se é uma linha de medicamento (contém ") nome -------- quantidade comprimidos")
                 if ') ' in text and ('--------' in text or '-----' in text) and 'comprimidos' in text.lower():
