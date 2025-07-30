@@ -3988,33 +3988,52 @@ def api_generate_prescriptions_pdf():
                 # Duplicar o conteúdo para criar segunda página idêntica
                 print(f"DEBUG: Duplicando receituário para segunda página...")
                 
-                # Adicionar quebra de página
-                from docx.shared import Inches
-                from docx.enum.section import WD_SECTION
-                
-                # Inserir quebra de página
-                rendered_doc.add_page_break()
-                
-                # Copiar todo o conteúdo novamente para a segunda página
-                # Clonar cada parágrafo do documento original
+                # Coletar todos os parágrafos da primeira página ANTES de adicionar quebra
                 original_paragraphs = []
                 for paragraph in rendered_doc.paragraphs:
-                    # Parar quando chegar na quebra de página
-                    if paragraph._element.tag.endswith('pageBreak'):
-                        break
-                    original_paragraphs.append(paragraph)
-                
-                # Adicionar cópia de cada parágrafo após a quebra de página
-                for orig_paragraph in original_paragraphs:
-                    new_p = rendered_doc.add_paragraph()
-                    new_p.alignment = orig_paragraph.alignment
+                    # Capturar o parágrafo completo
+                    para_info = {
+                        'text': paragraph.text,
+                        'alignment': paragraph.alignment,
+                        'runs': []
+                    }
                     
-                    # Copiar conteúdo e formatação
-                    for run in orig_paragraph.runs:
-                        new_run = new_p.add_run(run.text)
-                        new_run.font.bold = run.font.bold
-                        new_run.font.size = run.font.size
-                        new_run.font.underline = run.font.underline
+                    # Capturar informações de formatação de cada run
+                    for run in paragraph.runs:
+                        run_info = {
+                            'text': run.text,
+                            'bold': run.font.bold,
+                            'size': run.font.size,
+                            'underline': run.font.underline,
+                            'italic': run.font.italic
+                        }
+                        para_info['runs'].append(run_info)
+                    
+                    original_paragraphs.append(para_info)
+                
+                print(f"DEBUG: Capturados {len(original_paragraphs)} parágrafos da primeira página")
+                
+                # Adicionar quebra de página
+                rendered_doc.add_page_break()
+                
+                # Recriar cada parágrafo da primeira página na segunda página
+                for para_info in original_paragraphs:
+                    new_p = rendered_doc.add_paragraph()
+                    new_p.alignment = para_info['alignment']
+                    
+                    # Se não há runs, adicionar o texto simples
+                    if not para_info['runs']:
+                        if para_info['text']:
+                            new_run = new_p.add_run(para_info['text'])
+                            new_run.font.size = Pt(font_size)
+                    else:
+                        # Recriar cada run com sua formatação original
+                        for run_info in para_info['runs']:
+                            new_run = new_p.add_run(run_info['text'])
+                            new_run.font.bold = run_info['bold']
+                            new_run.font.size = run_info['size']
+                            new_run.font.underline = run_info['underline']
+                            new_run.font.italic = run_info['italic']
                 
                 # Salvar documento com receituário duplicado
                 rendered_doc.save(temp_docx)
@@ -4344,27 +4363,58 @@ def api_generate_prescription_pdf_individual():
                         run.font.size = Pt(font_size)
             
             # Duplicar o conteúdo para criar segunda página idêntica
-            rendered_doc.add_page_break()
+            print(f"DEBUG: Duplicando receituário individual para segunda página...")
             
-            # Copiar todo o conteúdo novamente para a segunda página
+            # Coletar todos os parágrafos da primeira página ANTES de adicionar quebra
             original_paragraphs = []
             for paragraph in rendered_doc.paragraphs:
-                if paragraph.text.strip():  # Apenas parágrafos com conteúdo
-                    original_paragraphs.append(paragraph)
-            
-            # Adicionar os parágrafos novamente (duplicação)
-            for orig_paragraph in original_paragraphs:
-                new_p = rendered_doc.add_paragraph()
+                # Capturar o parágrafo completo
+                para_info = {
+                    'text': paragraph.text,
+                    'alignment': paragraph.alignment,
+                    'runs': []
+                }
                 
-                # Copiar conteúdo e formatação
-                for run in orig_paragraph.runs:
-                    new_run = new_p.add_run(run.text)
-                    new_run.font.bold = run.font.bold
-                    new_run.font.size = run.font.size
-                    new_run.font.underline = run.font.underline
+                # Capturar informações de formatação de cada run
+                for run in paragraph.runs:
+                    run_info = {
+                        'text': run.text,
+                        'bold': run.font.bold,
+                        'size': run.font.size,
+                        'underline': run.font.underline,
+                        'italic': run.font.italic
+                    }
+                    para_info['runs'].append(run_info)
+                
+                original_paragraphs.append(para_info)
+            
+            print(f"DEBUG: Capturados {len(original_paragraphs)} parágrafos da primeira página")
+            
+            # Adicionar quebra de página
+            rendered_doc.add_page_break()
+            
+            # Recriar cada parágrafo da primeira página na segunda página
+            for para_info in original_paragraphs:
+                new_p = rendered_doc.add_paragraph()
+                new_p.alignment = para_info['alignment']
+                
+                # Se não há runs, adicionar o texto simples
+                if not para_info['runs']:
+                    if para_info['text']:
+                        new_run = new_p.add_run(para_info['text'])
+                        new_run.font.size = Pt(font_size)
+                else:
+                    # Recriar cada run com sua formatação original
+                    for run_info in para_info['runs']:
+                        new_run = new_p.add_run(run_info['text'])
+                        new_run.font.bold = run_info['bold']
+                        new_run.font.size = run_info['size']
+                        new_run.font.underline = run_info['underline']
+                        new_run.font.italic = run_info['italic']
             
             # Salvar documento final
             rendered_doc.save(temp_docx)
+            print(f"DEBUG: Receituário individual duplicado criado - 2 páginas idênticas")
             
             # Tentar conversão para PDF
             try:
