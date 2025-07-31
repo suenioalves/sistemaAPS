@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
         4: 'ri-mail-send-line',     // Entrega de convite
         5: 'ri-map-pin-line',       // Mudou de área
         6: 'ri-home-line',          // Iniciar método em domicílio
+        7: 'ri-user-unfollow-line', // Remover do acompanhamento
         'default': 'ri-calendar-event-line'
     };
     const timelineEventColors = { // Tailwind CSS color classes for icon background
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
         4: 'bg-orange-100 text-orange-600',
         5: 'bg-red-100 text-red-600',
         6: 'bg-green-100 text-green-600',
+        7: 'bg-gray-100 text-gray-800',
         'default': 'bg-gray-100 text-gray-600'
     };
     const tipoAbordagemMap = {
@@ -91,7 +93,8 @@ document.addEventListener('DOMContentLoaded', function () {
         3: "Iniciar método na UBS",
         4: "Entrega de convite",
         5: "Mudou de área",
-        6: "Iniciar método em domicílio"
+        6: "Iniciar método em domicílio",
+        7: "Remover do acompanhamento"
     };
     const resultadoAbordagemMap = {
         1: "Deseja iniciar um método contraceptivo",
@@ -1393,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             // Validação para resultado da abordagem, se um tipo de ação que o requer for selecionado
-            if (payload.acao_atual.tipo_abordagem !== 4 && !payload.acao_atual.resultado_abordagem) { // Se não for "Entrega de convite"
+            if (payload.acao_atual.tipo_abordagem !== 4 && payload.acao_atual.tipo_abordagem !== 7 && !payload.acao_atual.resultado_abordagem) { // Se não for "Entrega de convite" nem "Remover do acompanhamento"
                 alert("Por favor, selecione o Resultado da abordagem.");
                 return;
             }
