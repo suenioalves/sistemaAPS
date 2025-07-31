@@ -2,21 +2,18 @@ import { hiperdiaApi } from './hiperdiaApi.js';
 import { hiperdiaDom } from './hiperdiaDom.js';
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Inicializar elementos do DOM adaptados para diabetes
-    initDiabetesDomElements();
-    
     // --- Variáveis de Estado para Diabetes ---
     let currentFetchedPacientes = [];
     let todasEquipesComMicroareas = [];
     let currentPacienteForModal = null;
     let equipeSelecionadaAtual = 'Todas';
-    let microareaSelecionadaAtual = 'Todas as áreas';
+    let microareaSelecionadaAtual = 'Todas';
     let currentPage = 1;
     let currentSearchTerm = '';
     let currentStatusFilter = 'Todos';
     let currentLimit = 10;
 
-    // Elementos do DOM específicos para diabetes
+    // Elementos do DOM específicos para diabetes - MOVIDO PARA ANTES DA FUNÇÃO
     const elements = {
         equipeButton: document.getElementById('diabetes-equipe-button'),
         equipeDropdown: document.getElementById('diabetes-equipe-dropdown'),
@@ -56,6 +53,9 @@ document.addEventListener('DOMContentLoaded', function () {
         mrgFields: document.getElementById('mrg-fields-diabetes'),
         medicamentoFields: document.getElementById('medicamento-fields-diabetes')
     };
+
+    // Inicializar elementos do DOM adaptados para diabetes - CHAMADA APÓS DEFINIÇÃO DE ELEMENTS
+    initDiabetesDomElements();
 
     // Função para inicializar elementos específicos do diabetes
     function initDiabetesDomElements() {
@@ -192,16 +192,26 @@ document.addEventListener('DOMContentLoaded', function () {
     // Função para buscar equipes e microáreas
     async function fetchEquipesMicroareasDiabetes() {
         try {
-            const data = await hiperdiaApi.fetchEquipesMicroareas();
+            // Usar endpoint específico para diabetes (com fallback para hipertensão)
+            const response = await fetch('/api/equipes_microareas_diabetes');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            console.log('Dados recebidos das equipes:', data);
             todasEquipesComMicroareas = data;
             populateEquipeDropdown(data);
         } catch (error) {
             console.error('Erro ao buscar equipes e microáreas:', error);
+            // Em caso de erro, ao menos permitir que a interface funcione
+            todasEquipesComMicroareas = [];
+            populateEquipeDropdown([]);
         }
     }
 
     // Função para popular dropdown de equipes
     function populateEquipeDropdown(equipesData) {
+        console.log('Populando dropdown com:', equipesData);
         elements.equipeDropdownContent.innerHTML = '';
         
         // Opção "Todas as equipes"
@@ -213,12 +223,12 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         elements.equipeDropdownContent.appendChild(allOption);
 
-        // Adicionar equipes
+        // Adicionar equipes - ajustado para estrutura do endpoint
         equipesData.forEach(equipe => {
             const equipeItem = document.createElement('div');
             equipeItem.innerHTML = `
-                <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-900 rounded-md" data-equipe="${equipe.equipe}">
-                    ${equipe.equipe}
+                <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-900 rounded-md" data-equipe="${equipe.nome_equipe}">
+                    ${equipe.nome_equipe}
                 </button>
             `;
             elements.equipeDropdownContent.appendChild(equipeItem);
@@ -240,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Função para popular dropdown de microáreas
+    // Função para popular dropdown de microáreas (com nomes dos agentes)
     function populateMicroareaDropdown(selectedEquipe) {
         elements.microareaDropdownContent.innerHTML = '';
         
@@ -248,19 +258,34 @@ document.addEventListener('DOMContentLoaded', function () {
         const allOption = document.createElement('div');
         allOption.innerHTML = `
             <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-900 rounded-md" data-microarea="Todas">
-                Todas as microáreas
+                Todas as áreas
             </button>
         `;
         elements.microareaDropdownContent.appendChild(allOption);
 
         if (selectedEquipe !== 'Todas') {
-            const equipeData = todasEquipesComMicroareas.find(e => e.equipe === selectedEquipe);
-            if (equipeData && equipeData.microareas) {
-                equipeData.microareas.forEach(microarea => {
+            const equipeData = todasEquipesComMicroareas.find(e => e.nome_equipe === selectedEquipe);
+            if (equipeData && equipeData.agentes) {
+                // Agrupar agentes por microárea
+                const microareasUnicas = {};
+                equipeData.agentes.forEach(agente => {
+                    if (!microareasUnicas[agente.micro_area]) {
+                        microareasUnicas[agente.micro_area] = [];
+                    }
+                    if (agente.nome_agente) {
+                        microareasUnicas[agente.micro_area].push(agente.nome_agente);
+                    }
+                });
+                
+                // Ordenar microáreas numericamente
+                Object.keys(microareasUnicas).sort((a, b) => parseInt(a) - parseInt(b)).forEach(microarea => {
+                    const nomeAgente = microareasUnicas[microarea].length > 0 ? microareasUnicas[microarea][0] : null;
+                    const displayText = nomeAgente ? `Área ${microarea} - ${nomeAgente}` : `Área ${microarea}`;
+                    
                     const microareaItem = document.createElement('div');
                     microareaItem.innerHTML = `
                         <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-900 rounded-md" data-microarea="${microarea}">
-                            ${microarea}
+                            ${displayText}
                         </button>
                     `;
                     elements.microareaDropdownContent.appendChild(microareaItem);
@@ -272,7 +297,8 @@ document.addEventListener('DOMContentLoaded', function () {
         elements.microareaDropdownContent.addEventListener('click', function(e) {
             if (e.target.tagName === 'BUTTON') {
                 const selectedMicroarea = e.target.getAttribute('data-microarea');
-                elements.microareaButtonText.textContent = selectedMicroarea === 'Todas' ? 'Todas as microáreas' : selectedMicroarea;
+                const buttonText = e.target.textContent.trim();
+                elements.microareaButtonText.textContent = selectedMicroarea === 'Todas' ? 'Todas as áreas' : buttonText;
                 elements.microareaDropdown.classList.add('hidden');
                 
                 microareaSelecionadaAtual = selectedMicroarea;
@@ -291,11 +317,57 @@ document.addEventListener('DOMContentLoaded', function () {
             status: currentStatusFilter
         });
 
-        // Placeholder - implementar APIs específicas para diabetes
-        updateCard(elements.diabeticosCard, 'N/A');
-        updateCard(elements.controladosCard, 'N/A');
-        updateCard(elements.descompensadosCard, 'N/A');
-        updateCard(elements.tratamentoCard, 'N/A');
+        // APIs específicas para diabetes
+        
+        // Card: Total de Diabéticos
+        fetch(`/api/get_total_diabeticos?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                updateCard(elements.diabeticosCard, data.total_pacientes || 0);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar total de diabéticos:', error);
+                updateCard(elements.diabeticosCard, 'Erro');
+            });
+
+        // Card: Controlados
+        const paramsControlados = new URLSearchParams(params);
+        paramsControlados.set('status', 'Controlados');
+        fetch(`/api/get_total_diabeticos?${paramsControlados.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                updateCard(elements.controladosCard, data.total_pacientes || 0);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar diabéticos controlados:', error);
+                updateCard(elements.controladosCard, 'Erro');
+            });
+
+        // Card: Descompensados
+        const paramsDescompensados = new URLSearchParams(params);
+        paramsDescompensados.set('status', 'Descompensados');
+        fetch(`/api/get_total_diabeticos?${paramsDescompensados.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                updateCard(elements.descompensadosCard, data.total_pacientes || 0);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar diabéticos descompensados:', error);
+                updateCard(elements.descompensadosCard, 'Erro');
+            });
+
+        // Card: Com Tratamento
+        const paramsTratamento = new URLSearchParams(params);
+        paramsTratamento.set('status', 'ComTratamento');
+        fetch(`/api/get_total_diabeticos?${paramsTratamento.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                updateCard(elements.tratamentoCard, data.total_pacientes || 0);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar diabéticos com tratamento:', error);
+                updateCard(elements.tratamentoCard, 'Erro');
+            });
     }
 
     // Função para atualizar card individual
@@ -319,11 +391,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         try {
-            // Placeholder - implementar API específica para diabetes
-            // const data = await hiperdiaApi.fetchPacientesDiabetes(params);
+            // API específica para diabetes
+            const response = await fetch(`/api/pacientes_hiperdia_dm?${params.toString()}`);
             
-            // Por enquanto, simular dados vazios
-            const data = { pacientes: [], total: 0 };
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
             
             currentFetchedPacientes = data.pacientes || [];
             populatePacientesTable(data.pacientes || []);
@@ -379,12 +454,6 @@ document.addEventListener('DOMContentLoaded', function () {
                                 Paciente
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Idade
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Equipe
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -396,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         pacientes.forEach(paciente => {
-            const statusClass = getStatusClass(paciente.status);
+            const statusClass = getStatusClass(paciente.status_dm);
             const idade = calculateAge(paciente.dt_nascimento);
             
             tableHTML += `
@@ -405,21 +474,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         <input type="checkbox" name="paciente-checkbox-diabetes" value="${paciente.cod_paciente}" class="rounded border-gray-300 focus:ring-amber-500">
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 flex items-center justify-center bg-amber-100 rounded-full mr-3">
-                                <i class="ri-user-line text-amber-600"></i>
-                            </div>
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente}</div>
-                                <div class="text-sm text-gray-500">CNS: ${paciente.cartao_sus || 'N/A'}</div>
-                            </div>
+                        <div class="text-sm font-medium text-gray-900">
+                            ${paciente.nome_paciente}, ${idade} anos
                         </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${idade} anos
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${paciente.nome_equipe}
+                        <div class="text-xs text-gray-500">CNS: ${paciente.cartao_sus || 'N/A'}</div>
+                        <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'} - Agente: ${paciente.nome_agente || 'A definir'}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${statusClass}
@@ -455,15 +514,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return age;
     }
 
-    // Função para obter classe de status
+    // Função para obter classe de status específica para diabetes
     function getStatusClass(status) {
         switch (status) {
             case 'controlado':
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Controlado</span>';
             case 'descompensado':
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Descompensado</span>';
+            case 'indefinido':
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Indefinido</span>';
             default:
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">N/A</span>';
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Acompanhamento</span>';
         }
     }
 
@@ -482,8 +543,42 @@ document.addEventListener('DOMContentLoaded', function () {
         elements.timelineContent.innerHTML = '<div class="flex justify-center p-4"><div class="text-gray-500">Carregando timeline...</div></div>';
         
         try {
-            // Placeholder - implementar API de timeline para diabetes
-            elements.timelineContent.innerHTML = '<div class="p-4 text-center text-gray-500">Timeline não implementada ainda</div>';
+            // API de timeline para diabetes
+            const response = await fetch(`/api/diabetes/timeline/${codPaciente}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            const timeline = data.timeline || [];
+            
+            if (timeline.length === 0) {
+                elements.timelineContent.innerHTML = '<div class="p-4 text-center text-gray-500">Nenhuma ação registrada ainda</div>';
+                return;
+            }
+            
+            let timelineHTML = '';
+            timeline.forEach(item => {
+                const dataDisplay = item.data_realizacao || item.data_agendamento;
+                const statusClass = item.status_acao === 'REALIZADA' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                
+                timelineHTML += `
+                    <div class="border-l-4 border-amber-500 pl-4 pb-4 mb-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-gray-900">${item.dsc_acao}</h4>
+                                <p class="text-sm text-gray-600">${dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida'}</p>
+                                ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
+                                ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
+                            </div>
+                            <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${item.status_acao}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            elements.timelineContent.innerHTML = timelineHTML;
         } catch (error) {
             console.error('Erro ao carregar timeline:', error);
             elements.timelineContent.innerHTML = '<div class="p-4 text-center text-red-500">Erro ao carregar timeline</div>';
@@ -515,11 +610,83 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Implementar salvamento da ação
-        console.log('Salvar ação diabetes:', { codAcao, dataAcao, observacoes, responsavel });
-        
-        elements.registerModal.classList.add('hidden');
-        resetActionForm();
+        if (!currentPacienteForModal) {
+            alert('Erro: Paciente não identificado.');
+            return;
+        }
+
+        // Preparar payload base
+        const payload = {
+            cod_cidadao: currentPacienteForModal.cod_paciente,
+            cod_acao_atual: codAcao,
+            data_acao_atual: dataAcao,
+            observacoes: observacoes || null,
+            responsavel_pela_acao: responsavel || null,
+            status_acao: 'REALIZADA'
+        };
+
+        // Adicionar dados específicos baseado na ação
+        if (codAcao === 11) { // Avaliar MRG
+            const mrgData = {
+                g_jejum: document.getElementById('g-jejum-diabetes').value || null,
+                g_apos_cafe: document.getElementById('g-apos-cafe-diabetes').value || null,
+                g_antes_almoco: document.getElementById('g-antes-almoco-diabetes').value || null,
+                g_apos_almoco: document.getElementById('g-apos-almoco-diabetes').value || null,
+                g_antes_jantar: document.getElementById('g-antes-jantar-diabetes').value || null,
+                g_ao_deitar: document.getElementById('g-ao-deitar-diabetes').value || null,
+                analise_mrg: document.getElementById('analise-mrg-diabetes').value || null
+            };
+            payload.mrg_data = mrgData;
+        } else if (codAcao === 3) { // Modificar tratamento
+            const nomeMedicamento = document.getElementById('nome-medicamento-diabetes').value;
+            if (!nomeMedicamento) {
+                alert('Por favor, preencha o nome do medicamento.');
+                return;
+            }
+            
+            const medicamentoData = {
+                nome_medicamento: nomeMedicamento,
+                dose: parseInt(document.getElementById('dose-medicamento-diabetes').value) || 1,
+                frequencia: parseInt(document.getElementById('freq-medicamento-diabetes').value) || 1,
+                data_inicio: document.getElementById('data-inicio-medicamento-diabetes').value || null
+            };
+            payload.medicamento_data = medicamentoData;
+        }
+
+        try {
+            elements.saveActionBtn.disabled = true;
+            elements.saveActionBtn.textContent = 'Salvando...';
+
+            const response = await fetch('/api/diabetes/registrar_acao', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.sucesso) {
+                alert('Ação registrada com sucesso!');
+                elements.registerModal.classList.add('hidden');
+                resetActionForm();
+                
+                // Recarregar timeline
+                loadTimelineDiabetes(currentPacienteForModal.cod_paciente);
+                
+                // Atualizar lista de pacientes
+                fetchPacientesDiabetes();
+            } else {
+                alert(`Erro ao registrar ação: ${result.erro}`);
+            }
+        } catch (error) {
+            console.error('Erro ao salvar ação:', error);
+            alert('Erro ao registrar ação. Tente novamente.');
+        } finally {
+            elements.saveActionBtn.disabled = false;
+            elements.saveActionBtn.textContent = 'Salvar';
+        }
     }
 
     // Função para gerar receituário

@@ -422,3 +422,28 @@ input:checked + .slider:before {
     border-color: #8b5cf6;
     color: #8b5cf6;
 }
+
+/* Estilos específicos para o painel de diabetes */
+.diabetes-status-tab-btn.active {
+    border-width: 2px !important;
+}
+
+.diabetes-status-tab-btn[data-status-filter="Todos"].active {
+    color: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+
+.diabetes-status-tab-btn[data-status-filter="Controlados"].active {
+    color: #10b981 !important;
+    border-color: #10b981 !important;
+}
+
+.diabetes-status-tab-btn[data-status-filter="Descompensados"].active {
+    color: #ef4444 !important;
+    border-color: #ef4444 !important;
+}
+
+.diabetes-status-tab-btn[data-status-filter="ComTratamento"].active {
+    color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+}

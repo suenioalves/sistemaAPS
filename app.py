@@ -4498,9 +4498,9 @@ def api_pacientes_hiperdia_dm():
         offset = (page - 1) * limit
         
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Base da query para pacientes diabéticos usando view específica
+        # Base da query para pacientes diabéticos usando view específica com agente
         base_query = """
             SELECT DISTINCT 
                 d.cod_paciente,
@@ -4512,12 +4512,14 @@ def api_pacientes_hiperdia_dm():
                 d.microarea,
                 d.tipo_diabetes,
                 d.situacao_problema,
+                ag.nome_agente,
                 CASE 
                     WHEN d.situacao_problema = 1 THEN 'controlado'
                     WHEN d.situacao_problema = 0 THEN 'descompensado'
                     ELSE 'indefinido'
                 END as status_dm
             FROM sistemaaps.mv_hiperdia_diabetes d
+            LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
             WHERE 1=1
         """
         
@@ -4530,13 +4532,18 @@ def api_pacientes_hiperdia_dm():
             params['equipe'] = equipe
             
         # Filtro por microárea
-        if microarea != 'Todas':
-            where_clauses.append("d.microarea = %(microarea)s")
-            params['microarea'] = microarea
+        if microarea != 'Todas' and microarea != 'Todas as áreas':
+            try:
+                microarea_int = int(microarea)
+                where_clauses.append("d.microarea = %(microarea)s")
+                params['microarea'] = microarea_int
+            except (ValueError, TypeError):
+                # Se não conseguir converter para int, ignore o filtro
+                pass
             
         # Filtro por busca (nome do paciente)
         if search:
-            where_clauses.append("UNACCENT(UPPER(d.nome_paciente)) LIKE UNACCENT(UPPER(%(search)s))")
+            where_clauses.append("UPPER(d.nome_paciente) LIKE UPPER(%(search)s)")
             params['search'] = f'%{search}%'
         
         # Filtro por status específico para diabetes
@@ -4568,9 +4575,13 @@ def api_pacientes_hiperdia_dm():
         cur.execute(full_query, params)
         pacientes = cur.fetchall()
         
-        # Contar total de pacientes
-        count_query = base_query.replace("SELECT DISTINCT \n                d.cod_paciente,", "SELECT COUNT(DISTINCT d.cod_paciente)")
-        count_query = count_query.split("ORDER BY")[0]  # Remove ORDER BY
+        # Contar total de pacientes - query com agente
+        count_query = """
+            SELECT COUNT(DISTINCT d.cod_paciente) as count
+            FROM sistemaaps.mv_hiperdia_diabetes d
+            LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
+            WHERE 1=1
+        """
         if where_clauses:
             count_query = count_query + " AND " + " AND ".join(where_clauses)
             
@@ -4621,9 +4632,14 @@ def api_get_total_diabeticos():
             where_clauses.append("d.nome_equipe = %(equipe)s")
             params['equipe'] = equipe
             
-        if microarea != 'Todas':
-            where_clauses.append("d.microarea = %(microarea)s")
-            params['microarea'] = microarea
+        if microarea != 'Todas' and microarea != 'Todas as áreas':
+            try:
+                microarea_int = int(microarea)
+                where_clauses.append("d.microarea = %(microarea)s")
+                params['microarea'] = microarea_int
+            except (ValueError, TypeError):
+                # Se não conseguir converter para int, ignore o filtro
+                pass
         
         # Aplicar filtros de status específicos para diabetes
         if status == 'Controlados':
@@ -4665,7 +4681,7 @@ def api_diabetes_timeline(cod_paciente):
     cur = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         # Buscar histórico de acompanhamento
         query = """
@@ -4788,6 +4804,64 @@ def api_diabetes_registrar_acao():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/equipes_microareas_diabetes')
+def api_equipes_microareas_diabetes():
+    """API para buscar equipes e microáreas específicas para pacientes diabéticos"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Buscar equipes, suas microáreas distintas e contagem de pacientes diabéticos
+        cur.execute("""
+            SELECT 
+                nome_equipe, 
+                array_agg(DISTINCT microarea ORDER BY microarea ASC) as microareas_list,
+                COUNT(DISTINCT cod_paciente) as total_pacientes_diabeticos
+            FROM sistemaaps.mv_hiperdia_diabetes
+            WHERE nome_equipe IS NOT NULL AND microarea IS NOT NULL
+            GROUP BY nome_equipe
+            ORDER BY total_pacientes_diabeticos DESC, nome_equipe ASC;
+        """)
+        equipes_com_microareas = cur.fetchall()
+
+        resultado_final = []
+        for equipe_row in equipes_com_microareas:
+            equipe_nome = equipe_row["nome_equipe"]
+            
+            # Para cada equipe, buscar os agentes associados às suas microáreas de pacientes diabéticos
+            cur.execute("""
+                SELECT DISTINCT ta.micro_area, ta.nome_agente
+                FROM sistemaaps.tb_agentes ta
+                WHERE ta.nome_equipe = %s AND ta.micro_area IN (
+                    SELECT DISTINCT md.microarea 
+                    FROM sistemaaps.mv_hiperdia_diabetes md 
+                    WHERE md.nome_equipe = %s AND md.microarea IS NOT NULL
+                )
+                ORDER BY ta.micro_area, ta.nome_agente;
+            """, (equipe_nome, equipe_nome))
+            agentes_db = cur.fetchall()
+            agentes_formatados = [{"micro_area": ag["micro_area"], "nome_agente": ag["nome_agente"]} for ag in agentes_db]
+
+            resultado_final.append({
+                "nome_equipe": equipe_nome,
+                "agentes": agentes_formatados,
+                "num_pacientes": equipe_row["total_pacientes_diabeticos"]
+            })
+        
+        return jsonify(resultado_final)
+    except Exception as e:
+        print(f"Erro ao buscar equipes e microáreas para diabetes: {e}")
+        # Se a view de diabetes não existir ainda, retornar dados do endpoint de hipertensão como fallback
+        try:
+            return api_equipes_microareas_hiperdia()
+        except:
+            return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 @app.route('/api/diabetes/medicamentos_atuais/<int:cod_cidadao>')
 def api_diabetes_medicamentos_atuais(cod_cidadao):
     """API para buscar medicamentos ativos de um paciente diabético"""
@@ -4795,7 +4869,7 @@ def api_diabetes_medicamentos_atuais(cod_cidadao):
     cur = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         query = """
             SELECT 
