@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIPERDIA - Sistema de Monitoramento de Pacientes Diabéticos</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { primary: '#4f46e5', secondary: '#10b981', diabetes: '#f59e0b' }, borderRadius: { 'none': '0px', 'sm': '4px', DEFAULT: '8px', 'md': '12px', 'xl': '20px', '2xl': '24px', '3xl': '32px', 'full': '9999px', 'button': '8px' } } } }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+    <link rel="stylesheet" href="/static/style.css"> 
+    <script type="module" src="{{ url_for('static', filename='hiperdia_dm_script.js') }}" defer></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow-sm">
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center"
+      >
+        <div class="flex items-center space-x-3">
+          <div class="flex items-center">
+            <div
+              class="w-10 h-10 flex items-center justify-center bg-amber-500 bg-opacity-10 rounded-xl"
+            >
+              <div
+                class="w-6 h-6 flex items-center justify-center text-amber-600"
+              >
+                <i class="ri-drop-line"></i>
+              </div>
+            </div>
+            <h1
+              class="ml-2 text-2xl font-bold tracking-wider text-amber-600 flex items-center"
+            >
+              HIPERDIA - Diabéticos
+              <div
+                class="w-5 h-5 flex items-center justify-center text-amber-600 ml-1"
+              >
+                <i class="ri-test-tube-line"></i>
+              </div>
+            </h1>
+          </div>
+          <div class="h-6 w-px bg-gray-200"></div>
+          <span class="text-sm text-gray-600"
+            >Sistema de Monitoramento de Pacientes Diabéticos</span
+          >
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="text-sm text-gray-600">
+                <span>{{ data_atual }}</span>
+            </div>
+            <div class="relative">
+                <button class="flex items-center text-gray-700 hover:text-amber-600">
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                        <i class="ri-user-line"></i>
+                    </div>
+                    <span>Profissional APS</span>
+                    <div class="w-4 h-4 flex items-center justify-center">
+                        <i class="ri-arrow-down-s-line"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+      </div>
+    </header>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Coluna da Esquerda: Filtros -->
+                <div>
+                    <div class="flex items-center mb-4">
+                        <h2 id="acompanhamentoDiabeticosTitle" class="text-xl font-semibold text-gray-800">Painel de
+                            Controle - Diabetes</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Equipe</label>
+                            <div class="relative">
+                                <button id="diabetes-equipe-button"
+                                    class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 px-3 text-left flex justify-between items-center border-b-2 border-gray-200 focus:border-amber-500 transition-colors duration-200 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="w-6 h-6 flex items-center justify-center text-amber-600 mr-2">
+                                            <i class="ri-team-line"></i>
+                                        </div>
+                                        <span id="diabetes-equipe-button-text">Todas as equipes</span>
+                                    </div>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <div id="diabetes-equipe-dropdown"
+                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="diabetes-equipe-dropdown-content" class="p-2">
+                                        <!-- Conteúdo populado via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Microárea</label>
+                            <div class="relative">
+                                <button id="diabetes-microarea-button"
+                                    class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 px-3 text-left flex justify-between items-center border-b-2 border-gray-200 focus:border-amber-500 transition-colors duration-200 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="w-6 h-6 flex items-center justify-center text-amber-600 mr-2">
+                                            <i class="ri-map-pin-line"></i>
+                                        </div>
+                                        <span id="diabetes-microarea-button-text">Todas as microáreas</span>
+                                    </div>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <div id="diabetes-microarea-dropdown"
+                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="diabetes-microarea-dropdown-content" class="p-2">
+                                        <!-- Conteúdo populado via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="diabetes-busca-input" class="block text-sm font-medium text-gray-700 mb-1">Buscar
+                                Paciente</label>
+                            <div class="relative">
+                                <input type="text" id="diabetes-busca-input"
+                                    class="w-full pl-10 pr-4 py-2 border-b-2 border-gray-200 focus:border-amber-500 bg-gray-50 focus:bg-white transition-colors duration-200"
+                                    placeholder="Digite o nome do paciente...">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-gray-400">
+                                        <i class="ri-search-line"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Coluna da Direita: Resumo de Dados -->
+                <div>
+                    <div class="flex items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Resumo</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 flex items-center justify-center text-amber-600 mr-3">
+                                        <i class="ri-drop-line"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-amber-600 font-medium">Total Diabéticos</p>
+                                        <p id="total-diabeticos" class="text-2xl font-bold text-amber-700">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 flex items-center justify-center text-green-600 mr-3">
+                                        <i class="ri-check-line"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-green-600 font-medium">Controlados</p>
+                                        <p id="total-controlados" class="text-2xl font-bold text-green-700">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 flex items-center justify-center text-red-600 mr-3">
+                                        <i class="ri-alert-line"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-red-600 font-medium">Descompensados</p>
+                                        <p id="total-descompensados" class="text-2xl font-bold text-red-700">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 flex items-center justify-center text-purple-600 mr-3">
+                                        <i class="ri-medicine-bottle-line"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-purple-600 font-medium">Com Tratamento</p>
+                                        <p id="total-tratamento" class="text-2xl font-bold text-purple-700">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Abas de Status -->
+        <div class="bg-white rounded shadow-sm mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                    <button class="diabetes-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-amber-600 hover:border-amber-300 whitespace-nowrap active" data-status-filter="Todos" data-active-bg="bg-white" data-active-text="text-amber-600" data-active-border="border-amber-500" data-inactive-bg="bg-white" data-inactive-text="text-gray-700" data-inactive-border="border-transparent">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center mr-2">
+                                <i class="ri-list-check-2"></i>
+                            </div>
+                            <span>Todos</span>
+                        </div>
+                    </button>
+                    <button class="diabetes-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-green-600 hover:border-green-300 whitespace-nowrap" data-status-filter="Controlados" data-active-bg="bg-white" data-active-text="text-green-600" data-active-border="border-green-500" data-inactive-bg="bg-white" data-inactive-text="text-gray-700" data-inactive-border="border-transparent">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-green-600 mr-2">
+                                <i class="ri-check-line"></i>
+                            </div>
+                            <span>Controlados</span>
+                        </div>
+                    </button>
+                    <button class="diabetes-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-red-600 hover:border-red-300 whitespace-nowrap" data-status-filter="Descompensados" data-active-bg="bg-white" data-active-text="text-red-600" data-active-border="border-red-500" data-inactive-bg="bg-white" data-inactive-text="text-gray-700" data-inactive-border="border-transparent">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-red-600 mr-2">
+                                <i class="ri-alert-line"></i>
+                            </div>
+                            <span>Descompensados</span>
+                        </div>
+                    </button>
+                    <button class="diabetes-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-purple-600 hover:border-purple-300 whitespace-nowrap" data-status-filter="ComTratamento" data-active-bg="bg-white" data-active-text="text-purple-600" data-active-border="border-purple-500" data-inactive-bg="bg-white" data-inactive-text="text-gray-700" data-inactive-border="border-transparent">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-purple-600 mr-2">
+                                <i class="ri-medicine-bottle-line"></i>
+                            </div>
+                            <span>Tratamento</span>
+                        </div>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Lista de Pacientes -->
+        <div class="bg-white rounded shadow-sm">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Pacientes Diabéticos</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <button id="selecionar-todos-diabetes" class="text-sm text-amber-600 hover:text-amber-700 font-medium">
+                                Selecionar Todos
+                            </button>
+                            <span class="text-gray-300">|</span>
+                            <button id="desmarcar-todos-diabetes" class="text-sm text-gray-600 hover:text-gray-700 font-medium">
+                                Desmarcar Todos
+                            </button>
+                        </div>
+                        <button id="gerar-receituario-diabetes" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 flex items-center justify-center mr-2">
+                                    <i class="ri-file-text-line"></i>
+                                </div>
+                                <span>Gerar Receituário</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="diabetes-loading" class="flex justify-center items-center p-8">
+                <div class="text-gray-500">Carregando pacientes...</div>
+            </div>
+            <div id="diabetes-pacientes-container" class="hidden">
+                <div id="diabetes-pacientes-lista">
+                    <!-- Lista de pacientes será populada aqui via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Timeline -->
+    <div id="timeline-modal-diabetes" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-40">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 id="timeline-modal-title-diabetes" class="text-lg leading-6 font-medium text-gray-900">
+                            Timeline de Acompanhamento
+                        </h3>
+                        <button id="close-timeline-modal-diabetes" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4 flex space-x-2">
+                        <button class="timeline-filter-btn-diabetes active bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm" data-filter="todos">
+                            Todos
+                        </button>
+                        <button class="timeline-filter-btn-diabetes bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm" data-filter="solicitar_mrg">
+                            Solicitar MRG
+                        </button>
+                        <button class="timeline-filter-btn-diabetes bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm" data-filter="avaliar_mrg">
+                            Avaliar MRG
+                        </button>
+                        <button class="timeline-filter-btn-diabetes bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm" data-filter="tratamento">
+                            Tratamento
+                        </button>
+                    </div>
+                    
+                    <div id="timeline-content-diabetes" class="max-h-96 overflow-y-auto">
+                        <!-- Timeline será populada aqui -->
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="add-action-btn-diabetes" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-amber-600 text-base font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 flex items-center justify-center mr-2">
+                                <i class="ri-add-line"></i>
+                            </div>
+                            <span>Adicionar Ação</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registro de Ação -->
+    <div id="register-action-modal-diabetes" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            Registrar Nova Ação
+                        </h3>
+                        <button id="close-register-modal-diabetes" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="action-form-diabetes" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Ação</label>
+                            <select id="cod-acao-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                <option value="">Selecione uma ação</option>
+                                <option value="10">Solicitar MRG</option>
+                                <option value="11">Avaliar MRG</option>
+                                <option value="3">Modificar tratamento</option>
+                                <option value="4">Solicitar Exames</option>
+                                <option value="5">Avaliar Exames</option>
+                                <option value="6">Avaliar RCV</option>
+                                <option value="7">Encaminhar para nutrição</option>
+                                <option value="8">Registrar consulta nutrição</option>
+                                <option value="9">Agendar novo acompanhamento</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data da Ação</label>
+                            <input type="date" id="data-acao-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                            <textarea id="observacoes-diabetes" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Observações sobre a ação..."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
+                            <input type="text" id="responsavel-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Nome do responsável">
+                        </div>
+
+                        <!-- Campos específicos para MRG -->
+                        <div id="mrg-fields-diabetes" class="space-y-4 hidden">
+                            <h4 class="text-md font-medium text-gray-800">Dados da Monitorização Residencial da Glicemia</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Glicemia Jejum (mg/dL)</label>
+                                    <input type="number" id="g-jejum-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Após Café (mg/dL)</label>
+                                    <input type="number" id="g-apos-cafe-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Antes Almoço (mg/dL)</label>
+                                    <input type="number" id="g-antes-almoco-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Após Almoço (mg/dL)</label>
+                                    <input type="number" id="g-apos-almoco-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Antes Jantar (mg/dL)</label>
+                                    <input type="number" id="g-antes-jantar-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Ao Deitar (mg/dL)</label>
+                                    <input type="number" id="g-ao-deitar-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Análise da MRG</label>
+                                <textarea id="analise-mrg-diabetes" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Análise dos resultados da monitorização residencial da glicemia..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Campos para medicamentos -->
+                        <div id="medicamento-fields-diabetes" class="space-y-4 hidden">
+                            <h4 class="text-md font-medium text-gray-800">Adicionar Medicamento</h4>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Medicamento</label>
+                                <input type="text" id="nome-medicamento-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Ex: Metformina 500mg">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Dose</label>
+                                    <input type="number" id="dose-medicamento-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="1" min="1">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Frequência/dia</label>
+                                    <input type="number" id="freq-medicamento-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="2" min="1">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data de Início (opcional)</label>
+                                <input type="date" id="data-inicio-medicamento-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="save-action-btn-diabetes" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-amber-600 text-base font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <span>Salvar</span>
+                    </button>
+                    <button type="button" id="cancel-action-btn-diabetes" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

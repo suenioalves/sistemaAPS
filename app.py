@@ -4470,5 +4470,368 @@ def api_generate_prescription_pdf_individual():
         if cur: cur.close()
         if conn: conn.close()
 
+# ================================
+# ENDPOINTS PARA DIABETES (HIPERDIA-DM)
+# ================================
+
+@app.route('/painel-hiperdia-dm')
+def painel_hiperdia_dm():
+    """Página principal do painel de diabetes"""
+    from datetime import datetime
+    data_atual = datetime.now().strftime('%d/%m/%Y')
+    return render_template('painel-hiperdia-dm.html', data_atual=data_atual)
+
+@app.route('/api/pacientes_hiperdia_dm')
+def api_pacientes_hiperdia_dm():
+    """API para buscar pacientes diabéticos com filtros"""
+    conn = None
+    cur = None
+    try:
+        # Parâmetros da requisição
+        equipe = request.args.get('equipe', 'Todas')
+        microarea = request.args.get('microarea', 'Todas')
+        search = request.args.get('search', '').strip()
+        status = request.args.get('status', 'Todos')
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        
+        offset = (page - 1) * limit
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Base da query para pacientes diabéticos
+        # Por enquanto, usar a mesma view de hipertensão até criar uma específica para diabetes
+        base_query = """
+            SELECT DISTINCT 
+                h.cod_paciente,
+                h.nome_paciente,
+                h.dt_nascimento,
+                h.sexo,
+                h.cartao_sus,
+                h.nome_equipe,
+                h.microarea,
+                -- Adicionar campos específicos de diabetes quando a view estiver pronta
+                'descompensado' as status_dm
+            FROM sistemaaps.mv_hiperdia_hipertensao h
+            WHERE 1=1
+        """
+        
+        where_clauses = []
+        params = {}
+        
+        # Filtro por equipe
+        if equipe != 'Todas':
+            where_clauses.append("h.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe
+            
+        # Filtro por microárea
+        if microarea != 'Todas':
+            where_clauses.append("h.microarea = %(microarea)s")
+            params['microarea'] = microarea
+            
+        # Filtro por busca (nome do paciente)
+        if search:
+            where_clauses.append("UNACCENT(UPPER(h.nome_paciente)) LIKE UNACCENT(UPPER(%(search)s))")
+            params['search'] = f'%{search}%'
+        
+        # Filtro por status (implementar lógica específica para diabetes)
+        if status == 'Controlados':
+            where_clauses.append("1=0") # Placeholder - implementar lógica de controle glicêmico
+        elif status == 'Descompensados':
+            where_clauses.append("1=1") # Placeholder - implementar lógica de descompensação
+        elif status == 'ComTratamento':
+            # Verificar se tem medicamentos ativos para diabetes
+            where_clauses.append("""
+                EXISTS (
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
+                    WHERE med.codcidadao = h.cod_paciente 
+                    AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
+                )
+            """)
+        
+        # Construir query final
+        if where_clauses:
+            full_query = base_query + " AND " + " AND ".join(where_clauses)
+        else:
+            full_query = base_query
+            
+        # Adicionar ordenação e paginação
+        full_query += " ORDER BY h.nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
+        params['limit'] = limit
+        params['offset'] = offset
+        
+        cur.execute(full_query, params)
+        pacientes = cur.fetchall()
+        
+        # Contar total de pacientes
+        count_query = base_query.replace("SELECT DISTINCT h.cod_paciente,", "SELECT COUNT(DISTINCT h.cod_paciente)")
+        count_query = count_query.split("ORDER BY")[0]  # Remove ORDER BY
+        if where_clauses:
+            count_query = count_query + " AND " + " AND ".join(where_clauses)
+            
+        cur.execute(count_query, {k: v for k, v in params.items() if k not in ['limit', 'offset']})
+        total = cur.fetchone()['count']
+        
+        return jsonify({
+            "pacientes": [dict(p) for p in pacientes],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": (total + limit - 1) // limit
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar pacientes diabéticos: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/get_total_diabeticos')
+def api_get_total_diabeticos():
+    """API para obter totais de pacientes diabéticos"""
+    conn = None
+    cur = None
+    try:
+        equipe = request.args.get('equipe', 'Todas')
+        microarea = request.args.get('microarea', 'Todas')
+        status = request.args.get('status', 'Todos')
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Query base para contar diabéticos
+        base_query = """
+            SELECT COUNT(DISTINCT h.cod_paciente) as total_pacientes
+            FROM sistemaaps.mv_hiperdia_hipertensao h
+            WHERE 1=1
+        """
+        
+        where_clauses = []
+        params = {}
+        
+        if equipe != 'Todas':
+            where_clauses.append("h.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe
+            
+        if microarea != 'Todas':
+            where_clauses.append("h.microarea = %(microarea)s")
+            params['microarea'] = microarea
+        
+        # Aplicar filtros de status
+        if status == 'ComTratamento':
+            where_clauses.append("""
+                EXISTS (
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
+                    WHERE med.codcidadao = h.cod_paciente 
+                    AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
+                )
+            """)
+        
+        if where_clauses:
+            full_query = base_query + " AND " + " AND ".join(where_clauses)
+        else:
+            full_query = base_query
+            
+        cur.execute(full_query, params)
+        result = cur.fetchone()
+        
+        return jsonify({
+            "total_pacientes": result[0] if result else 0
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar total de diabéticos: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/timeline/<int:cod_paciente>')
+def api_diabetes_timeline(cod_paciente):
+    """API para buscar timeline de acompanhamento de um paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Buscar histórico de acompanhamento
+        query = """
+            SELECT 
+                a.cod_acompanhamento,
+                a.cod_acao,
+                ta.dsc_acao,
+                ta.dsc_detalhada,
+                a.status_acao,
+                a.data_agendamento,
+                a.data_realizacao,
+                a.observacoes,
+                a.responsavel_pela_acao,
+                a.created_at
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+            JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+            WHERE a.cod_cidadao = %(cod_paciente)s
+            ORDER BY COALESCE(a.data_realizacao, a.data_agendamento) DESC
+        """
+        
+        cur.execute(query, {'cod_paciente': cod_paciente})
+        timeline = cur.fetchall()
+        
+        return jsonify({
+            "timeline": [dict(t) for t in timeline]
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar timeline do diabético: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/registrar_acao', methods=['POST'])
+def api_diabetes_registrar_acao():
+    """API para registrar nova ação de acompanhamento para diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Inserir ação de acompanhamento
+        query = """
+            INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento 
+            (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+            VALUES (%(cod_cidadao)s, %(cod_acao_atual)s, %(status_acao)s, %(data_agendamento)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+            RETURNING cod_acompanhamento
+        """
+        
+        cur.execute(query, {
+            'cod_cidadao': data['cod_cidadao'],
+            'cod_acao_atual': data['cod_acao_atual'],
+            'status_acao': data.get('status_acao', 'REALIZADA'),
+            'data_agendamento': data.get('data_agendamento', data['data_acao_atual']),
+            'data_realizacao': data['data_acao_atual'],
+            'observacoes': data.get('observacoes'),
+            'responsavel_pela_acao': data.get('responsavel_pela_acao')
+        })
+        
+        cod_acompanhamento = cur.fetchone()[0]
+        
+        # Se for ação de Avaliar MRG (cod_acao 11), inserir dados da MRG
+        if int(data['cod_acao_atual']) == 11 and 'mrg_data' in data:
+            mrg_query = """
+                INSERT INTO sistemaaps.tb_hiperdia_mrg 
+                (cod_acompanhamento, data_mrg, g_jejum, g_apos_cafe, g_antes_almoco, g_apos_almoco, g_antes_jantar, g_ao_deitar, analise_mrg)
+                VALUES (%(cod_acompanhamento)s, %(data_mrg)s, %(g_jejum)s, %(g_apos_cafe)s, %(g_antes_almoco)s, %(g_apos_almoco)s, %(g_antes_jantar)s, %(g_ao_deitar)s, %(analise_mrg)s)
+            """
+            
+            mrg_data = data['mrg_data']
+            cur.execute(mrg_query, {
+                'cod_acompanhamento': cod_acompanhamento,
+                'data_mrg': data['data_acao_atual'],
+                'g_jejum': mrg_data.get('g_jejum'),
+                'g_apos_cafe': mrg_data.get('g_apos_cafe'),
+                'g_antes_almoco': mrg_data.get('g_antes_almoco'),
+                'g_apos_almoco': mrg_data.get('g_apos_almoco'),
+                'g_antes_jantar': mrg_data.get('g_antes_jantar'),
+                'g_ao_deitar': mrg_data.get('g_ao_deitar'),
+                'analise_mrg': mrg_data.get('analise_mrg')
+            })
+        
+        # Se for ação de Modificar tratamento (cod_acao 3), inserir medicamento
+        if int(data['cod_acao_atual']) == 3 and 'medicamento_data' in data:
+            med_query = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_medicamentos 
+                (codcidadao, nome_medicamento, dose, frequencia, data_inicio)
+                VALUES (%(codcidadao)s, %(nome_medicamento)s, %(dose)s, %(frequencia)s, %(data_inicio)s)
+            """
+            
+            med_data = data['medicamento_data']
+            cur.execute(med_query, {
+                'codcidadao': data['cod_cidadao'],
+                'nome_medicamento': med_data['nome_medicamento'],
+                'dose': med_data.get('dose', 1),
+                'frequencia': med_data.get('frequencia', 1),
+                'data_inicio': med_data.get('data_inicio')
+            })
+        
+        conn.commit()
+        
+        return jsonify({
+            "sucesso": True,
+            "cod_acompanhamento": cod_acompanhamento,
+            "mensagem": "Ação registrada com sucesso"
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao registrar ação para diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/medicamentos_atuais/<int:cod_cidadao>')
+def api_diabetes_medicamentos_atuais(cod_cidadao):
+    """API para buscar medicamentos ativos de um paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT 
+                cod_seq_medicamento,
+                nome_medicamento,
+                dose,
+                frequencia,
+                posologia,
+                data_inicio,
+                observacoes,
+                updated_at
+            FROM sistemaaps.tb_hiperdia_dm_medicamentos
+            WHERE codcidadao = %(cod_cidadao)s
+            AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+            ORDER BY nome_medicamento
+        """
+        
+        cur.execute(query, {'cod_cidadao': cod_cidadao})
+        medicamentos = cur.fetchall()
+        
+        # Converter para lista de dicionários e formatar
+        medicamentos_list = []
+        for med in medicamentos:
+            med_dict = dict(med)
+            # Tratar dados nulos
+            if med_dict.get('data_inicio'):
+                med_dict['data_inicio'] = med_dict['data_inicio'].strftime('%Y-%m-%d')
+            medicamentos_list.append(med_dict)
+        
+        # Ordenar por data_inicio (mais recente primeiro), tratando valores None
+        medicamentos_list.sort(key=lambda x: x.get('data_inicio') or '', reverse=True)
+        
+        return jsonify({
+            "medicamentos": medicamentos_list
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar medicamentos do diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')
