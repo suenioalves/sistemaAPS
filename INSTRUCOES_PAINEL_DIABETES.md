@@ -46,7 +46,8 @@ Painel completo para acompanhamento de pacientes diabéticos baseado na estrutur
 ## 📁 **Arquivos Criados**
 
 ### **Scripts SQL:**
-- `bd_sistema_aps/Scripts/Hiperdia/CRIA_TABELAS_DIABETES.sql`
+- `bd_sistema_aps/Scripts/Hiperdia/CRIA_TABELAS_DIABETES.sql` - Estrutura completa das tabelas
+- `bd_sistema_aps/Scripts/Hiperdia/CREATE VIEW HIPERDIA - DIABETES.sql` - View materializada específica
 
 ### **Templates HTML:**
 - `templates/painel-hiperdia-dm.html` - Interface principal do painel
@@ -93,12 +94,25 @@ Painel completo para acompanhamento de pacientes diabéticos baseado na estrutur
 \i bd_sistema_aps/Scripts/Hiperdia/CRIA_TABELAS_DIABETES.sql
 ```
 
-### **2. Criar View Materializada (Opcional):**
-Criar uma view específica `mv_hiperdia_diabetes` ou adaptar as queries para usar critérios específicos de diabetes.
+### **2. View Materializada Específica Criada:**
+A view `mv_hiperdia_diabetes` foi criada com os códigos específicos para diabetes:
 
-### **3. Implementar Lógica de Status:**
-- **Controlados**: HbA1c < 7% ou glicemia de jejum < 126 mg/dL
-- **Descompensados**: HbA1c ≥ 7% ou glicemia de jejum ≥ 126 mg/dL
+**Códigos CIAP:**
+- 476: DIABETES INSULINO-DEPENDENTE
+- 477: DIABETES NÃO INSULINO-DEPENDENTE  
+- 732: DIABETES
+
+**Códigos CID10:**
+- 1746-1771: E10-E14 (Diabetes mellitus)
+- 1722-1745: E10-E14 subcategorias
+- 12731-12735: Códigos específicos adicionais
+
+**Arquivo:** `CREATE VIEW HIPERDIA - DIABETES.sql`
+
+### **3. Lógica de Status Implementada:**
+- **Controlados**: `situacao_problema = 1` (Compensado)
+- **Descompensados**: `situacao_problema = 0` (Ativo/Descompensado)
+- **Com Tratamento**: Pacientes com medicamentos ativos na tabela `tb_hiperdia_dm_medicamentos`
 
 ### **4. Integrar com APIs Existentes:**
 Adaptar `hiperdiaApi.js` para incluir endpoints específicos de diabetes ou criar um novo `diabetesApi.js`.

@@ -4500,20 +4500,24 @@ def api_pacientes_hiperdia_dm():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Base da query para pacientes diabéticos
-        # Por enquanto, usar a mesma view de hipertensão até criar uma específica para diabetes
+        # Base da query para pacientes diabéticos usando view específica
         base_query = """
             SELECT DISTINCT 
-                h.cod_paciente,
-                h.nome_paciente,
-                h.dt_nascimento,
-                h.sexo,
-                h.cartao_sus,
-                h.nome_equipe,
-                h.microarea,
-                -- Adicionar campos específicos de diabetes quando a view estiver pronta
-                'descompensado' as status_dm
-            FROM sistemaaps.mv_hiperdia_hipertensao h
+                d.cod_paciente,
+                d.nome_paciente,
+                d.dt_nascimento,
+                d.sexo,
+                d.cartao_sus,
+                d.nome_equipe,
+                d.microarea,
+                d.tipo_diabetes,
+                d.situacao_problema,
+                CASE 
+                    WHEN d.situacao_problema = 1 THEN 'controlado'
+                    WHEN d.situacao_problema = 0 THEN 'descompensado'
+                    ELSE 'indefinido'
+                END as status_dm
+            FROM sistemaaps.mv_hiperdia_diabetes d
             WHERE 1=1
         """
         
@@ -4522,30 +4526,30 @@ def api_pacientes_hiperdia_dm():
         
         # Filtro por equipe
         if equipe != 'Todas':
-            where_clauses.append("h.nome_equipe = %(equipe)s")
+            where_clauses.append("d.nome_equipe = %(equipe)s")
             params['equipe'] = equipe
             
         # Filtro por microárea
         if microarea != 'Todas':
-            where_clauses.append("h.microarea = %(microarea)s")
+            where_clauses.append("d.microarea = %(microarea)s")
             params['microarea'] = microarea
             
         # Filtro por busca (nome do paciente)
         if search:
-            where_clauses.append("UNACCENT(UPPER(h.nome_paciente)) LIKE UNACCENT(UPPER(%(search)s))")
+            where_clauses.append("UNACCENT(UPPER(d.nome_paciente)) LIKE UNACCENT(UPPER(%(search)s))")
             params['search'] = f'%{search}%'
         
-        # Filtro por status (implementar lógica específica para diabetes)
+        # Filtro por status específico para diabetes
         if status == 'Controlados':
-            where_clauses.append("1=0") # Placeholder - implementar lógica de controle glicêmico
+            where_clauses.append("d.situacao_problema = 1") # 1 = Compensado/Controlado
         elif status == 'Descompensados':
-            where_clauses.append("1=1") # Placeholder - implementar lógica de descompensação
+            where_clauses.append("d.situacao_problema = 0") # 0 = Ativo/Descompensado
         elif status == 'ComTratamento':
             # Verificar se tem medicamentos ativos para diabetes
             where_clauses.append("""
                 EXISTS (
                     SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
-                    WHERE med.codcidadao = h.cod_paciente 
+                    WHERE med.codcidadao = d.cod_paciente 
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
             """)
@@ -4557,7 +4561,7 @@ def api_pacientes_hiperdia_dm():
             full_query = base_query
             
         # Adicionar ordenação e paginação
-        full_query += " ORDER BY h.nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
+        full_query += " ORDER BY d.nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
         params['limit'] = limit
         params['offset'] = offset
         
@@ -4565,7 +4569,7 @@ def api_pacientes_hiperdia_dm():
         pacientes = cur.fetchall()
         
         # Contar total de pacientes
-        count_query = base_query.replace("SELECT DISTINCT h.cod_paciente,", "SELECT COUNT(DISTINCT h.cod_paciente)")
+        count_query = base_query.replace("SELECT DISTINCT \n                d.cod_paciente,", "SELECT COUNT(DISTINCT d.cod_paciente)")
         count_query = count_query.split("ORDER BY")[0]  # Remove ORDER BY
         if where_clauses:
             count_query = count_query + " AND " + " AND ".join(where_clauses)
@@ -4603,10 +4607,10 @@ def api_get_total_diabeticos():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Query base para contar diabéticos
+        # Query base para contar diabéticos usando view específica
         base_query = """
-            SELECT COUNT(DISTINCT h.cod_paciente) as total_pacientes
-            FROM sistemaaps.mv_hiperdia_hipertensao h
+            SELECT COUNT(DISTINCT d.cod_paciente) as total_pacientes
+            FROM sistemaaps.mv_hiperdia_diabetes d
             WHERE 1=1
         """
         
@@ -4614,19 +4618,23 @@ def api_get_total_diabeticos():
         params = {}
         
         if equipe != 'Todas':
-            where_clauses.append("h.nome_equipe = %(equipe)s")
+            where_clauses.append("d.nome_equipe = %(equipe)s")
             params['equipe'] = equipe
             
         if microarea != 'Todas':
-            where_clauses.append("h.microarea = %(microarea)s")
+            where_clauses.append("d.microarea = %(microarea)s")
             params['microarea'] = microarea
         
-        # Aplicar filtros de status
-        if status == 'ComTratamento':
+        # Aplicar filtros de status específicos para diabetes
+        if status == 'Controlados':
+            where_clauses.append("d.situacao_problema = 1")
+        elif status == 'Descompensados':
+            where_clauses.append("d.situacao_problema = 0")
+        elif status == 'ComTratamento':
             where_clauses.append("""
                 EXISTS (
                     SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
-                    WHERE med.codcidadao = h.cod_paciente 
+                    WHERE med.codcidadao = d.cod_paciente 
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
             """)

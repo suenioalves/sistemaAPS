@@ -157,6 +157,16 @@ ON CONFLICT (cod_acao) DO UPDATE SET
 -- Comentários finais
 COMMENT ON SCHEMA sistemaaps IS 'Schema do sistema APS contendo tabelas para acompanhamento de hipertensão e diabetes';
 
+-- 6. Executar script para criar a view materializada de diabetes
+-- Este comando executa o script da view, assumindo que está no mesmo diretório
+\i 'CREATE VIEW HIPERDIA - DIABETES.sql'
+
 -- Script concluído
 -- Este script cria toda a estrutura necessária para o acompanhamento de pacientes diabéticos
 -- seguindo o mesmo padrão usado para hipertensão, mas com adaptações específicas para diabetes.
+
+-- Para executar este script completo no PostgreSQL:
+-- 1. Conecte-se ao banco de dados
+-- 2. Execute: \i 'CRIA_TABELAS_DIABETES.sql'
+-- 3. A view será criada automaticamente junto com as tabelas
+-- 4. Para atualizar os dados da view: REFRESH MATERIALIZED VIEW sistemaaps.mv_hiperdia_diabetes;
