@@ -498,14 +498,32 @@ document.addEventListener('DOMContentLoaded', function () {
         let metodoTexto = ado.metodo || 'Sem método';
         let statusTexto = '';
         let statusClass = 'text-gray-600';
+        let metodoClass = 'text-gray-900';
+        let containerClass = '';
 
-        if (ado.status_gravidez === 'Grávida') {
+        // Verificar se está fora de área (quando próxima ação é "mudou de área" ou "remover do acompanhamento")
+        const isForaDeArea = ado.proxima_acao_tipo === 5 || ado.proxima_acao_tipo === 7 || 
+                           (ado.proxima_acao_descricao && 
+                            (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
+                             ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')));
+
+        if (isForaDeArea) {
+            metodoTexto = 'FORA DE ÁREA';
+            statusTexto = '';
+            metodoClass = 'text-red-700 font-bold';
+            containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
+        } else if (ado.status_gravidez === 'Grávida') {
             metodoTexto = 'GESTANTE';
             statusTexto = ado.data_provavel_parto ? `DPP: ${ado.data_provavel_parto}` : 'DPP não informada';
             statusClass = 'text-pink-600 font-semibold';
+            metodoClass = 'text-pink-700 font-bold';
+            containerClass = 'border-2 border-pink-500 rounded-full px-3 py-1 inline-block bg-pink-50';
         } else if (!ado.metodo) {
+            metodoTexto = 'SEM MÉTODO';
             statusTexto = 'Não utiliza método contraceptivo.';
             statusClass = 'text-yellow-700';
+            metodoClass = 'text-yellow-700 font-bold';
+            containerClass = 'border-2 border-yellow-500 rounded-full px-3 py-1 inline-block bg-yellow-50';
         } else if (ado.data_aplicacao) {
             const dataAplicacao = new Date(ado.data_aplicacao + 'T00:00:00'); // Considerar como data local
             
@@ -514,42 +532,73 @@ document.addEventListener('DOMContentLoaded', function () {
                 statusClass = 'text-red-500 font-semibold';
             } else {
                 // Continua com a lógica original se a data for válida
-            const hoje = new Date();
-            hoje.setHours(0, 0, 0, 0); // Normalizar hoje para meia-noite para comparação de dias
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0); // Normalizar hoje para meia-noite para comparação de dias
 
-            let limiteDias = Infinity;
-            const metodoLower = ado.metodo.toLowerCase();
-
-            if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) limiteDias = 30;
-            else if (metodoLower.includes('trimestral')) limiteDias = 90;
-
-            const dataVencimento = new Date(dataAplicacao);
-            dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
-
-            const dataAplicacaoFormatada = dataAplicacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-
-            if (limiteDias !== Infinity) { // Métodos com data de vencimento clara
-                if (hoje >= dataVencimento) {
-                    statusTexto = `Vencido desde: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
-                    statusClass = 'text-red-600 font-semibold';
+                let limiteDias = Infinity;
+                const metodoLower = ado.metodo.toLowerCase();
+                
+                // Determinar nome do método para exibição
+                let nomeMetodoDisplay = '';
+                if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+                    limiteDias = 30;
+                    nomeMetodoDisplay = metodoLower.includes('mensal') ? 'MENSAL' : 'PÍLULA';
+                } else if (metodoLower.includes('trimestral')) {
+                    limiteDias = 90;
+                    nomeMetodoDisplay = 'TRIMESTRAL';
+                } else if (metodoLower.includes('diu')) {
+                    nomeMetodoDisplay = 'DIU';
                 } else {
-                    statusTexto = `Em dia - Próx. dose/venc: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
-                    statusClass = 'text-green-600';
+                    nomeMetodoDisplay = ado.metodo.toUpperCase();
                 }
-            } else { // Métodos de longa duração sem data de vencimento clara (DIU, Implante, Laqueadura)
-                statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
-                statusClass = 'text-green-600';
-            }
+
+                const dataVencimento = new Date(dataAplicacao);
+                dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
+
+                const dataAplicacaoFormatada = dataAplicacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+                if (limiteDias !== Infinity) { // Métodos com data de vencimento clara
+                    if (hoje >= dataVencimento) {
+                        // Método vencido
+                        metodoTexto = nomeMetodoDisplay;
+                        statusTexto = `Vencido desde: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                        statusClass = 'text-red-600 font-semibold';
+                        metodoClass = 'text-red-700 font-bold';
+                        containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
+                    } else {
+                        // Método em dia
+                        metodoTexto = nomeMetodoDisplay;
+                        statusTexto = `Em dia - Próx. dose/venc: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                        statusClass = 'text-green-600';
+                        metodoClass = 'text-green-700 font-bold';
+                        containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+                    }
+                } else { // Métodos de longa duração sem data de vencimento clara (DIU, Implante, Laqueadura)
+                    metodoTexto = nomeMetodoDisplay;
+                    statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
+                    statusClass = 'text-green-600';
+                    metodoClass = 'text-green-700 font-bold';
+                    containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+                }
             }
         } else { // Tem método mas não tem data de aplicação (pode acontecer se o dado for inconsistente)
             statusTexto = 'Data de aplicação não informada.';
             statusClass = 'text-gray-500';
         }
 
-        return `
-            <div class="text-sm font-medium text-gray-900">${metodoTexto}</div>
-            <div class="text-xs ${statusClass}">${statusTexto}</div>
-        `;
+        if (containerClass) {
+            return `
+                <div class="${containerClass}">
+                    <div class="text-sm font-bold ${metodoClass}">${metodoTexto}</div>
+                </div>
+                ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
+            `;
+        } else {
+            return `
+                <div class="text-sm font-medium ${metodoClass}">${metodoTexto}</div>
+                <div class="text-xs ${statusClass}">${statusTexto}</div>
+            `;
+        }
     }
 
     function renderTimelineTable(data) {
@@ -614,9 +663,12 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (ado.ultimo_resultado_abordagem === 4) {
                 // Caso especial: "Já usa um método" - mostrar em verde
                 proximaAcaoDisplay = `<span class="text-green-600 font-medium">(Paciente em uso)</span><br><span class="text-xs text-green-500">(Atualizar no PEC)</span>`;
-            } else if (ado.proxima_acao_tipo === 5 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('mudou de área'))) {
-                // Caso especial: "Mudou de área" - mostrar em vermelho escuro
-                proximaAcaoDisplay = `<span class="text-red-700 font-medium">Mudou de área</span><br><span class="text-xs text-red-700">(identificar área)</span>`;
+            } else if (ado.proxima_acao_tipo === 5 || ado.proxima_acao_tipo === 7 || 
+                      (ado.proxima_acao_descricao && 
+                       (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
+                        ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')))) {
+                // Caso especial: "Mudou de área" ou "Remover do acompanhamento" - mostrar em vermelho
+                proximaAcaoDisplay = `<span class="text-red-700 font-medium text-sm">Fora de área. Atualizar PEC.</span>`;
             } else if (ado.proxima_acao_tipo === 3 || (ado.proxima_acao_descricao && (ado.proxima_acao_descricao.toLowerCase().includes('consulta na ubs') || ado.proxima_acao_descricao.toLowerCase().includes('iniciar método na ubs')))) {
                 // Caso especial: "Iniciar método na UBS" - mostrar em verde escuro
                 proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método na UBS</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da consulta'})</span>`;
@@ -649,7 +701,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="text-sm text-gray-900">${ado.nome_equipe || 'N/A'}</div>
                     <div class="text-xs text-gray-500">${ado.nome_agente || `Microárea ${ado.microarea || 'N/A'}`}</div>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap">${getTimelineMetodoStatusContent(ado)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-center">${getTimelineMetodoStatusContent(ado)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${proximaAcaoDisplay}
                 </td>
