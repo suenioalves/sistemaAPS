@@ -1139,9 +1139,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
             
-            if (processedCount > 0) {
-                alert(`${processedCount} receituário(s) gerado(s) com sucesso!`);
-            } else {
+            if (processedCount === 0) {
                 alert('Erro: Nenhum receituário pôde ser gerado.');
             }
 
