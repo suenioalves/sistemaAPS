@@ -199,17 +199,81 @@ def build_filtered_query(args):
         'nome_desc': 'm.nome_paciente DESC',
         'idade_asc': 'm.idade_calculada ASC',
         'idade_desc': 'm.idade_calculada DESC',
-        'metodo_asc': 'm.metodo ASC NULLS LAST',
+        'metodo_asc': """
+            CASE
+                -- Status do método para determinar ordem da data
+                WHEN m.status_gravidez = 'Grávida' THEN 1
+                WHEN (m.metodo IS NULL OR m.metodo = '') THEN 4
+                WHEN m.data_aplicacao IS NULL OR m.data_aplicacao = '' THEN 3
+                -- Método em atraso - ordenar por data mais recente primeiro (DESC)
+                WHEN (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) THEN 2
+                -- Método em dia - ordenar por data mais antiga primeiro (ASC)
+                ELSE 3
+            END ASC,
+            CASE
+                -- Para métodos em atraso: data mais recente primeiro
+                WHEN (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) THEN TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
+                ELSE NULL
+            END DESC NULLS LAST,
+            CASE
+                -- Para métodos em dia: data mais antiga primeiro
+                WHEN NOT (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) AND m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' THEN TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
+                ELSE NULL
+            END ASC NULLS LAST,
+            m.nome_paciente ASC
+        """,
         'status_asc': """
             CASE
+                -- Status do método para determinar ordem da data
                 WHEN m.status_gravidez = 'Grávida' THEN 1
-                WHEN (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
-                        ( (m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days') ) OR
-                        ( m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days') )
-                    )) THEN 2
-                WHEN (m.metodo IS NULL OR m.metodo = '') THEN 3
-                ELSE 4
-            END ASC, m.nome_paciente ASC
+                WHEN (m.metodo IS NULL OR m.metodo = '') THEN 4
+                WHEN m.data_aplicacao IS NULL OR m.data_aplicacao = '' THEN 3
+                -- Método em atraso - ordenar por data mais recente primeiro (DESC)
+                WHEN (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) THEN 2
+                -- Método em dia - ordenar por data mais antiga primeiro (ASC)
+                ELSE 3
+            END ASC,
+            CASE
+                -- Para métodos em atraso: data mais recente primeiro
+                WHEN (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) THEN TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
+                ELSE NULL
+            END DESC NULLS LAST,
+            CASE
+                -- Para métodos em dia: data mais antiga primeiro
+                WHEN NOT (
+                    ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                    (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                    (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
+                    (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
+                ) AND m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' THEN TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
+                ELSE NULL
+            END ASC NULLS LAST,
+            m.nome_paciente ASC
         """
     }
     order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC')
