@@ -896,7 +896,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 fetchPacientesUnificado({ 
                     searchTerm: currentSearchTerm, 
                     sortValue: currentSortValue, 
-                    includeFilters: true 
+                    includeFilters: Object.keys(activeFilters).length > 0,
+                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
                 });
             });
         });
@@ -997,7 +998,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 fetchPacientesUnificado({ 
                     searchTerm: currentSearchTerm, 
                     sortValue: currentSortValue, 
-                    includeFilters: true 
+                    includeFilters: Object.keys(activeFilters).length > 0,
+                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
                 });
             });
         });
@@ -1341,8 +1343,12 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('Busca digitada:', searchTerm);
             currentSearchTerm = searchTerm; // Armazenar globalmente
             currentPage = 1; // Resetar para primeira página
-            // Chamar função unificada
-            fetchPacientesUnificado({ searchTerm });
+            // Chamar função unificada preservando filtros ativos
+            fetchPacientesUnificado({ 
+                searchTerm,
+                includeFilters: Object.keys(activeFilters).length > 0,
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+            });
         });
     } else {
         console.error('Elemento search-input não encontrado!');
@@ -1432,7 +1438,10 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             
             currentPage = 1;
-            fetchPacientesUnificado({ includeFilters: true });
+            fetchPacientesUnificado({ 
+                includeFilters: true,
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+            });
             if (filterDropdown) filterDropdown.classList.add('hidden');
         });
     }
@@ -1473,7 +1482,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (sortDropdown) sortDropdown.classList.add('hidden');
                 
                 currentPage = 1;
-                fetchPacientesUnificado({ sortValue });
+                fetchPacientesUnificado({ 
+                    sortValue,
+                    includeFilters: Object.keys(activeFilters).length > 0,
+                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                });
             });
         });
     }
