@@ -843,7 +843,19 @@ def build_timeline_query_filters(args):
         'idade_asc': 'm.idade_calculada ASC',
         'idade_desc': 'm.idade_calculada DESC',
         'metodo_asc': 'm.metodo ASC NULLS LAST, m.nome_paciente ASC',
-        'proxima_aplicacao_desc': 'm.data_aplicacao DESC NULLS LAST, m.nome_paciente ASC',
+        'proxima_aplicacao_desc': """
+            CASE 
+                WHEN m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' THEN
+                    CASE 
+                        WHEN m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%' THEN 
+                            TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') + INTERVAL '30 days'
+                        WHEN m.metodo ILIKE '%%trimestral%%' THEN 
+                            TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') + INTERVAL '90 days'
+                        ELSE TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
+                    END
+                ELSE NULL
+            END DESC NULLS LAST, m.nome_paciente ASC
+        """,
         'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC'
     }
     # Default seguro para ordenação, caso sort_by seja inválido
