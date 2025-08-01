@@ -594,9 +594,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${paciente.idade_calculada || 'N/A'} anos</td>
-                <td class="px-6 py-4 whitespace-nowrap">
+                <td class="px-6 py-4 whitespace-nowrap text-center">
                     ${getMetodoContent(paciente)}
-                    ${getStatusContent(paciente, status)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${getProximaAcaoContent(paciente)}
@@ -616,55 +615,126 @@ document.addEventListener('DOMContentLoaded', function () {
         setupActionMenus();
     }
 
-    // Função para obter conteúdo do método
-    function getMetodoContent(paciente) {
+    // Função para obter conteúdo do método e status (similar ao painel de adolescentes)
+    function getPlafamMetodoStatusContent(paciente) {
+        let metodoTexto = paciente.metodo || 'Sem método';
+        let statusTexto = '';
+        let statusClass = 'text-gray-600';
+        let metodoClass = 'text-gray-900';
+        let containerClass = '';
+
         if (paciente.gestante) {
-            return `<span class="status-badge status-badge-pregnant">GESTANTE</span>`;
-        }
-        if (!paciente.metodo) {
-            return `<span class="status-badge status-badge-no-method">SEM MÉTODO</span>`;
-        }
-        return `<span class="text-sm text-gray-900">${paciente.metodo}</span>`;
-    }
-    
-    // Função para obter conteúdo do status
-    function getStatusContent(paciente, status) {
-        if (paciente.gestante) {
-            return `<div class="text-xs">Data Provável do Parto:</div><div class="text-xs text-gray-600">${paciente.data_provavel_parto || 'N/A'}</div>`;
-        }
-        if (status === 'sem_metodo') {
-            return '';
-        }
-        if (!paciente.data_aplicacao) {
-            if (status === 'em dia' && paciente.metodo) {
+            metodoTexto = 'GESTANTE';
+            statusTexto = paciente.data_provavel_parto ? `DPP: ${paciente.data_provavel_parto}` : 'DPP não informada';
+            statusClass = 'text-pink-600 font-semibold';
+            metodoClass = 'text-pink-700 font-bold';
+            containerClass = 'border-2 border-pink-500 rounded-full px-3 py-1 inline-block bg-pink-50';
+        } else if (!paciente.metodo) {
+            metodoTexto = 'SEM MÉTODO';
+            statusTexto = 'Não utiliza método contraceptivo.';
+            statusClass = 'text-yellow-700';
+            metodoClass = 'text-yellow-700 font-bold';
+            containerClass = 'border-2 border-yellow-500 rounded-full px-3 py-1 inline-block bg-yellow-50';
+        } else if (paciente.data_aplicacao) {
+            const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+            
+            if (isNaN(dataAplicacao.getTime())) {
+                statusTexto = 'Data de aplicação inválida.';
+                statusClass = 'text-red-500 font-semibold';
+            } else {
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+
+                let limiteDias = Infinity;
                 const metodoLower = paciente.metodo.toLowerCase();
-                if (metodoLower.includes('diu') || metodoLower.includes('implante') || metodoLower.includes('laqueadura')) {
-                    return `<span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+                
+                // Determinar nome do método para exibição
+                let nomeMetodoDisplay = '';
+                if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+                    limiteDias = 30;
+                    nomeMetodoDisplay = metodoLower.includes('mensal') ? 'MENSAL' : 'PÍLULA';
+                } else if (metodoLower.includes('trimestral')) {
+                    limiteDias = 90;
+                    nomeMetodoDisplay = 'TRIMESTRAL';
+                } else if (metodoLower.includes('diu')) {
+                    limiteDias = 3650; // 10 anos
+                    nomeMetodoDisplay = 'DIU';
+                } else if (metodoLower.includes('implante')) {
+                    limiteDias = 1095; // 3 anos
+                    nomeMetodoDisplay = 'IMPLANTE SUBDÉRMICO';
+                } else if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
+                    nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
+                } else {
+                    nomeMetodoDisplay = paciente.metodo.toUpperCase();
+                }
+
+                const dataVencimento = new Date(dataAplicacao);
+                dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
+
+                const dataAplicacaoFormatada = dataAplicacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+                if (limiteDias !== Infinity) { // Métodos com data de vencimento clara
+                    if (hoje >= dataVencimento) {
+                        // Método vencido
+                        metodoTexto = nomeMetodoDisplay;
+                        statusTexto = `Vencido desde: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                        statusClass = 'text-red-600 font-semibold';
+                        metodoClass = 'text-red-700 font-bold';
+                        containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
+                    } else {
+                        // Método em dia
+                        metodoTexto = nomeMetodoDisplay;
+                        statusTexto = `Em dia - Próx. dose/venc: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                        statusClass = 'text-green-600';
+                        metodoClass = 'text-green-700 font-bold';
+                        containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+                    }
+                } else { // Métodos de longa duração sem data de vencimento clara (DIU, Implante, Laqueadura)
+                    metodoTexto = nomeMetodoDisplay;
+                    statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
+                    statusClass = 'text-green-600';
+                    metodoClass = 'text-green-700 font-bold';
+                    containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
                 }
             }
-            return '';
-        }
-
-        const dataAplicacaoObj = new Date(paciente.data_aplicacao + 'T00:00:00');
-        if (isNaN(dataAplicacaoObj.getTime())) {
-            return `<div class="text-xs text-gray-600">${paciente.data_aplicacao}</div><span class="status-badge status-badge-late mt-1">(data com erro)</span>`;
-        }
-
-        const dataFormatada = dataAplicacaoObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-        const metodoLower = paciente.metodo ? paciente.metodo.toLowerCase() : '';
-        const isMetodoLongaDuracao = metodoLower.includes('diu') || metodoLower.includes('implante') || metodoLower.includes('laqueadura');
-
-        if (status === 'em_dia') {
-            if (isMetodoLongaDuracao) {
-                return `<div class="text-xs text-gray-600">Em uso desde: ${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+        } else { // Tem método mas não tem data de aplicação
+            const metodoLower = paciente.metodo.toLowerCase();
+            if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
+                // Métodos definitivos sem data são considerados válidos
+                const nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
+                metodoTexto = nomeMetodoDisplay;
+                statusTexto = 'Método definitivo em uso.';
+                statusClass = 'text-green-600';
+                metodoClass = 'text-green-700 font-bold';
+                containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
             } else {
-                return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-ok mt-1">(em dia)</span>`;
+                statusTexto = 'Data de aplicação não informada.';
+                statusClass = 'text-gray-500';
             }
-        } else if (status === 'atrasado_6_meses') {
-            return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-late mt-1">(atrasado +6 meses)</span>`;
-        } else {
-            return `<div class="text-xs text-gray-600">${dataFormatada}</div><span class="status-badge status-badge-late mt-1">(atrasado)</span>`;
         }
+
+        if (containerClass) {
+            return `
+                <div class="${containerClass}">
+                    <div class="text-sm font-bold ${metodoClass}">${metodoTexto}</div>
+                </div>
+                ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
+            `;
+        } else {
+            return `
+                <div class="text-sm font-medium ${metodoClass}">${metodoTexto}</div>
+                ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
+            `;
+        }
+    }
+
+    // Funções mantidas para compatibilidade (agora são wrappers)
+    function getMetodoContent(paciente) {
+        return getPlafamMetodoStatusContent(paciente);
+    }
+    
+    function getStatusContent(paciente, status) {
+        return ''; // Status agora é incluído na função combinada
     }
 
     // Função para obter conteúdo da próxima ação
