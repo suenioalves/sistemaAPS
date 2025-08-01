@@ -842,6 +842,8 @@ def build_timeline_query_filters(args):
         'nome_desc': 'm.nome_paciente DESC',
         'idade_asc': 'm.idade_calculada ASC',
         'idade_desc': 'm.idade_calculada DESC',
+        'metodo_asc': 'm.metodo ASC NULLS LAST, m.nome_paciente ASC',
+        'proxima_aplicacao_desc': 'm.data_aplicacao DESC NULLS LAST, m.nome_paciente ASC',
         'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC'
     }
     # Default seguro para ordenação, caso sort_by seja inválido
