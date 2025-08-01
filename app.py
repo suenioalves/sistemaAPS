@@ -735,7 +735,7 @@ def api_estatisticas_painel_plafam():
         return jsonify({
             "total_adolescentes": total_mulheres,  # Mantém o nome para compatibilidade com o frontend
             "adolescentes_sem_metodo": mulheres_sem_metodo_count,
-            "adolescentes_com_metodo_atrasado": mulheres_com_metodo_atrasado_count,
+            "adolescentes_metodo_atrasado": mulheres_com_metodo_atrasado_count,  # Corrigido nome do campo
             "adolescentes_gestantes": mulheres_gestantes_count,
             "adolescentes_metodo_em_dia": mulheres_com_metodo_em_dia_count
         })

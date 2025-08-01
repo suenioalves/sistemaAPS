@@ -503,17 +503,22 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Função para atualizar os cards do painel de controle
     function atualizarCardsPainelControle(estatisticas) {
+        console.log('Atualizando cards com estatísticas:', estatisticas);
+        
         const totalElement = document.getElementById('totalAdolescentesValor');
         const metodoDiaElement = document.getElementById('adolescentesMetodoDiaValor');
         const metodoAtrasadoElement = document.getElementById('adolescentesMetodoAtrasadoValor');
         const semMetodoElement = document.getElementById('adolescentesSemMetodoValor');
         const gestantesElement = document.getElementById('adolescentesGestantesValor');
         
+        // A API usa nomes de campos padronizados para compatibilidade
         if (totalElement) totalElement.textContent = estatisticas.total_adolescentes || 0;
         if (metodoDiaElement) metodoDiaElement.textContent = estatisticas.adolescentes_metodo_em_dia || 0;
         if (metodoAtrasadoElement) metodoAtrasadoElement.textContent = estatisticas.adolescentes_metodo_atrasado || 0;
         if (semMetodoElement) semMetodoElement.textContent = estatisticas.adolescentes_sem_metodo || 0;
         if (gestantesElement) gestantesElement.textContent = estatisticas.adolescentes_gestantes || 0;
+        
+        console.log('Cards atualizados - Total:', estatisticas.total_adolescentes, 'Em dia:', estatisticas.adolescentes_metodo_em_dia, 'Atrasado:', estatisticas.adolescentes_metodo_atrasado);
     }
     
     // Função para buscar estatísticas
