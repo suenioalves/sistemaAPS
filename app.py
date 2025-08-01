@@ -753,6 +753,7 @@ def build_timeline_query_filters(args):
     status_timeline = args.get('status_timeline', 'Todos')
     sort_by = args.get('sort_by_timeline', 'proxima_acao_asc') # Novo padrão de ordenação
     proxima_acao = args.get('proxima_acao', 'all')
+    metodo_filter = args.get('metodo_filter', 'all')
 
     query_params = {}
     where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"] # Foco em adolescentes
@@ -812,6 +813,29 @@ def build_timeline_query_filters(args):
             query_params['proxima_acao_tipo'] = tipo_acao
         except (ValueError, TypeError):
             pass  # Ignorar valores inválidos
+
+    # Filtro por método contraceptivo
+    if metodo_filter != 'all':
+        if metodo_filter == 'mensal':
+            where_clauses.append("(m.metodo ILIKE %(metodo_pattern)s)")
+            query_params['metodo_pattern'] = '%mensal%'
+        elif metodo_filter == 'trimestral':
+            where_clauses.append("(m.metodo ILIKE %(metodo_pattern)s)")
+            query_params['metodo_pattern'] = '%trimestral%'
+        elif metodo_filter == 'pilula':
+            where_clauses.append("(m.metodo ILIKE %(metodo_pattern)s)")
+            query_params['metodo_pattern'] = '%pílula%'
+        elif metodo_filter == 'diu':
+            where_clauses.append("(m.metodo ILIKE %(metodo_pattern)s)")
+            query_params['metodo_pattern'] = '%diu%'
+        elif metodo_filter == 'laqueadura':
+            where_clauses.append("(m.metodo ILIKE %(metodo_pattern)s)")
+            query_params['metodo_pattern'] = '%laqueadura%'
+        elif metodo_filter == 'sem_metodo':
+            where_clauses.append("(m.metodo IS NULL OR m.metodo = '')")
+        elif metodo_filter == 'gestante':
+            where_clauses.append("(m.status_gravidez = %(status_gravidez)s)")
+            query_params['status_gravidez'] = 'Grávida'
 
     sort_mapping_timeline = {
         'nome_asc': 'm.nome_paciente ASC',

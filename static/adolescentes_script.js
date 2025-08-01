@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentTimelineSort = 'nome_asc';
     let currentFetchedTimelineAdolescents = []; // Cache for adolescents on the currently displayed timeline page
     let currentProximaAcaoFilter = 'all'; // Filtro de próxima ação
+    let currentMetodoFilter = 'all'; // Filtro de método contraceptivo
     const imprimirInformativosMaeBtn = document.getElementById('imprimir-informativos-mae-btn');
 
     // --- Elementos dos Modais ---
@@ -604,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderTimelineTable(data) {
         timelineTableBody.innerHTML = '';
         if (!data || !data.adolescentes || data.adolescentes.length === 0) {
-            timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhuma adolescente encontrada.</td></tr>`; // Colspan ajustado para 6 colunas
+            timelineTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Nenhuma adolescente encontrada.</td></tr>`; // Colspan ajustado para 5 colunas
             renderTimelinePagination(0, 1, 5, 0);
             return;
         }
@@ -696,10 +697,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="text-sm font-medium text-gray-900">${ado.nome_paciente || 'N/A'}, ${ado.idade_calculada || 'N/A'} anos</div>
                     <div class="text-xs text-gray-500">CNS: ${ado.cartao_sus || 'N/A'}</div>
                     <div class="text-xs text-gray-400">Mãe: ${ado.nome_responsavel || 'N/A'}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">${ado.nome_equipe || 'N/A'}</div>
-                    <div class="text-xs text-gray-500">${ado.nome_agente || `Microárea ${ado.microarea || 'N/A'}`}</div>
+                    <div class="text-xs text-gray-600">Equipe: ${ado.nome_equipe || 'N/A'} - ${ado.nome_agente || `Microárea ${ado.microarea || 'N/A'}`}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">${getTimelineMetodoStatusContent(ado)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -786,7 +784,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function fetchTimelineData() {
-        timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Colspan ajustado para 6 colunas
+        timelineTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Carregando...</td></tr>`; // Colspan ajustado para 5 colunas
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual,
             agente_selecionado: agenteSelecionadoAtual,
@@ -795,7 +793,8 @@ document.addEventListener('DOMContentLoaded', function () {
             status_timeline: currentTimelineStatusFilter,
             sort_by_timeline: currentTimelineSort,
             limit: currentTimelineLimit, // Adiciona o parâmetro de limite
-            proxima_acao: currentProximaAcaoFilter // Adiciona o filtro de próxima ação
+            proxima_acao: currentProximaAcaoFilter, // Adiciona o filtro de próxima ação
+            metodo_filter: currentMetodoFilter // Adiciona o filtro de método
         });
 
         fetch(`/api/timeline_adolescentes?${params.toString()}`)
@@ -803,7 +802,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.erro) {
                     console.error("Erro ao buscar dados da timeline:", data.erro);
-                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`; // Colspan ajustado para 6 colunas
+                    timelineTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Erro ao carregar dados.</td></tr>`; // Colspan ajustado para 5 colunas
                     renderTimelinePagination(0, 1, 5, 0);
                     return;
                 }
@@ -813,7 +812,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => {
                 // Limpar a tabela e a paginação em caso de erro de rede
                 if (timelineTableBody) {
-                    timelineTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-500">Erro de comunicação ao carregar dados.</td></tr>`; // Colspan ajustado para 6 colunas
+                    timelineTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-red-500">Erro de comunicação ao carregar dados.</td></tr>`; // Colspan ajustado para 5 colunas
                 }
                 if (timelinePaginationInfo) timelinePaginationInfo.innerHTML = '';
                 if (timelinePaginationContainer) timelinePaginationContainer.innerHTML = '';
@@ -1272,29 +1271,34 @@ document.addEventListener('DOMContentLoaded', function () {
         button.addEventListener('click', function () {
             // Define o botão clicado como ativo e os outros como inativos
             timelineStatusFilterButtons.forEach(btn => {
-                // Limpa classes de cor de fundo e texto anteriores
-                btn.classList.remove('bg-primary', 'text-white', 'bg-green-500', 'bg-red-500', 'bg-yellow-400', 'text-yellow-800', 'bg-pink-500');
-                btn.classList.remove('text-gray-500', 'hover:text-gray-700', 'hover:text-green-700', 'hover:text-red-700', 'hover:text-yellow-600', 'hover:text-pink-700');
-                // Limpa classes de borda anteriores e adiciona a borda inferior padrão para inativas
-                btn.classList.remove('border-primary', 'border-green-500', 'border-red-500', 'border-yellow-400', 'border-pink-500');
-                btn.classList.add('border-transparent', 'hover:border-gray-300'); // Borda inferior padrão para inativas
+                // Resetar para estado padrão inativo primeiro
+                btn.classList.remove(
+                    // Cores de fundo ativas
+                    'bg-primary', 'bg-green-500', 'bg-red-500', 'bg-yellow-400', 'bg-pink-500', 'bg-purple-500',
+                    // Cores de texto ativas
+                    'text-white', 'text-yellow-800',
+                    // Cores de borda ativas
+                    'border-primary', 'border-green-500', 'border-red-500', 'border-yellow-400', 'border-pink-500', 'border-purple-500'
+                );
 
                 if (btn === this) {
-                    // Estilo ativo para abas
-                    // btn.classList.add('border-primary', 'text-primary'); // Removido para usar classes do data attribute
-                    // btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300'); // Removido
-                    // Aplica classes ativas do botão clicado
-                    btn.classList.add(this.dataset.activeBg, this.dataset.activeText, this.dataset.activeBorder);
-                    btn.classList.remove('border-transparent', 'hover:border-gray-300'); // Remove borda de inativa
+                    // Ativa o botão clicado
+                    console.log('Ativando aba:', this.textContent, 'com classes:', this.dataset.activeBg, this.dataset.activeText, this.dataset.activeBorder);
+                    
+                    // Remove classes inativas primeiro
+                    btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300', 'bg-transparent', 'active-todos');
+                    
+                    // Se for a aba "Todos", aplica classe personalizada
+                    if (this.id === 'timeline-filter-todos') {
+                        btn.classList.add('active-todos');
+                    } else {
+                        // Aplica classes ativas normais para outras abas
+                        btn.classList.add(this.dataset.activeBg, this.dataset.activeText, this.dataset.activeBorder);
+                    }
                 } else {
-                    // Estilo inativo para abas
-                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                    btn.classList.remove('border-primary', 'text-primary');
-                    // Aplica classes inativas dos outros botões (lendo dos data attributes)
-                    btn.classList.add(btn.dataset.inactiveBg);
-                    // As classes de texto inativo e borda inativa já são o padrão ou são aplicadas acima
-                    btn.dataset.inactiveText.split(' ').forEach(cls => { if (cls) btn.classList.add(cls); });
-                    btn.dataset.inactiveBorder.split(' ').forEach(cls => { if (cls) btn.classList.add(cls); });
+                    // Aplica estilo inativo para outros botões
+                    btn.classList.remove('text-white', 'active-todos'); // Remove texto branco e classe personalizada se existir
+                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300', 'bg-transparent');
                 }
             });
 
@@ -1328,18 +1332,46 @@ document.addEventListener('DOMContentLoaded', function () {
         option.addEventListener('click', (e) => {
             e.preventDefault();
             currentProximaAcaoFilter = e.currentTarget.dataset.acao;
-            // Manter o texto sempre como "Filtrar Ações" independente da seleção
-            proximaAcaoFilterText.textContent = "Filtrar Ações";
+            // Mostrar o texto da opção selecionada
+            proximaAcaoFilterText.textContent = e.currentTarget.textContent.trim();
             currentTimelinePage = 1;
             fetchTimelineData();
             proximaAcaoFilterDropdown.classList.add('hidden');
         });
     });
 
-    // Fechar dropdown ao clicar fora
+    // Configurar dropdown de filtro de métodos
+    const filtroMetodosBtn = document.getElementById('filtroMetodosBtn');
+    const filtroMetodosText = document.getElementById('filtroMetodosText');
+    const filtroMetodosDropdown = document.getElementById('filtroMetodosDropdown');
+    const filtroMetodoOptions = document.querySelectorAll('.filtro-metodo-option');
+
+    if (filtroMetodosBtn) {
+        filtroMetodosBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filtroMetodosDropdown.classList.toggle('hidden');
+        });
+    }
+
+    filtroMetodoOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentMetodoFilter = e.currentTarget.dataset.metodo;
+            // Mostrar o texto da opção selecionada
+            filtroMetodosText.textContent = e.currentTarget.textContent.trim();
+            currentTimelinePage = 1;
+            fetchTimelineData();
+            filtroMetodosDropdown.classList.add('hidden');
+        });
+    });
+
+    // Fechar dropdowns ao clicar fora
     document.addEventListener('click', () => {
         if (proximaAcaoFilterDropdown) {
             proximaAcaoFilterDropdown.classList.add('hidden');
+        }
+        if (filtroMetodosDropdown) {
+            filtroMetodosDropdown.classList.add('hidden');
         }
     });
 

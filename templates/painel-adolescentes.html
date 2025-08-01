@@ -41,6 +41,13 @@
             -moz-appearance: textfield;
         }
 
+        /* Estilos para aba Todos ativa */
+        .timeline-status-tab-btn.active-todos {
+            background-color: #8b5cf6 !important; /* purple-500 */
+            color: white !important;
+            border-bottom-color: #8b5cf6 !important; /* purple-500 */
+        }
+
         .custom-switch {
             position: relative;
             display: inline-block;
@@ -296,9 +303,9 @@
                 <button id="timeline-filter-todos" 
                         class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
                         data-status-filter="Todos"
-                        data-active-bg="bg-primary"
+                        data-active-bg="bg-purple-500"
                         data-active-text="text-white"
-                        data-active-border="border-primary"
+                        data-active-border="border-purple-500"
                         data-inactive-bg="bg-transparent"
                         data-inactive-text="text-gray-500 hover:text-gray-700"
                         data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
@@ -351,6 +358,39 @@
                         <input type="text" id="search-timeline-input" placeholder="Buscar por nome da adolescente ou mãe..." class="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm">
                         <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                             <i class="ri-search-line"></i>
+                        </div>
+                    </div>
+                    <!-- Filtro de Métodos -->
+                    <div class="relative">
+                        <button id="filtroMetodosBtn" class="px-3 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-capsule-line mr-2"></i>
+                            <span id="filtroMetodosText">Filtrar Métodos</span>
+                        </button>
+                        <div id="filtroMetodosDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-20 hidden overflow-hidden border">
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="all" data-text="Todos os métodos">
+                                <i class="ri-list-check mr-2"></i> Todos os métodos
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="mensal" data-text="Mensal">
+                                <i class="ri-calendar-line mr-2"></i> Mensal
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="trimestral" data-text="Trimestral">
+                                <i class="ri-calendar-2-line mr-2"></i> Trimestral
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="pilula" data-text="Pílula">
+                                <i class="ri-medicine-bottle-line mr-2"></i> Pílula
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="diu" data-text="DIU">
+                                <i class="ri-shield-cross-line mr-2"></i> DIU
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="laqueadura" data-text="Laqueadura">
+                                <i class="ri-scissors-cut-line mr-2"></i> Laqueadura
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="sem_metodo" data-text="Sem método">
+                                <i class="ri-close-circle-line mr-2"></i> Sem método
+                            </a>
+                            <a href="#" class="filtro-metodo-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-metodo="gestante" data-text="Gestante">
+                                <i class="ri-heart-pulse-line mr-2"></i> Gestante
+                            </a>
                         </div>
                     </div>
                     <!-- Botão Filtrar Ações -->
@@ -424,7 +464,6 @@
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Adolescente</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipe - Agente</th>
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Método / Status</th>
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -438,7 +477,7 @@
                         </thead>
                         <tbody id="timeline-table-body" class="bg-white divide-y divide-gray-200">
                             <!-- Linhas da tabela serão inseridas aqui pelo JS -->
-                             <tr><td colspan="7" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
+                             <tr><td colspan="5" class="text-center py-4 text-gray-500">Carregando dados...</td></tr>
                         </tbody>
                     </table>
                 </div>
