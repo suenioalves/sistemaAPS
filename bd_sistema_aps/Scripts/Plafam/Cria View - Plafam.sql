@@ -17,9 +17,9 @@ WITH UltimaAtualizacaoCadIndividual AS (
     WHERE
         ci.st_versao_atual = 1
 ),
-MulheresNaFaixaEtariaBase AS (
-    -- CTE 1: AGORA COM DISTINCT ON para garantir unicidade do paciente na base
-    SELECT DISTINCT ON (c.co_seq_cidadao) -- AQUI ESTÁ A CORREÇÃO PRINCIPAL
+MulheresNaFaixaEtariaRanked AS (
+    -- CTE auxiliar: Rankeia múltiplas vinculações de equipe para o mesmo cidadão
+    SELECT
         c.co_seq_cidadao AS cod_paciente,
         UPPER(c.no_cidadao_filtro) AS nome_paciente,
         c.no_mae as nome_responsavel,
@@ -30,7 +30,14 @@ MulheresNaFaixaEtariaBase AS (
             WHEN ua.nu_micro_area ~ '^\d+$' THEN ua.nu_micro_area::int
             ELSE 0
         END AS microarea,
-        c.dt_nascimento
+        c.dt_nascimento,
+        ROW_NUMBER() OVER (
+            PARTITION BY c.co_seq_cidadao
+            ORDER BY 
+                cve.dt_vinculacao DESC,  -- Vinculação mais recente primeiro
+                e.no_equipe ASC,        -- Se datas iguais, equipe por ordem alfabética
+                cve.co_cidadao_vinculacao_equipe DESC -- Desempate final por ID
+        ) as rn_vinculacao
     FROM
         tb_cidadao c
     JOIN
@@ -50,10 +57,23 @@ MulheresNaFaixaEtariaBase AS (
         AND (DATE_PART('year', AGE(CURRENT_DATE, c.dt_nascimento)) >= 14
         AND DATE_PART('year', AGE(CURRENT_DATE, c.dt_nascimento)) <= 45)
         AND e.st_ativo = 1
-    ORDER BY
-        c.co_seq_cidadao, -- Obrigatório ser o primeiro no ORDER BY para DISTINCT ON
-        e.no_equipe,      -- Desempate: Se múltiplas equipes ativas, pega a primeira por nome (ordem alfabética)
-        c.dt_nascimento DESC -- Outro desempate
+        AND cve.st_ativo = 1  -- Adiciona filtro para vinculação ativa
+),
+MulheresNaFaixaEtariaBase AS (
+    -- CTE 1: Seleciona apenas uma vinculação por cidadão (a mais recente)
+    SELECT 
+        cod_paciente,
+        nome_paciente,
+        nome_responsavel,
+        cartao_sus,
+        idade_calculada,
+        nome_equipe,
+        microarea,
+        dt_nascimento
+    FROM 
+        MulheresNaFaixaEtariaRanked
+    WHERE 
+        rn_vinculacao = 1  -- Pega apenas a vinculação mais recente para cada cidadão
 ),
 -- NOVA CTE: GravidasAtivas - Identifica mulheres grávidas ativas
 GravidasAtivas AS (
@@ -101,6 +121,19 @@ ProcedimentosDIURanked AS (
             WHERE tepc2.co_proced = 4808
               AND tp2.co_cidadao::text = tp.co_cidadao::text -- Corrigido: Força a conversão para texto
         )
+        -- Exclusão: Não incluir DIU se a paciente já fez esterilização
+        AND NOT EXISTS (
+            SELECT 1 FROM tb_prontuario tp3 
+            JOIN tb_cirurgias_internacoes tci3 ON tci3.co_prontuario = tp3.co_seq_prontuario
+            WHERE tp3.co_cidadao = tp.co_cidadao
+            AND tci3.ds_cirurgia_internacao IS NOT NULL
+            AND (
+                UPPER(tci3.ds_cirurgia_internacao) LIKE '%HISTER%' OR
+                UPPER(tci3.ds_cirurgia_internacao) LIKE '%LAQUEADUR%' OR
+                UPPER(tci3.ds_cirurgia_internacao) LIKE '%LIGAD%' OR
+                UPPER(tci3.ds_cirurgia_internacao) LIKE '%SALPING%'
+            )
+        )
 ),
 UltimoStatusDIU AS (
     -- CTE que pega o último status (inserção ou remoção) de DIU para cada cidadão.
@@ -143,6 +176,19 @@ RankedMetodosContraceptivos AS (
             OR tm.no_principio_ativo = 'Noretisterona, Enantato de + Estradiol, Valerato de'
             OR tm.no_principio_ativo = 'Medroxiprogesterona, Acetato'
         )
+        -- Exclusão: Não incluir métodos contraceptivos se a paciente já fez esterilização
+        AND NOT EXISTS (
+            SELECT 1 FROM tb_prontuario tp2 
+            JOIN tb_cirurgias_internacoes tci2 ON tci2.co_prontuario = tp2.co_seq_prontuario
+            WHERE tp2.co_cidadao = tc.co_seq_cidadao
+            AND tci2.ds_cirurgia_internacao IS NOT NULL
+            AND (
+                UPPER(tci2.ds_cirurgia_internacao) LIKE '%HISTER%' OR
+                UPPER(tci2.ds_cirurgia_internacao) LIKE '%LAQUEADUR%' OR
+                UPPER(tci2.ds_cirurgia_internacao) LIKE '%LIGAD%' OR
+                UPPER(tci2.ds_cirurgia_internacao) LIKE '%SALPING%'
+            )
+        )
 ),
 
 UltimoMetodoContraceptivo AS (
@@ -182,6 +228,19 @@ ProcedimentosImplanteRanked AS (
             JOIN tb_prontuario tp2 ON tp2.co_seq_prontuario = ta2.co_prontuario
             WHERE tepc2.co_proced = 4914 -- Se tiver uma retirada mais recente, não considera
               AND tp2.co_cidadao::text = tp.co_cidadao::text
+        )
+        -- Exclusão: Não incluir Implante se a paciente já fez esterilização
+        AND NOT EXISTS (
+            SELECT 1 FROM tb_prontuario tp4 
+            JOIN tb_cirurgias_internacoes tci4 ON tci4.co_prontuario = tp4.co_seq_prontuario
+            WHERE tp4.co_cidadao = tp.co_cidadao
+            AND tci4.ds_cirurgia_internacao IS NOT NULL
+            AND (
+                UPPER(tci4.ds_cirurgia_internacao) LIKE '%HISTER%' OR
+                UPPER(tci4.ds_cirurgia_internacao) LIKE '%LAQUEADUR%' OR
+                UPPER(tci4.ds_cirurgia_internacao) LIKE '%LIGAD%' OR
+                UPPER(tci4.ds_cirurgia_internacao) LIKE '%SALPING%'
+            )
         )
 ),
 UltimoStatusImplante AS (
@@ -228,50 +287,99 @@ UltimaEsterilizacao AS (
 )
 
 
+-- CTE Final: Garantia absoluta de unicidade por co_seq_cidadao
+ResultadoFinalRanked AS (
+    SELECT
+        m.cod_paciente,
+        m.nome_paciente,
+        m.nome_responsavel,
+        m.cartao_sus,
+        m.idade_calculada,
+        m.nome_equipe,
+        m.microarea,
+        -- Coluna 'metodo': PRIORIDADE ABSOLUTA DE ESTERILIZAÇÃO -> DIU -> IMPLANTE -> OUTROS MÉTODOS -> VAZIO
+        -- IMPORTANTE: As CTEs já garantem que se há esterilização, outros métodos são excluídos
+        CASE
+            WHEN ue.rn_cirurgia = 1 THEN ue.tipo_esterilizacao::varchar(30) -- PRIORIDADE 1: Esterilização (Laqueadura/Histerectomia)
+            WHEN usd.ultimo_co_proced = 4807 THEN 'DIU'::varchar(30) -- PRIORIDADE 2: DIU ativo
+            WHEN usi.ultimo_co_proced = 4913 THEN 'IMPLANTE SUBDÉRMICO'::varchar(30) -- PRIORIDADE 3: Implante ativo
+            WHEN umc.rn_metodo = 1 THEN umc.tipo_metodo::varchar(30) -- PRIORIDADE 4: Outros métodos (Pílulas, Mensal, Trimestral) mais recentes
+            ELSE ''::varchar(30) -- Sem método contraceptivo
+        END AS metodo,
+        -- Coluna 'data_aplicacao': SÓ É PREENCHIDA PARA DIU E OUTROS MÉTODOS, NÃO PARA ESTERILIZAÇÃO
+        CASE
+            WHEN usd.ultimo_co_proced = 4807 THEN TO_CHAR(usd.ultima_dt_auditoria, 'DD/MM/YYYY')::text
+            WHEN usi.ultimo_co_proced = 4913 THEN TO_CHAR(usi.ultima_dt_auditoria, 'DD/MM/YYYY')::text -- NOVO
+            WHEN umc.rn_metodo = 1 THEN TO_CHAR(umc.data_inicio_metodo, 'DD/MM/YYYY')::text
+            ELSE ''::text -- Para esterilização e outros casos, fica vazio
+        END AS data_aplicacao,
+        -- Status de Gravidez
+        CASE
+            WHEN ga.cod_paciente_gravida IS NOT NULL THEN 'Grávida'::varchar(15)
+            ELSE ''::varchar(15)
+        END AS status_gravidez,
+        -- Data Provável do Parto
+        COALESCE(ga.data_prob_parto_formatada, '')::text AS data_provavel_parto,
+        -- Ranking final para garantir unicidade absoluta
+        ROW_NUMBER() OVER (
+            PARTITION BY m.cod_paciente
+            ORDER BY 
+                -- Prioridade 1: Esterilização sempre primeiro
+                CASE WHEN ue.rn_cirurgia = 1 THEN 1 ELSE 2 END,
+                -- Prioridade 2: Data mais recente de esterilização
+                ue.data_cirurgia DESC NULLS LAST,
+                -- Prioridade 3: DIU
+                CASE WHEN usd.ultimo_co_proced = 4807 THEN 1 ELSE 2 END,
+                -- Prioridade 4: Data mais recente de DIU
+                usd.ultima_dt_auditoria DESC NULLS LAST,
+                -- Prioridade 5: Implante
+                CASE WHEN usi.ultimo_co_proced = 4913 THEN 1 ELSE 2 END,
+                -- Prioridade 6: Data mais recente de Implante
+                usi.ultima_dt_auditoria DESC NULLS LAST,
+                -- Prioridade 7: Outros métodos
+                CASE WHEN umc.rn_metodo = 1 THEN 1 ELSE 2 END,
+                -- Prioridade 8: Data mais recente de outros métodos
+                umc.data_inicio_metodo DESC NULLS LAST,
+                -- Desempate final por nome da equipe
+                m.nome_equipe ASC
+        ) as rn_final
+    FROM
+        MulheresNaFaixaEtariaBase m
+    LEFT JOIN
+        UltimoStatusDIU usd ON m.cod_paciente = usd.co_cidadao
+    LEFT JOIN -- NOVO: LEFT JOIN com o status do Implante Subdérmico
+        UltimoStatusImplante usi ON m.cod_paciente = usi.co_cidadao
+    LEFT JOIN
+        UltimoMetodoContraceptivo umc ON m.cod_paciente = umc.co_cidadao
+    LEFT JOIN -- NOVO: LEFT JOIN com a CTE de última esterilização
+        UltimaEsterilizacao ue ON m.cod_paciente = ue.co_seq_cidadao
+    LEFT JOIN
+        GravidasAtivas ga ON m.cod_paciente = ga.cod_paciente_gravida
+)
+
 -- Consulta principal da view materializada:
 -- Combina todas as informações, priorizando esterilização para a coluna 'metodo'.
+-- REGRAS DE PRIORIZAÇÃO (aplicadas nas CTEs acima):
+-- 1. Laqueadura/Histerectomia SEMPRE prevalecem sobre qualquer outro método
+-- 2. Para múltiplos métodos do mesmo paciente: pega o mais recente
+-- 3. Garantia de unicidade: Um registro por co_seq_cidadao
+-- 4. Outros métodos só são considerados se NÃO há esterilização
 SELECT
-    m.cod_paciente,
-    m.nome_paciente,
-    m.nome_responsavel,
-    m.cartao_sus,
-    m.idade_calculada,
-    m.nome_equipe,
-    m.microarea,
-    -- Coluna 'metodo': PRIORIDADE DE ESTERILIZAÇÃO -> DIU -> OUTROS MÉTODOS -> VAZIO
-    CASE
-        WHEN ue.rn_cirurgia = 1 THEN ue.tipo_esterilizacao::varchar(30) -- Se tiver esterilização, usa o tipo
-        WHEN usd.ultimo_co_proced = 4807 THEN 'DIU'::varchar(30) -- Senão, se usa DIU
-        WHEN usi.ultimo_co_proced = 4913 THEN 'IMPLANTE SUBDÉRMICO'::varchar(30) -- NOVO
-        WHEN umc.rn_metodo = 1 THEN umc.tipo_metodo::varchar(30) -- Senão, se usa outro método (Pílulas, Mensal, Trimestral)
-        ELSE ''::varchar(30) -- Senão, fica vazio
-    END AS metodo,
-    -- Coluna 'data_aplicacao': SÓ É PREENCHIDA PARA DIU E OUTROS MÉTODOS, NÃO PARA ESTERILIZAÇÃO
-    CASE
-        WHEN usd.ultimo_co_proced = 4807 THEN TO_CHAR(usd.ultima_dt_auditoria, 'DD/MM/YYYY')::text
-        WHEN usi.ultimo_co_proced = 4913 THEN TO_CHAR(usi.ultima_dt_auditoria, 'DD/MM/YYYY')::text -- NOVO
-        WHEN umc.rn_metodo = 1 THEN TO_CHAR(umc.data_inicio_metodo, 'DD/MM/YYYY')::text
-        ELSE ''::text -- Para esterilização e outros casos, fica vazio
-    END AS data_aplicacao,
-    -- Status de Gravidez
-    CASE
-        WHEN ga.cod_paciente_gravida IS NOT NULL THEN 'Grávida'::varchar(15)
-        ELSE ''::varchar(15)
-    END AS status_gravidez,
-    -- Data Provável do Parto
-    COALESCE(ga.data_prob_parto_formatada, '')::text AS data_provavel_parto
+    cod_paciente,
+    nome_paciente,
+    nome_responsavel,
+    cartao_sus,
+    idade_calculada,
+    nome_equipe,
+    microarea,
+    metodo,
+    data_aplicacao,
+    status_gravidez,
+    data_provavel_parto
 FROM
-    MulheresNaFaixaEtariaBase m
-LEFT JOIN
-    UltimoStatusDIU usd ON m.cod_paciente = usd.co_cidadao
-LEFT JOIN -- NOVO: LEFT JOIN com o status do Implante Subdérmico
-    UltimoStatusImplante usi ON m.cod_paciente = usi.co_cidadao
-LEFT JOIN
-    UltimoMetodoContraceptivo umc ON m.cod_paciente = umc.co_cidadao
-LEFT JOIN -- NOVO: LEFT JOIN com a CTE de última esterilização
-    UltimaEsterilizacao ue ON m.cod_paciente = ue.co_seq_cidadao
-LEFT JOIN
-    GravidasAtivas ga ON m.cod_paciente = ga.cod_paciente_gravida;
+    ResultadoFinalRanked
+WHERE
+    rn_final = 1; -- Garante absolutamente um único registro por co_seq_cidadao
 
 
 
