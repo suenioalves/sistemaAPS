@@ -837,13 +837,20 @@ def build_timeline_query_filters(args):
             where_clauses.append("(m.status_gravidez = %(status_gravidez)s)")
             query_params['status_gravidez'] = 'Grávida'
 
+    # Definir direção da ordenação baseada no filtro de status
+    proxima_aplicacao_direction = "DESC"  # Padrão: mais recente primeiro
+    if status_timeline == 'MetodoEmDia':
+        proxima_aplicacao_direction = "ASC"  # Método em dia: mais antigo primeiro
+    elif status_timeline == 'MetodoVencido':
+        proxima_aplicacao_direction = "DESC"  # Método vencido: mais recente primeiro
+    
     sort_mapping_timeline = {
         'nome_asc': 'm.nome_paciente ASC',
         'nome_desc': 'm.nome_paciente DESC',
         'idade_asc': 'm.idade_calculada ASC',
         'idade_desc': 'm.idade_calculada DESC',
         'metodo_asc': 'm.metodo ASC NULLS LAST, m.nome_paciente ASC',
-        'proxima_aplicacao_desc': """
+        'proxima_aplicacao_desc': f"""
             CASE 
                 WHEN m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' THEN
                     CASE 
@@ -854,7 +861,7 @@ def build_timeline_query_filters(args):
                         ELSE TO_DATE(m.data_aplicacao, 'DD/MM/YYYY')
                     END
                 ELSE NULL
-            END DESC NULLS LAST, m.nome_paciente ASC
+            END {proxima_aplicacao_direction} NULLS LAST, m.nome_paciente ASC
         """,
         'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC'
     }
