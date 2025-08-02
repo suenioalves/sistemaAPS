@@ -2,6 +2,7 @@ console.log('plafam_script.js carregado');
 
 // Variáveis globais
 let allPacientes = [];
+let selectedPacientesForPrint = new Set(); // Manter IDs selecionados através das páginas
 let equipeSelecionadaAtual = 'Todas';
 let agenteSelecionadoAtual = 'Todas as áreas';
 let currentStatusFilter = 'Todos';
@@ -44,37 +45,96 @@ function getAcompanhamentoStatus(paciente) {
 
 // Função global para imprimir convites selecionados
 function imprimirConvitesSelecionados() {
-    const selectedIds = [];
-    document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
-        selectedIds.push(checkbox.dataset.cns);
-    });
-    
-    if (selectedIds.length === 0) {
+    if (selectedPacientesForPrint.size === 0) {
         alert('Selecione pelo menos um paciente para imprimir os convites.');
         return;
     }
     
+    const selectedIds = Array.from(selectedPacientesForPrint);
     console.log('Imprimindo convites para pacientes:', selectedIds);
-    console.log('Total de pacientes em allPacientes:', allPacientes.length);
     
-    // Filtrar pacientes selecionados dos dados carregados
-    const pacientesParaImprimir = allPacientes.filter(p => {
-        const cnsValue = p.cartao_sus || p.cod_paciente || 'sem-cns';
-        const cnsValueStr = String(cnsValue);
-        console.log('Comparando:', cnsValueStr, 'com selectedIds:', selectedIds);
-        return selectedIds.includes(cnsValueStr);
-    });
+    // Mostrar loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Buscando dados dos pacientes selecionados...</div></div>';
+    document.body.appendChild(loadingMsg);
     
-    console.log('Pacientes encontrados para impressão:', pacientesParaImprimir.length);
+    // Buscar todos os dados dos pacientes via API de exportação
+    const params = new URLSearchParams();
     
-    if (pacientesParaImprimir.length > 0) {
-        generateInvitePDF(pacientesParaImprimir);
-    } else {
-        console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
-        console.log('Debug - selectedIds:', selectedIds);
-        console.log('Debug - allPacientes sample:', allPacientes.slice(0, 2));
-        alert("Ocorreu um erro ao encontrar os dados dos pacientes selecionados. Tente novamente.");
+    // Aplicar filtros atuais para garantir que buscamos do mesmo conjunto de dados
+    if (equipeSelecionadaAtual && equipeSelecionadaAtual !== 'Todas') {
+        params.append('equipe', equipeSelecionadaAtual);
     }
+    if (agenteSelecionadoAtual && agenteSelecionadoAtual !== 'Todas') {
+        params.append('agente_selecionado', agenteSelecionadoAtual);
+    }
+    if (currentSearchTerm) {
+        params.append('search', currentSearchTerm);
+    }
+    if (currentStatusFilter && currentStatusFilter !== 'Todos') {
+        params.append('status_timeline', currentStatusFilter);  
+    }
+    
+    // Aplicar filtros avançados se ativos
+    if (activeFilters && Object.keys(activeFilters).length > 0) {
+        Object.entries(activeFilters).forEach(([filterName, filterValues]) => {
+            filterValues.forEach(value => {
+                params.append(filterName, value);
+            });
+        });
+    }
+    
+    // Aplicar filtro de aplicações se ativo
+    if (activeAplicacoesFilter && Object.keys(activeAplicacoesFilter).length > 0) {
+        if (activeAplicacoesFilter.dataInicial) {
+            params.append('aplicacao_data_inicial', activeAplicacoesFilter.dataInicial);
+        }
+        if (activeAplicacoesFilter.dataFinal) {
+            params.append('aplicacao_data_final', activeAplicacoesFilter.dataFinal);
+        }
+        if (activeAplicacoesFilter.metodo) {
+            params.append('aplicacao_metodo', activeAplicacoesFilter.metodo);
+        }
+    }
+    
+    fetch(`/api/export_plafam?${params.toString()}`)
+        .then(response => response.json())
+        .then(allExportData => {
+            // Remover loading
+            if (document.body.contains(loadingMsg)) {
+                document.body.removeChild(loadingMsg);
+            }
+            
+            if (!allExportData || allExportData.length === 0) {
+                alert('Nenhum dado encontrado.');
+                return;
+            }
+            
+            // Filtrar apenas os pacientes selecionados
+            const pacientesParaImprimir = allExportData.filter(p => {
+                const cnsValue = p.cartao_sus || p.cod_paciente || 'sem-cns';
+                const cnsValueStr = String(cnsValue);
+                return selectedIds.includes(cnsValueStr);
+            });
+            
+            console.log('Pacientes encontrados para impressão:', pacientesParaImprimir.length);
+            
+            if (pacientesParaImprimir.length > 0) {
+                generateInvitePDF(pacientesParaImprimir);
+            } else {
+                console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
+                alert("Não foi possível encontrar os dados dos pacientes selecionados. Tente novamente.");
+            }
+        })
+        .catch(error => {
+            // Remover loading em caso de erro
+            if (document.body.contains(loadingMsg)) {
+                document.body.removeChild(loadingMsg);
+            }
+            console.error('Erro ao buscar dados dos pacientes:', error);
+            alert('Erro ao buscar dados dos pacientes. Tente novamente.');
+        });
 }
 
 // Função para gerar PDF dos convites (igual ao arquivo antigo)
@@ -579,9 +639,22 @@ document.addEventListener('DOMContentLoaded', function () {
         
         pacientes.forEach(paciente => {
             const row = document.createElement('tr');
-            row.className = 'table-row cursor-pointer hover:bg-gray-50';
-            
             const status = getAcompanhamentoStatus(paciente);
+            
+            // Verificar se o paciente tem checkbox (é elegível para impressão)
+            const idade = paciente.idade_calculada;
+            const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
+            const isAtrasado = status === 'atrasado';
+            const isAtrasado6Meses = status === 'atrasado_6_meses';
+            const semMetodo = status === 'sem_metodo';
+            const hasCheckbox = !paciente.gestante && !(idade >= 14 && idade <= 18) && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus);
+            
+            // Adicionar classes baseadas na elegibilidade
+            if (hasCheckbox) {
+                row.className = 'table-row row-clickable hover:bg-gray-50';
+            } else {
+                row.className = 'table-row hover:bg-gray-50';
+            }
             
             row.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -609,6 +682,14 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
             
             tabelaBody.appendChild(row);
+        });
+        
+        // Aplicar estilo de seleção para checkboxes que já estão marcados
+        document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            if (row) {
+                row.classList.add('row-selected');
+            }
         });
         
         // Configurar event listeners para os menus de ações
@@ -828,7 +909,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Exibir checkbox para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS
         if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
             const cnsValue = paciente.cartao_sus || paciente.cod_paciente || 'sem-cns';
-            return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${cnsValue}">`;
+            const isSelected = selectedPacientesForPrint.has(String(cnsValue)) ? 'checked' : '';
+            return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${cnsValue}" ${isSelected}>`;
         }
         return '';
     }
@@ -1334,25 +1416,53 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // Lógica para o checkbox de impressão (igual ao arquivo antigo)
+            // Lógica para o checkbox de impressão - permitir seleção clicando na linha
             const checkbox = row.querySelector('.print-checkbox');
             if (checkbox) {
                 // Se o clique foi na linha, mas NÃO diretamente no próprio checkbox
-                if (event.target !== checkbox) {
+                // E NÃO foi em botões de ação ou dropdowns
+                if (event.target !== checkbox && 
+                    !event.target.closest('.acompanhamento-btn') && 
+                    !event.target.closest('.acompanhamento-dropdown')) {
+                    
+                    // Toggle checkbox state
                     checkbox.checked = !checkbox.checked;
-                    // Atualiza o estilo da linha imediatamente após a mudança programática do checkbox
-                    toggleRowSelectionStyle(checkbox);
+                    
+                    // Atualizar o Set de selecionados
+                    const cnsValue = String(checkbox.dataset.cns);
+                    if (checkbox.checked) {
+                        selectedPacientesForPrint.add(cnsValue);
+                    } else {
+                        selectedPacientesForPrint.delete(cnsValue);
+                    }
+                    
+                    // Atualizar UI
+                    updatePrintButtonText();
+                    row.classList.toggle('row-selected', checkbox.checked);
+                    
+                    console.log('Seleção via clique na linha:', cnsValue, checkbox.checked ? 'adicionado' : 'removido');
                 }
                 // Se o clique foi DIRETAMENTE no checkbox, o navegador já alterou o estado
-                // e o evento 'change' será disparado nativamente (tratado abaixo),
-                // que também chamará toggleRowSelectionStyle.
+                // e o evento 'change' será disparado nativamente (tratado abaixo).
             }
         });
 
         // Event listener para mudanças nos checkboxes
         tabelaBody.addEventListener('change', function (event) {
             if (event.target.classList.contains('print-checkbox')) {
-                toggleRowSelectionStyle(event.target); // event.target aqui é o checkbox
+                const cnsValue = String(event.target.dataset.cns);
+                if (event.target.checked) {
+                    selectedPacientesForPrint.add(cnsValue);
+                } else {
+                    selectedPacientesForPrint.delete(cnsValue);
+                }
+                console.log('Seleções atuais:', Array.from(selectedPacientesForPrint));
+                updatePrintButtonText();
+                // Aplicar estilo de linha selecionada
+                const row = event.target.closest('tr');
+                if (row) {
+                    row.classList.toggle('row-selected', event.target.checked);
+                }
             }
         });
     }
@@ -1581,4 +1691,46 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchEquipesEAgentes();
     console.log('Chamando fetchEstatisticasPainelControle...');
     fetchEstatisticasPainelControle();
+    updatePrintButtonText(); // Inicializar texto do botão
 });
+
+// Função global para atualizar texto do botão de impressão
+function updatePrintButtonText() {
+    const printBtn = document.getElementById('print-invites-text');
+    const clearBtn = document.getElementById('clear-selections-btn');
+    const count = selectedPacientesForPrint.size;
+    
+    if (printBtn) {
+        if (count > 0) {
+            printBtn.textContent = `Imprimir Convites (${count})`;
+        } else {
+            printBtn.textContent = 'Imprimir Convites';
+        }
+    }
+    
+    if (clearBtn) {
+        if (count > 0) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+    }
+}
+
+// Função global para limpar todas as seleções
+function clearAllSelections() {
+    selectedPacientesForPrint.clear();
+    
+    // Desmarcar todos os checkboxes visíveis na página atual
+    document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
+        checkbox.checked = false;
+        // Aplicar estilo de linha diretamente sem depender da função interna
+        const row = checkbox.closest('tr');
+        if (row) {
+            row.classList.remove('row-selected');
+        }
+    });
+    
+    updatePrintButtonText();
+    console.log('Todas as seleções foram limpas');
+}
