@@ -994,10 +994,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 currentStatusFilter = this.getAttribute('data-status-filter');
                 console.log('Filtro atualizado para:', currentStatusFilter);
                 currentPage = 1;
+                
+                // Aplicar ordenação automática baseada no filtro selecionado
+                let autoSortValue = currentSortValue; // Manter ordenação atual como padrão
+                
+                if (currentStatusFilter === 'MetodoEmDia') {
+                    // Para métodos em dia: mostrar datas mais próximas de hoje primeiro (ex: 5/8/25, 8/8/25, 10/10/25...)
+                    autoSortValue = 'metodo_asc'; // Usar a ordenação condicional já implementada
+                    console.log('Aplicando ordenação automática para métodos em dia');
+                } else if (currentStatusFilter === 'MetodoVencido') {
+                    // Para métodos em atraso: mostrar datas mais próximas de hoje primeiro (ex: 30/7/25, 15/7/25, 1/5/25...)
+                    autoSortValue = 'metodo_asc'; // Usar a ordenação condicional já implementada
+                    console.log('Aplicando ordenação automática para métodos vencidos');
+                }
+                
+                // Atualizar ordenação atual se foi alterada automaticamente
+                if (autoSortValue !== currentSortValue) {
+                    currentSortValue = autoSortValue;
+                    // Atualizar texto do botão de ordenação se existir
+                    const sortBtnText = document.getElementById('sort-btn-text');
+                    if (sortBtnText && autoSortValue === 'metodo_asc') {
+                        sortBtnText.textContent = 'Método';
+                    }
+                }
+                
                 // Usar função unificada que preserva filtros e ordenação
                 fetchPacientesUnificado({ 
                     searchTerm: currentSearchTerm, 
-                    sortValue: currentSortValue, 
+                    sortValue: autoSortValue, 
                     includeFilters: Object.keys(activeFilters).length > 0,
                     includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
                 });

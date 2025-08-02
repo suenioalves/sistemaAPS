@@ -212,11 +212,11 @@ def build_filtered_query(args):
                     (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
                     (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
                 ) THEN 2
-                -- Método em dia - ordenar por data mais antiga primeiro (ASC)
+                -- Método em dia - ordenar por datas mais próximas de hoje primeiro
                 ELSE 3
             END ASC,
             CASE
-                -- Para métodos em atraso: data mais recente primeiro
+                -- Para métodos em atraso: datas mais próximas de hoje primeiro (mais recentes)
                 WHEN (
                     ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
                     (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
@@ -226,7 +226,7 @@ def build_filtered_query(args):
                 ELSE NULL
             END DESC NULLS LAST,
             CASE
-                -- Para métodos em dia: data mais antiga primeiro
+                -- Para métodos em dia: datas mais próximas de hoje primeiro (ASC a partir de hoje)
                 WHEN NOT (
                     ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
                     (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
@@ -250,11 +250,11 @@ def build_filtered_query(args):
                     (m.metodo ILIKE '%%diu%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days')) OR
                     (m.metodo ILIKE '%%implante%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days'))
                 ) THEN 2
-                -- Método em dia - ordenar por data mais antiga primeiro (ASC)
+                -- Método em dia - ordenar por datas mais próximas de hoje primeiro
                 ELSE 3
             END ASC,
             CASE
-                -- Para métodos em atraso: data mais recente primeiro
+                -- Para métodos em atraso: datas mais próximas de hoje primeiro (mais recentes)
                 WHEN (
                     ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
                     (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
@@ -264,7 +264,7 @@ def build_filtered_query(args):
                 ELSE NULL
             END DESC NULLS LAST,
             CASE
-                -- Para métodos em dia: data mais antiga primeiro
+                -- Para métodos em dia: datas mais próximas de hoje primeiro (ASC a partir de hoje)
                 WHEN NOT (
                     ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
                     (m.metodo ILIKE '%%trimestral%%' AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
