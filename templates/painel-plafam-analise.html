@@ -51,14 +51,14 @@
             <option value="Todas as áreas">Todas as áreas</option>
           </select>
         </div>
-        <div>
+        <div class="relative z-20">
           <label class="text-sm text-gray-600 dark:text-gray-300">Período</label>
           <div class="flex gap-2 mt-1">
             <input type="date" id="inicio" class="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" />
             <input type="date" id="fim" class="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" />
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 relative z-10">
           <button id="btn-aplicar" class="flex-1 bg-primary text-white rounded-lg px-4 py-2 text-sm">Aplicar</button>
           <button id="btn-limpar" class="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg px-4 py-2 text-sm">Limpar</button>
         </div>
@@ -70,23 +70,23 @@
     <!-- KPIs -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
-        <div class="text-sm text-gray-500 dark:text-gray-400">Gestantes</div>
-        <div id="kpi-gestantes" class="mt-2 text-2xl font-semibold">0</div>
+        <div class="text-sm font-medium text-pink-500 dark:text-pink-400">Gestantes</div>
+        <div id="kpi-gestantes" class="mt-2 text-2xl font-semibold text-pink-500 dark:text-pink-400">0</div>
         <div id="skel-kpi-gestantes" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
       <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
-        <div class="text-sm text-gray-500 dark:text-gray-400">Sem método</div>
-        <div id="kpi-sem-metodo" class="mt-2 text-2xl font-semibold">0</div>
+        <div class="text-sm font-medium text-red-500 dark:text-red-400">Sem método</div>
+        <div id="kpi-sem-metodo" class="mt-2 text-2xl font-semibold text-red-500 dark:text-red-400">0</div>
         <div id="skel-kpi-sem" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
       <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
-        <div class="text-sm text-gray-500 dark:text-gray-400">Método em atraso</div>
-        <div id="kpi-atraso" class="mt-2 text-2xl font-semibold">0</div>
+        <div class="text-sm font-medium text-amber-500 dark:text-amber-400">Método em atraso</div>
+        <div id="kpi-atraso" class="mt-2 text-2xl font-semibold text-amber-500 dark:text-amber-400">0</div>
         <div id="skel-kpi-atraso" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
       <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
-        <div class="text-sm text-gray-500 dark:text-gray-400">Método em dia</div>
-        <div id="kpi-em-dia" class="mt-2 text-2xl font-semibold">0</div>
+        <div class="text-sm font-medium text-green-500 dark:text-green-400">Método em dia</div>
+        <div id="kpi-em-dia" class="mt-2 text-2xl font-semibold text-green-500 dark:text-green-400">0</div>
         <div id="skel-kpi-dia" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
     </section>
@@ -107,6 +107,7 @@
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Mix de métodos</h2>
           <div class="flex items-center gap-2">
+            <button id="toggle-mix-mode" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800" title="Alternar valores"><i class="ri-refresh-line mr-1"></i><span id="toggle-mix-text">Ver %</span></button>
             <button id="export-mix" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
           </div>
         </div>

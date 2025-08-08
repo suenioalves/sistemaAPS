@@ -10,6 +10,8 @@ console.log('plafam_analise.js carregado');
   };
 
   let charts = {};
+  let mixDataCache = { labels: [], valuesAbs: [], valuesPct: [], total: 0 };
+  let mixMode = 'abs'; // 'abs' | 'pct'
 
   function qs(id){ return document.getElementById(id); }
 
@@ -217,15 +219,36 @@ console.log('plafam_analise.js carregado');
     const data = await fetchJSON('/api/plafam/analytics/method_mix?' + buildParams());
     const el = qs('chart-mix');
     charts.mix = charts.mix || echarts.init(el);
-    const labels = (data.mix || []).map(x => x.categoria);
-    const values = (data.mix || []).map(x => x.total);
+    // Filtrar fora 'SEM MÉTODO'
+    const filtered = (data.mix || []).filter(x => x.categoria !== 'SEM MÉTODO');
+    const labels = filtered.map(x => x.categoria);
+    const valuesAbs = filtered.map(x => x.total);
+    const total = valuesAbs.reduce((a,b)=>a+b,0) || 1;
+    const valuesPct = valuesAbs.map(v => Number(((v/total)*100).toFixed(1)));
+    mixDataCache = { labels, valuesAbs, valuesPct, total };
+    const values = mixMode === 'abs' ? valuesAbs : valuesPct;
+    const yAxisLabel = {
+      color: getLegendColor(),
+      formatter: (val) => mixMode === 'pct' ? `${val}%` : `${val}`
+    };
     charts.mix.setOption({
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
+      tooltip: { trigger: 'axis', formatter: (params) => {
+        const p = params[0];
+        const idx = p.dataIndex;
+        const abs = valuesAbs[idx];
+        const pct = valuesPct[idx];
+        return `${p.axisValue}<br/>${abs} (${pct}%)`;
+      } },
       xAxis: { type: 'category', data: labels, axisLabel: { rotate: 30, color: getLegendColor() } },
-      yAxis: { type: 'value', axisLabel: { color: getLegendColor() }, splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } },
+      yAxis: { type: 'value', axisLabel: yAxisLabel, max: mixMode==='pct'? 100: null, splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } },
       grid: { left: 40, right: 16, bottom: 60, top: 16 },
-      series: [{ type: 'bar', data: values, itemStyle: { color: '#1D70B8' } }]
+      series: [{ type: 'bar', data: values, itemStyle: { color: '#1D70B8' }, label: { show: true, position: 'top', formatter: (p) => {
+        const idx = p.dataIndex;
+        const abs = valuesAbs[idx];
+        const pct = valuesPct[idx];
+        return mixMode==='abs' ? `${abs} (${pct}%)` : `${pct}% (${abs})`;
+      }, color: getLegendColor() } }]
     });
     hideSkel(['skel-mix']);
   }
@@ -331,6 +354,30 @@ console.log('plafam_analise.js carregado');
       state.microarea = e.target.value;
       syncControls();
       refreshAll();
+    });
+
+    // Alternância ABS/% no mix de métodos
+    qs('toggle-mix-mode')?.addEventListener('click', () => {
+      mixMode = mixMode === 'abs' ? 'pct' : 'abs';
+      const text = qs('toggle-mix-text');
+      if(text) text.textContent = mixMode === 'abs' ? 'Ver %' : 'Ver nº';
+      // re-render com cache
+      const el = qs('chart-mix');
+      charts.mix = charts.mix || echarts.init(el);
+      const values = mixMode==='abs' ? mixDataCache.valuesAbs : mixDataCache.valuesPct;
+      const yAxisLabel = {
+        color: getLegendColor(),
+        formatter: (val) => mixMode === 'pct' ? `${val}%` : `${val}`
+      };
+      charts.mix.setOption({
+        yAxis: { type: 'value', axisLabel: yAxisLabel, max: mixMode==='pct'? 100: null },
+        series: [{ type: 'bar', data: values, itemStyle: { color: '#1D70B8' }, label: { show: true, position: 'top', formatter: (p) => {
+          const idx = p.dataIndex;
+          const abs = mixDataCache.valuesAbs[idx];
+          const pct = mixDataCache.valuesPct[idx];
+          return mixMode==='abs' ? `${abs} (${pct}%)` : `${pct}% (${abs})`;
+        }, color: getLegendColor() } }]
+      });
     });
 
     window.addEventListener('resize', () => {
