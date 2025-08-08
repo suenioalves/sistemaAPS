@@ -8,6 +8,7 @@
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: { primary: '#1D70B8' },
@@ -17,104 +18,130 @@
     }
   </script>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
-  <header class="bg-white border-b">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen font-sans text-gray-900 dark:text-gray-100">
+  <header class="bg-white dark:bg-gray-950 border-b border-gray-200/70 dark:border-gray-800">
     <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <i class="ri-hospital-line text-2xl text-primary"></i>
         <h1 class="text-xl font-semibold">Planejamento Familiar - Análise</h1>
       </div>
-      <div class="flex items-center gap-3">
-        <a href="/painel-plafam" class="text-sm text-primary hover:underline">Voltar ao painel</a>
+      <div class="flex items-center gap-2">
+        <button id="btn-share" class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800" title="Compartilhar visão">
+          <i class="ri-share-forward-line mr-1"></i> Compartilhar
+        </button>
+        <button id="btn-darkmode" class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800" title="Alternar tema">
+          <i class="ri-moon-line"></i>
+        </button>
+        <a href="/painel-plafam" class="px-3 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary/90">Voltar ao painel</a>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 py-6">
     <!-- Filtros Globais -->
-    <section class="bg-white rounded-xl border p-4 mb-6">
+    <section class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 mb-3">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div>
-          <label class="text-sm text-gray-600">Equipe</label>
-          <select id="filtro-equipe" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm"></select>
+          <label class="text-sm text-gray-600 dark:text-gray-300">Equipe</label>
+          <select id="filtro-equipe" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"></select>
         </div>
         <div>
-          <label class="text-sm text-gray-600">Agente/Microárea</label>
-          <select id="filtro-agente" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm">
+          <label class="text-sm text-gray-600 dark:text-gray-300">Agente/Microárea</label>
+          <select id="filtro-agente" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700">
             <option value="Todas as áreas">Todas as áreas</option>
           </select>
         </div>
         <div>
-          <label class="text-sm text-gray-600">Período</label>
+          <label class="text-sm text-gray-600 dark:text-gray-300">Período</label>
           <div class="flex gap-2 mt-1">
-            <input type="date" id="inicio" class="w-full border rounded-lg px-3 py-2 text-sm" />
-            <input type="date" id="fim" class="w-full border rounded-lg px-3 py-2 text-sm" />
+            <input type="date" id="inicio" class="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" />
+            <input type="date" id="fim" class="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" />
           </div>
         </div>
         <div class="flex gap-2">
           <button id="btn-aplicar" class="flex-1 bg-primary text-white rounded-lg px-4 py-2 text-sm">Aplicar</button>
-          <button id="btn-limpar" class="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-2 text-sm">Limpar</button>
+          <button id="btn-limpar" class="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg px-4 py-2 text-sm">Limpar</button>
         </div>
       </div>
+      <!-- Chips de filtros ativos -->
+      <div id="chips-container" class="mt-3 flex flex-wrap gap-2"></div>
     </section>
 
     <!-- KPIs -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-xl border p-4">
-        <div class="text-sm text-gray-500">Gestantes</div>
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Gestantes</div>
         <div id="kpi-gestantes" class="mt-2 text-2xl font-semibold">0</div>
+        <div id="skel-kpi-gestantes" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
-      <div class="bg-white rounded-xl border p-4">
-        <div class="text-sm text-gray-500">Sem método</div>
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Sem método</div>
         <div id="kpi-sem-metodo" class="mt-2 text-2xl font-semibold">0</div>
+        <div id="skel-kpi-sem" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
-      <div class="bg-white rounded-xl border p-4">
-        <div class="text-sm text-gray-500">Método em atraso</div>
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Método em atraso</div>
         <div id="kpi-atraso" class="mt-2 text-2xl font-semibold">0</div>
+        <div id="skel-kpi-atraso" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
-      <div class="bg-white rounded-xl border p-4">
-        <div class="text-sm text-gray-500">Método em dia</div>
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
+        <div class="text-sm text-gray-500 dark:text-gray-400">Método em dia</div>
         <div id="kpi-em-dia" class="mt-2 text-2xl font-semibold">0</div>
+        <div id="skel-kpi-dia" class="hidden absolute inset-0 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
       </div>
     </section>
 
     <!-- Gráficos -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <div class="bg-white rounded-xl border p-4">
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Status atual</h2>
+          <div class="flex items-center gap-2">
+            <button id="export-status" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
+          </div>
         </div>
         <div id="chart-status" class="h-80"></div>
+        <div id="skel-status" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
       </div>
-      <div class="bg-white rounded-xl border p-4">
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Mix de métodos</h2>
+          <div class="flex items-center gap-2">
+            <button id="export-mix" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
+          </div>
         </div>
         <div id="chart-mix" class="h-80"></div>
+        <div id="skel-mix" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
       </div>
     </section>
 
     <section class="grid grid-cols-1 gap-6">
-      <div class="bg-white rounded-xl border p-4">
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Ações de acompanhamento ao longo do tempo</h2>
           <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-600">Granularidade</label>
-            <select id="granularidade" class="border rounded-lg px-2 py-1 text-sm">
+            <label class="text-sm text-gray-600 dark:text-gray-300">Granularidade</label>
+            <select id="granularidade" class="border rounded-lg px-2 py-1 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700">
               <option value="month">Mensal</option>
               <option value="week">Semanal</option>
               <option value="day">Diária</option>
             </select>
+            <button id="export-acoes" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
           </div>
         </div>
         <div id="chart-acoes" class="h-96"></div>
+        <div id="skel-acoes" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
       </div>
 
-      <div class="bg-white rounded-xl border p-4">
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Resumo das ações mais recentes</h2>
+          <div class="flex items-center gap-2">
+            <button id="export-acoes-bar" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
+          </div>
         </div>
         <div id="chart-acoes-bar" class="h-80"></div>
+        <div id="skel-acoes-bar" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
       </div>
     </section>
   </main>
