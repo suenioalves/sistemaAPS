@@ -91,10 +91,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const tipoAbordagemMap = {
         1: "Abordagem com pais",
         2: "Abordagem direta com adolescente",
-        3: "Iniciar método na UBS",
+        3: "Iniciou método na UBS",
         4: "Entrega de convite",
         5: "Mudou de área",
-        6: "Iniciar método em domicílio",
+        6: "Iniciou método em domicílio",
         7: "Remover do acompanhamento"
     };
     const resultadoAbordagemMap = {

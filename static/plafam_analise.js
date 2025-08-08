@@ -253,6 +253,20 @@ console.log('plafam_analise.js carregado');
     hideSkel(['skel-mix']);
   }
 
+  // Mapa de códigos de ação para nomes
+  const statusActionMap = {
+    '0': 'Sem ação',
+    '1': 'Convite com o agente',
+    '2': 'Convite entregue ao cliente',
+    '3': 'Deseja iniciar (via consulta)',
+    '4': 'Deseja iniciar (após convite)',
+    '5': 'Cliente não encontrado',
+    '6': 'Particular',
+    '7': 'Reavaliar em 6 meses',
+    '8': 'Reavaliar em 1 ano',
+    '9': 'Fora de área'
+  };
+
   async function atualizarAcoesTimeseries(){
     showSkel(['skel-acoes']);
     const p = new URLSearchParams(buildParams());
@@ -266,7 +280,8 @@ console.log('plafam_analise.js carregado');
     const periods = Array.from(allPeriods).sort();
     const series = Object.entries(seriesMap).map(([status, arr]) => {
       const map = new Map(arr.map(x => [x.period, x.count]));
-      return { name: `Ação ${status}`, type: 'line', smooth: true, data: periods.map(d => map.get(d)||0) };
+      const actionName = statusActionMap[status] || `Ação ${status}`;
+      return { name: actionName, type: 'line', smooth: true, data: periods.map(d => map.get(d)||0) };
     });
     charts.acoes.setOption({
       backgroundColor: 'transparent',
@@ -286,7 +301,7 @@ console.log('plafam_analise.js carregado');
     const el = qs('chart-acoes-bar');
     charts.acoesBar = charts.acoesBar || echarts.init(el);
     const entries = Object.entries(data.counts || {}).sort(([a],[b]) => Number(a)-Number(b));
-    const labels = entries.map(([k]) => `Ação ${k}`);
+    const labels = entries.map(([k]) => statusActionMap[k] || `Ação ${k}`);
     const values = entries.map(([,v]) => v);
     charts.acoesBar.setOption({
       backgroundColor: 'transparent',
