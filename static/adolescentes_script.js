@@ -91,10 +91,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const tipoAbordagemMap = {
         1: "Abordagem com pais",
         2: "Abordagem direta com adolescente",
-        3: "Iniciou método na UBS",
+        3: "Iniciar método na UBS",
         4: "Entrega de convite",
         5: "Mudou de área",
-        6: "Iniciou método em domicílio",
+        6: "Iniciar método em domicílio",
         7: "Remover do acompanhamento"
     };
     const resultadoAbordagemMap = {
@@ -1064,6 +1064,14 @@ document.addEventListener('DOMContentLoaded', function () {
             dataAcaoAtualInput.value = hoje.toISOString().split('T')[0]; // Formato YYYY-MM-DD
         }
 
+        // Definir data da próxima ação como hoje + 7 dias
+        const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1]; // Segunda data é da próxima ação
+        if (proximaAcaoDataInput) {
+            const proximaData = new Date();
+            proximaData.setDate(proximaData.getDate() + 7); // Adiciona 7 dias
+            proximaAcaoDataInput.value = proximaData.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        }
+
         // Resetar dropdowns para texto padrão
         const resultButtonSpan = document.getElementById('resultButton')?.querySelector('span');
         if (resultButtonSpan) resultButtonSpan.textContent = 'Selecione o resultado';
@@ -1452,6 +1460,27 @@ document.addEventListener('DOMContentLoaded', function () {
             const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1]; // Segunda data é da próxima ação
             const proximaAcaoTipoButton = document.getElementById('nextActionButton');
 
+            // Capturar método selecionado, se visível
+            const methodSection = document.getElementById('methodSection');
+            const selectedMethodRadio = methodSection && !methodSection.classList.contains('hidden') ? 
+                registerModal.querySelector('input[name="method-type"]:checked') : null;
+            const selectedMethodName = selectedMethodRadio ? selectedMethodRadio.value : null;
+
+            // Criar observações melhoradas
+            let observacoesEnhanced = observacoesTextarea ? observacoesTextarea.value.trim() : '';
+            
+            // Adicionar informações do resultado à observação
+            const resultText = resultadoButton.querySelector('span') ? resultadoButton.querySelector('span').textContent : '';
+            const tipoText = tipoAcaoRadio ? tipoAcaoRadio.parentElement.textContent.trim() : '';
+            
+            if (resultText && resultText !== 'Selecione o resultado') {
+                observacoesEnhanced += observacoesEnhanced ? ` | Resultado: ${resultText}` : `Resultado: ${resultText}`;
+            }
+            
+            if (selectedMethodName) {
+                observacoesEnhanced += observacoesEnhanced ? ` | Método: ${selectedMethodName}` : `Método: ${selectedMethodName}`;
+            }
+
             const payload = {
                 co_cidadao: currentAdolescenteForModal.cod_paciente,
                 nome_adolescente: currentAdolescenteForModal.nome_paciente,
@@ -1460,19 +1489,46 @@ document.addEventListener('DOMContentLoaded', function () {
                     tipo_abordagem: tipoAcaoRadio ? parseInt(tipoAcaoRadio.value) : null,
                     data_acao: dataAcaoInput ? dataAcaoInput.value : null,
                     resultado_abordagem: resultadoButton.dataset.selectedValue ? parseInt(resultadoButton.dataset.selectedValue) : null,
-                    observacoes: observacoesTextarea ? observacoesTextarea.value.trim() : '',
-                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : ''
+                    observacoes: observacoesEnhanced,
+                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : '',
+                    metodo_escolhido: selectedMethodName // Adicionar método ao payload
                 }
             };
 
             if (proximaAcaoDataInput && proximaAcaoDataInput.value && proximaAcaoTipoButton.dataset.selectedValue) {
+                // Mapear o código do tipo para o texto correto
+                const tipoCode = proximaAcaoTipoButton.dataset.selectedValue;
+                const tipoTextoMap = {
+                    '1': 'Abordagem com pais',
+                    '2': 'Abordagem direta com adolescente', 
+                    '3': 'Iniciar método na UBS',
+                    '4': 'Entrega de convite',
+                    '5': 'Ação educativa',
+                    '6': 'Iniciar método em domicílio',
+                    '7': 'Remover do acompanhamento'
+                };
+                
+                // Usar o mapeamento ao invés de depender do texto do DOM
+                let proximaAcaoObs = tipoTextoMap[tipoCode] || `Ação tipo ${tipoCode}`;
+                
+                // Debug
+                console.log('Código da próxima ação:', tipoCode);
+                console.log('Texto mapeado:', proximaAcaoObs);
+                
+                // Adicionar contexto baseado na ação atual
+                if (selectedMethodName && (resultText === 'Deseja iniciar um método contraceptivo')) {
+                    proximaAcaoObs += ` (Método escolhido: ${selectedMethodName})`;
+                }
+                
                 payload.proxima_acao = {
                     tipo_abordagem: parseInt(proximaAcaoTipoButton.dataset.selectedValue),
                     data_acao: proximaAcaoDataInput.value,
-                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : '', // Usando o mesmo responsável
-                    observacoes: `Agendamento de: ${proximaAcaoTipoButton.querySelector('span').textContent}`,
-                    resultado_abordagem: null // Próxima ação não tem resultado ainda
+                    responsavel_pela_acao: responsavelInput ? responsavelInput.value.trim() : '',
+                    observacoes: proximaAcaoObs,
+                    resultado_abordagem: null
                 };
+                
+                console.log('Payload próxima ação:', payload.proxima_acao);
             }
 
             if (!payload.acao_atual.tipo_abordagem || !payload.acao_atual.data_acao || !payload.acao_atual.responsavel_pela_acao) {

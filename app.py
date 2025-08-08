@@ -1229,7 +1229,7 @@ def api_registrar_acao_adolescente():
                 'nome_responsavel': nome_responsavel_atual,
                 'tipo_abordagem': proxima_acao_payload.get('tipo_abordagem'),
                 'resultado_abordagem': None, # Próxima ação não tem resultado ainda
-                'observacoes': None, # Observação da nova ação futura será vazia/nula
+                'observacoes': proxima_acao_payload.get('observacoes'), # Usar observação enviada do frontend
                 'data_acao': proxima_acao_payload.get('data_acao'), # Data futura
                 'responsavel_pela_acao': proxima_acao_payload.get('responsavel_pela_acao'),
                 'metodo_desejado': proxima_acao_payload.get('metodo_desejado')

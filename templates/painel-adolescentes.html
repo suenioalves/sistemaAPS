@@ -744,14 +744,14 @@
                                     Pílula anticoncepcional
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type" value="Anticoncepcional injetável mensal">
+                                    <input type="radio" name="method-type" value="Injetável mensal">
                                     <span class="radio-mark"></span>
-                                    Anticoncepcional injetável mensal
+                                    Injetável mensal
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="method-type" value="Anticoncepcional injetável trimestral">
+                                    <input type="radio" name="method-type" value="Injetável trimestral">
                                     <span class="radio-mark"></span>
-                                    Anticoncepcional injetável trimestral
+                                    Injetável trimestral
                                 </label>
                                 <label class="custom-radio">
                                     <input type="radio" name="method-type" value="DIU">
@@ -762,11 +762,6 @@
                                     <input type="radio" name="method-type" value="Implante subdérmico">
                                     <span class="radio-mark"></span>
                                     Implante subdérmico
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="method-type" value="Preservativo">
-                                    <span class="radio-mark"></span>
-                                    Preservativo
                                 </label>
                             </div>
                         </div>
@@ -819,13 +814,6 @@
                                    placeholder="Nome do responsável pela ação">
                         </div>
 
-                        <div>
-                            <label class="custom-checkbox">
-                                <input type="checkbox">
-                                <span class="checkbox-mark"></span>
-                                Enviar lembrete automático para a próxima ação
-                            </label>
-                        </div>
                     </div>
                 </div>
                 <div class="p-6 border-t flex justify-end">
@@ -888,14 +876,96 @@
                             if (item.button === 'resultButton') {
                                 const methodSection = document.getElementById('methodSection');
                                 const methodSectionLabel = document.getElementById('methodSectionLabel');
+                                const nextActionButton = document.getElementById('nextActionButton');
+                                const nextActionOptionsContainer = document.getElementById('nextActionDropdownOptionsContainer');
+                                
                                 if (this.dataset.value === '1') { // "Deseja iniciar um método contraceptivo"
                                     methodSection.classList.remove('hidden');
                                     methodSectionLabel.textContent = 'Método escolhido';
+                                    
+                                    // Filtrar opções do menu "Tipo" para mostrar apenas "Iniciar método na UBS" e "Iniciar método em domicílio"
+                                    if (nextActionOptionsContainer) {
+                                        nextActionOptionsContainer.innerHTML = `
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciar método na UBS</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciar método em domicílio</div>
+                                        `;
+                                        
+                                        // Reconfigurar event listeners para as novas opções
+                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
+                                        newOptions.forEach(newOption => {
+                                            newOption.addEventListener('click', function () {
+                                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                                    nextActionButton.querySelector('span').textContent = this.textContent;
+                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
+                                                }
+                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
+                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                                            });
+                                        });
+                                    }
                                 } else if (this.dataset.value === '4') { // "Já usa um método"
                                     methodSection.classList.remove('hidden');
                                     methodSectionLabel.textContent = 'Método em uso';
+                                    
+                                    // Restaurar todas as opções do menu "Tipo"
+                                    if (nextActionOptionsContainer) {
+                                        nextActionOptionsContainer.innerHTML = `
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciou método na UBS</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Ação educativa</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciou método em domicílio</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                                        `;
+                                        
+                                        // Reconfigurar event listeners para as opções restauradas
+                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
+                                        newOptions.forEach(newOption => {
+                                            newOption.addEventListener('click', function () {
+                                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                                    nextActionButton.querySelector('span').textContent = this.textContent;
+                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
+                                                }
+                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
+                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                                            });
+                                        });
+                                    }
                                 } else {
                                     methodSection.classList.add('hidden');
+                                    
+                                    // Restaurar todas as opções do menu "Tipo" para outros resultados
+                                    if (nextActionOptionsContainer) {
+                                        nextActionOptionsContainer.innerHTML = `
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciou método na UBS</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Ação educativa</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciou método em domicílio</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                                        `;
+                                        
+                                        // Reconfigurar event listeners para as opções restauradas
+                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
+                                        newOptions.forEach(newOption => {
+                                            newOption.addEventListener('click', function () {
+                                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                                    nextActionButton.querySelector('span').textContent = this.textContent;
+                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
+                                                }
+                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
+                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                                            });
+                                        });
+                                    }
+                                }
+                                
+                                // Reset the next action button text when changing result
+                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                    nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                                    delete nextActionButton.dataset.selectedValue;
                                 }
                             }
                         });
@@ -936,7 +1006,7 @@
                     saveBtn.addEventListener('click', function () {
                         const date = registerModal.querySelector('input[type="date"]').value;
                         const actionType = registerModal.querySelector('input[name="action-type"]:checked').parentElement.textContent.trim();
-                        const responsible = document.getElementById('responsibleButton').querySelector('span').textContent;
+                        const responsible = document.getElementById('registerResponsibleInput').value || 'Não informado';
                         const newAction = document.createElement('div');
                         newAction.className = 'flex mb-8 relative';
                         newAction.innerHTML = `
@@ -968,7 +1038,7 @@ Responsável: <span class="font-medium">${responsible}</span>
             if (timelineRegisterBtn) {
                 timelineRegisterBtn.addEventListener('click', function () {
                     openRegisterModalForJuliana();
-                    handleRegisterSave();
+                    // handleRegisterSave(); // Comentado - lógica está em adolescentes_script.js
                 });
             }
             detailButtons.forEach(button => {
