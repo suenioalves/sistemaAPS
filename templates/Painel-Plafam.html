@@ -455,12 +455,12 @@
             <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição da Equipe</h2>
                 <canvas id="grafico-pizza-plafam" width="350" height="350"></canvas>
-                <div class="flex flex-wrap justify-center gap-4 mt-4">
-                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ec4899"></span> <span class="text-sm">Grávidas</span></div>
-                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#facc15"></span> <span class="text-sm">Sem Método</span></div>
-                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#f87171"></span> <span class="text-sm">Método em Atraso</span></div>
-                    <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#22c55e"></span> <span class="text-sm">Método em Dia</span></div>
-                </div>
+                                    <div class="flex flex-wrap justify-center gap-4 mt-4">
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ec4899"></span> <span class="text-sm">Grávidas</span></div>
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ef4444"></span> <span class="text-sm">Sem Método</span></div>
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#facc15"></span> <span class="text-sm">Método em Atraso</span></div>
+                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#22c55e"></span> <span class="text-sm">Método em Dia</span></div>
+                    </div>
             </div>
             <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição por Micro-área</h2>
@@ -472,8 +472,8 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
         function corStatusPlafam(idx) {
-            // 0: grávidas, 1: sem método, 2: método em atraso, 3: método em dia
-            return ['#ec4899', '#facc15', '#f87171', '#22c55e'][idx];
+            // 0: grávidas (rosa), 1: sem método (vermelho), 2: método em atraso (amarelo), 3: método em dia (verde)
+            return ['#ec4899', '#ef4444', '#facc15', '#22c55e'][idx];
         }
 
         function carregarGraficosPlafam(equipeSelecionada = 'Todas') {

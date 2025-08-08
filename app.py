@@ -302,6 +302,10 @@ def painel_adolescentes():
 def painel_hiperdia_has():
     return render_template('painel-hiperdia-has.html')
 
+@app.route('/painel-plafam-analise')
+def painel_plafam_analise():
+    return render_template('painel-plafam-analise.html')
+
 
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
@@ -1402,7 +1406,7 @@ def api_equipes_microareas_hiperdia():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
+
         # Etapa 1: Buscar equipes, suas microáreas distintas e contagem de pacientes
         cur.execute("""
             SELECT 
@@ -1452,46 +1456,47 @@ def api_equipes_microareas_hiperdia():
 
 def build_hiperdia_has_filters(args):
     equipe = args.get('equipe', 'Todas')
-    microarea_selecionada = args.get('microarea', 'Todas') # 'Todas' ou o número da microárea
+    microarea_selecionada = args.get('microarea', 'Todas')  # 'Todas' ou 'Todas as áreas' ou "Área X - Agente Y"
     search_term = args.get('search', None)
-    sort_by = args.get('sort_by', 'proxima_acao_asc') # Exemplo de ordenação padrão
-    status_filter = args.get('status', 'Todos') # Novo filtro de status
+    sort_by = args.get('sort_by', 'proxima_acao_asc')  # Ordenação padrão
+    status_filter = args.get('status', 'Todos')  # Mantido para compatibilidade
 
     query_params = {}
     where_clauses = []
-    # O filtro de status foi removido pois a coluna 'status_controle' não existe na view.
 
+    # Filtro por equipe
     if equipe != 'Todas':
-        where_clauses.append("m.nome_equipe = %(equipe)s") # Adicionado alias 'm.'
+        where_clauses.append("m.nome_equipe = %(equipe)s")
         query_params['equipe'] = equipe
 
-    # Tratamento para microarea_selecionada (pode ser "Área X - Agente Y" ou "Área X")
-    if microarea_selecionada != 'Todas' and microarea_selecionada and microarea_selecionada != 'Todas as áreas':
+    # Filtro por microárea (aceita formatos "Área X - Agente Y" ou "Área X")
+    if microarea_selecionada not in (None, '', 'Todas', 'Todas as áreas'):
         if ' - ' in microarea_selecionada:
-            micro_area_str = microarea_selecionada.split(' - ')[0].replace('Área ', '').strip()
+            micro_area_str = microarea_selecionada.split(' - ', 1)[0].replace('Área ', '').strip()
         else:
             micro_area_str = microarea_selecionada.replace('Área ', '').strip()
-        
         if micro_area_str:
-            where_clauses.append("m.microarea = %(microarea)s") # Adicionado alias 'm.'
+            where_clauses.append("m.microarea = %(microarea)s")
             query_params['microarea'] = micro_area_str
 
+    # Busca por nome
     if search_term:
-        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)") # Adicionado alias 'm.'
+        where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)")
         query_params['search'] = f"%{search_term}%"
 
-
-    # Mapeamento de ordenação (pode ser expandido)
+    # Mapeamento de ordenação
     sort_mapping = {
-        'nome_asc': 'nome_paciente ASC',
-        'nome_desc': 'nome_paciente DESC',
-        'idade_asc': 'idade_calculada ASC',
-        'idade_desc': 'idade_calculada DESC',
-        'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC', # Adicionado para consistência
-        'proxima_acao_desc': 'data_proxima_acao_ordenacao DESC NULLS FIRST, m.nome_paciente DESC'
+        'nome_asc': 'm.nome_paciente ASC',
+        'nome_desc': 'm.nome_paciente DESC',
+        'idade_asc': 'm.idade_calculada ASC',
+        'idade_desc': 'm.idade_calculada DESC',
+        'proxima_acao_asc': 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC',
+        'proxima_acao_desc': 'data_proxima_acao_ordenacao DESC NULLS FIRST, m.nome_paciente DESC',
     }
-    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC') # Adicionado alias 'm.'
-    
+    order_by_clause = " ORDER BY " + sort_mapping.get(
+        sort_by, 'data_proxima_acao_ordenacao ASC NULLS LAST, m.nome_paciente ASC'
+    )
+
     return where_clauses, order_by_clause, query_params, status_filter
 
 @app.route('/api/pacientes_hiperdia_has')
@@ -3341,6 +3346,238 @@ def api_graficos_painel_plafam():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/plafam/analytics/status_snapshot')
+def api_plafam_status_snapshot():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        where_clauses = []
+        params = {}
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        where_str = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        query = f"""
+            SELECT 
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%diu%%' OR m.metodo ILIKE '%%implante%%' OR m.metodo ILIKE '%%laqueadura%%')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            {where_str};
+        """
+        cur.execute(query, params)
+        row = cur.fetchone()
+        return jsonify(dict(row) if row else {})
+    except Exception as e:
+        print(f"Erro ao buscar status_snapshot do plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/plafam/analytics/actions_overview')
+def api_plafam_actions_overview():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        where_clauses = []
+        params = {}
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        where_str = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        query = f"""
+        WITH base AS (
+            SELECT m.cod_paciente
+            FROM sistemaaps.mv_plafam m
+            {where_str}
+        ), joined AS (
+            SELECT b.cod_paciente, COALESCE(pa.status_acompanhamento, 0) AS status
+            FROM base b
+            LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON pa.co_cidadao = b.cod_paciente
+        )
+        SELECT status, COUNT(*) AS total
+        FROM joined
+        GROUP BY status
+        ORDER BY status;
+        """
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+        data = {str(r['status']): int(r['total']) for r in rows}
+        return jsonify({"counts": data})
+    except Exception as e:
+        print(f"Erro ao buscar actions_overview do plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/plafam/analytics/actions_timeseries')
+def api_plafam_actions_timeseries():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    granularity = request.args.get('granularity', 'month')  # 'day'|'week'|'month'
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        trunc_expr = {
+            'day': "DATE(pa.data_acompanhamento)",
+            'week': "DATE_TRUNC('week', pa.data_acompanhamento)",
+            'month': "DATE_TRUNC('month', pa.data_acompanhamento)"
+        }.get(granularity, "DATE_TRUNC('month', pa.data_acompanhamento)")
+
+        where_clauses = ["pa.data_acompanhamento IS NOT NULL"]
+        params = {}
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        where_str = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        query = f"""
+        SELECT {trunc_expr} AS periodo, COALESCE(pa.status_acompanhamento, 0) AS status, COUNT(*) AS total
+        FROM sistemaaps.mv_plafam m
+        JOIN sistemaaps.tb_plafam_acompanhamento pa ON pa.co_cidadao = m.cod_paciente
+        {where_str}
+        GROUP BY periodo, status
+        ORDER BY periodo ASC, status ASC;
+        """
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+        series = {}
+        for r in rows:
+            status_key = str(r['status'])
+            periodo_val = r['periodo']
+            if isinstance(periodo_val, (datetime, date)):
+                periodo_str = periodo_val.strftime('%Y-%m-%d')
+            else:
+                periodo_str = str(periodo_val)
+            series.setdefault(status_key, []).append({"period": periodo_str, "count": int(r['total'])})
+        return jsonify({"series": series, "granularity": granularity})
+    except Exception as e:
+        print(f"Erro ao buscar actions_timeseries do plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/plafam/analytics/method_mix')
+def api_plafam_method_mix():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        where_clauses = []
+        params = {}
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        where_str = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        query = f"""
+        SELECT
+            CASE
+                WHEN m.metodo ILIKE '%%laqueadura%%' THEN 'LAQUEADURA'
+                WHEN m.metodo ILIKE '%%histerectomia%%' THEN 'HISTERECTOMIA'
+                WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
+                WHEN m.metodo ILIKE '%%implante%%' THEN 'IMPLANTE SUBDÉRMICO'
+                WHEN m.metodo ILIKE '%%mensal%%' THEN 'MENSAL'
+                WHEN m.metodo ILIKE '%%trimestral%%' THEN 'TRIMESTRAL'
+                WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%p\u00edlula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'PÍLULA'
+                WHEN m.metodo IS NULL OR m.metodo = '' THEN 'SEM MÉTODO'
+                ELSE 'OUTROS'
+            END AS categoria,
+            COUNT(*) AS total
+        FROM sistemaaps.mv_plafam m
+        {where_str}
+        GROUP BY categoria
+        ORDER BY total DESC;
+        """
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+        data = [{"categoria": r['categoria'], "total": int(r['total'])} for r in rows]
+        return jsonify({"mix": data})
+    except Exception as e:
+        print(f"Erro ao buscar method_mix do plafam: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 @app.route('/api/indicadores_plafam')
 def api_indicadores_plafam():
     conn = None
@@ -3352,7 +3589,7 @@ def api_indicadores_plafam():
         # 1. Mulheres de 19 a 45 anos em uso de métodos seguros
         query_mulheres_metodo_seguro = """
             SELECT COUNT(DISTINCT m.cod_paciente)
-            FROM sistemaaps.mv_plafam m
+        FROM sistemaaps.mv_plafam m
             WHERE m.idade_calculada BETWEEN 19 AND 45
               AND (
                 m.metodo ILIKE '%diu%' OR m.metodo ILIKE '%implante%' OR m.metodo ILIKE '%laqueadura%' OR
@@ -4631,7 +4868,7 @@ def api_pacientes_hiperdia_dm():
             LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
             WHERE 1=1
         """
-        
+
         where_clauses = []
         params = {}
         
@@ -4794,7 +5031,7 @@ def api_diabetes_timeline(cod_paciente):
         
         # Buscar histórico de acompanhamento
         query = """
-            SELECT 
+        SELECT
                 a.cod_acompanhamento,
                 a.cod_acao,
                 ta.dsc_acao,
