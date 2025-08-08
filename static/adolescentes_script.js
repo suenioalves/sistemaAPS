@@ -91,11 +91,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const tipoAbordagemMap = {
         1: "Abordagem com pais",
         2: "Abordagem direta com adolescente",
-        3: "Iniciar método na UBS",
-        4: "Entrega de convite",
-        5: "Mudou de área",
-        6: "Iniciar método em domicílio",
-        7: "Remover do acompanhamento"
+        5: "Mudou de área", 
+        7: "Remover do acompanhamento",
+        8: "Atualizar no PEC"
     };
     const resultadoAbordagemMap = {
         1: "Deseja iniciar um método contraceptivo",
@@ -1500,12 +1498,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const tipoCode = proximaAcaoTipoButton.dataset.selectedValue;
                 const tipoTextoMap = {
                     '1': 'Abordagem com pais',
-                    '2': 'Abordagem direta com adolescente', 
-                    '3': 'Iniciar método na UBS',
-                    '4': 'Entrega de convite',
-                    '5': 'Ação educativa',
+                    '2': 'Abordagem direta com adolescente',
+                    '3': 'Iniciar método na UBS', 
+                    '5': 'Mudou de área',
                     '6': 'Iniciar método em domicílio',
-                    '7': 'Remover do acompanhamento'
+                    '7': 'Remover do acompanhamento',
+                    '8': 'Atualizar no PEC'
                 };
                 
                 // Usar o mapeamento ao invés de depender do texto do DOM

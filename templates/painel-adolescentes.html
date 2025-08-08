@@ -682,21 +682,6 @@
                                     Abordagem direta com adolescente
                                 </label>
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type" value="3">
-                                    <span class="radio-mark"></span>
-                                    Iniciou método na UBS
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type" value="6">
-                                    <span class="radio-mark"></span>
-                                    Iniciou método em domicílio
-                                </label>
-                                <label class="custom-radio">
-                                    <input type="radio" name="action-type" value="4">
-                                    <span class="radio-mark"></span>
-                                    Entrega de convite
-                                </label>
-                                <label class="custom-radio">
                                     <input type="radio" name="action-type" value="5">
                                     <span class="radio-mark"></span>
                                     Mudou de área
@@ -794,10 +779,7 @@
                                             class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                             <div class="p-2" id="nextActionDropdownOptionsContainer">
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciou método na UBS</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciou método em domicílio</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Entrega de convite</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
                                             </div>
@@ -938,11 +920,11 @@
                                     methodSection.classList.remove('hidden');
                                     methodSectionLabel.textContent = 'Método em uso';
                                     
-                                    // Mostrar apenas opções de abordagem no menu "Tipo"
+                                    // Mostrar opções específicas para quem já usa método
                                     if (nextActionOptionsContainer) {
                                         nextActionOptionsContainer.innerHTML = `
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
+                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
                                         `;
                                         
                                         // Reconfigurar event listeners
