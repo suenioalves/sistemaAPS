@@ -672,7 +672,12 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ação</label>
                             <div class="space-y-2">
                                 <label class="custom-radio">
-                                    <input type="radio" name="action-type" value="1" checked>
+                                    <input type="radio" name="action-type" value="10" checked>
+                                    <span class="radio-mark"></span>
+                                    Nova ação
+                                </label>
+                                <label class="custom-radio">
+                                    <input type="radio" name="action-type" value="1">
                                     <span class="radio-mark"></span>
                                     Abordagem com pais
                                 </label>
@@ -695,12 +700,11 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data da ação</label>
-                            <input type="date"
-                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                value="2025-06-13">
+                            <input type="date" id="actionDateInput"
+                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Resultado da abordagem</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Abordagem</label>
                             <div class="relative">
                                 <button id="resultButton"
                                     class="w-full bg-white border border-gray-300 rounded text-gray-700 py-2 px-3 text-left flex justify-between items-center !rounded-button whitespace-nowrap">
@@ -712,14 +716,21 @@
                                 <div id="resultDropdown"
                                     class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
                                     <div class="p-2" id="resultDropdownOptionsContainer">
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Já usa um método</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Mudou de cidade</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Método particular</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Outros motivos</div>
+                                        <!-- Opções padrão -->
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="1">Deseja iniciar um método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="2">Recusou método contraceptivo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="4">Já usa um método</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="3">Ausente em domicílio</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="5">Mudou de área</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="6">Mudou de cidade</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="7">Método particular</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="8">Outros motivos</div>
+                                        <!-- Opções para Nova ação -->
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded nova-acao-options hidden" data-value="11">Sem método</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded nova-acao-options hidden" data-value="12">Método atrasado</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded nova-acao-options hidden" data-value="13">Vencimento próximo</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded nova-acao-options hidden" data-value="14">Atualizar no PEC</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded nova-acao-options hidden" data-value="15">Outros</div>
                                     </div>
                                 </div>
                             </div>
@@ -760,7 +771,7 @@
                                 class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-24"
                                 placeholder="Registre informações adicionais relevantes..."></textarea> <!-- Fechamento da tag textarea -->
                         </div>
-                        <div>
+                        <div id="nextActionSection">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Próxima ação</label>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
@@ -839,6 +850,128 @@
             const resultDropdownOptionsContainer = document.getElementById('resultDropdownOptionsContainer');
             const nextActionOptionsContainer = document.getElementById('nextActionDropdownOptionsContainer');
             
+            // Função para configurar event listeners do dropdown de resultado (torna global)
+            window.setupResultDropdownListeners = function setupResultDropdownListeners() {
+                // Aguarda um momento para garantir que o DOM foi atualizado
+                setTimeout(() => {
+                    const currentResultOptions = document.getElementById('resultDropdownOptionsContainer')?.querySelectorAll('.cursor-pointer:not(.hidden)');
+                    if (!currentResultOptions || currentResultOptions.length === 0) return;
+                    
+                    currentResultOptions.forEach(option => {
+                        // Remove event listeners antigos clonando o elemento
+                        const newOption = option.cloneNode(true);
+                        option.parentNode.replaceChild(newOption, option);
+                        
+                        newOption.addEventListener('click', function () {
+                            const resultButton = document.getElementById('resultButton');
+                            if (resultButton && resultButton.querySelector('span')) {
+                                resultButton.querySelector('span').textContent = this.textContent;
+                                resultButton.dataset.selectedValue = this.dataset.value;
+                            }
+                            const resultDropdown = document.getElementById('resultDropdown');
+                            if (resultDropdown) resultDropdown.classList.add('hidden');
+                            
+                            // Lógica específica do resultButton movida para cá
+                            handleResultSelection(this.dataset.value);
+                        });
+                    });
+                }, 50); // 50ms delay para aguardar DOM update
+            }
+            
+            // Função para configurar event listeners do dropdown de próxima ação (torna global)
+            window.setupNextActionDropdownListeners = function setupNextActionDropdownListeners() {
+                // Aguarda um momento para garantir que o DOM foi atualizado
+                setTimeout(() => {
+                    const currentNextActionOptions = document.getElementById('nextActionDropdownOptionsContainer')?.querySelectorAll('.cursor-pointer');
+                    if (!currentNextActionOptions || currentNextActionOptions.length === 0) return;
+                    
+                    currentNextActionOptions.forEach(option => {
+                        // Remove event listeners antigos clonando o elemento
+                        const newOption = option.cloneNode(true);
+                        option.parentNode.replaceChild(newOption, option);
+                        
+                        newOption.addEventListener('click', function () {
+                            const nextActionButton = document.getElementById('nextActionButton');
+                            if (nextActionButton && nextActionButton.querySelector('span')) {
+                                nextActionButton.querySelector('span').textContent = this.textContent;
+                                nextActionButton.dataset.selectedValue = this.dataset.value;
+                            }
+                            const nextActionDropdown = document.getElementById('nextActionDropdown');
+                            if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                        });
+                    });
+                }, 50); // 50ms delay para aguardar DOM update
+            }
+            
+            // Função para lidar com a lógica específica de seleção de resultado
+            function handleResultSelection(selectedValue) {
+                const methodSection = document.getElementById('methodSection');
+                const methodSectionLabel = document.getElementById('methodSectionLabel');
+                const nextActionButton = document.getElementById('nextActionButton');
+                
+                if (selectedValue === '1') { // "Deseja iniciar um método contraceptivo"
+                    methodSection.classList.remove('hidden');
+                    methodSectionLabel.textContent = 'Método escolhido';
+                    
+                    // Filtrar opções do menu "Tipo" para mostrar apenas "Iniciar método na UBS" e "Iniciar método em domicílio"
+                    if (nextActionOptionsContainer) {
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciar método na UBS</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciar método em domicílio</div>
+                        `;
+                        window.setupNextActionDropdownListeners();
+                    }
+                } else if (selectedValue === '2') { // "Recusou método contraceptivo"
+                    methodSection.classList.add('hidden');
+                    
+                    // Modificar data da próxima ação para +6 meses quando recusar método
+                    const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1];
+                    if (proximaAcaoDataInput) {
+                        const dataEm6Meses = new Date();
+                        dataEm6Meses.setMonth(dataEm6Meses.getMonth() + 6);
+                        proximaAcaoDataInput.value = dataEm6Meses.toISOString().split('T')[0];
+                    }
+                    
+                    // Mostrar apenas opções de abordagem no menu "Tipo"
+                    if (nextActionOptionsContainer) {
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                        `;
+                        window.setupNextActionDropdownListeners();
+                    }
+                } else if (selectedValue === '4') { // "Já usa um método"
+                    methodSection.classList.remove('hidden');
+                    methodSectionLabel.textContent = 'Método em uso';
+                    
+                    // Mostrar opções específicas para quem já usa método
+                    if (nextActionOptionsContainer) {
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                        `;
+                        window.setupNextActionDropdownListeners();
+                    }
+                } else {
+                    methodSection.classList.add('hidden');
+                    
+                    // Para outros resultados (como "Ausente em domicílio"), mostrar apenas opções de abordagem
+                    if (nextActionOptionsContainer) {
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                        `;
+                        window.setupNextActionDropdownListeners();
+                    }
+                }
+                
+                // Reset the next action button text when changing result
+                if (nextActionButton && nextActionButton.querySelector('span')) {
+                    nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                    delete nextActionButton.dataset.selectedValue;
+                }
+            }
+            
             // Event listener para mudanças no tipo de ação
             registerModal.addEventListener('change', function(e) {
                 if (e.target.name === 'action-type') {
@@ -863,33 +996,9 @@
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
                         `;
                         
-                        // Reconfigurar event listeners para as novas opções de resultado
-                        const resultOptions = resultDropdownOptionsContainer.querySelectorAll('.cursor-pointer');
-                        resultOptions.forEach(option => {
-                            option.addEventListener('click', function () {
-                                const resultButton = document.getElementById('resultButton');
-                                if (resultButton && resultButton.querySelector('span')) {
-                                    resultButton.querySelector('span').textContent = this.textContent;
-                                    resultButton.dataset.selectedValue = this.dataset.value;
-                                }
-                                const resultDropdown = document.getElementById('resultDropdown');
-                                if (resultDropdown) resultDropdown.classList.add('hidden');
-                            });
-                        });
-                        
-                        // Reconfigurar event listeners para as novas opções de próxima ação
-                        const nextActionOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                        nextActionOptions.forEach(option => {
-                            option.addEventListener('click', function () {
-                                const nextActionButton = document.getElementById('nextActionButton');
-                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                }
-                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                            });
-                        });
+                        // Reconfigurar event listeners usando as novas funções
+                        window.setupResultDropdownListeners();
+                        window.setupNextActionDropdownListeners();
                         
                     } else if (selectedValue === '7') { // Remover do acompanhamento
                         // Filtrar resultado para mostrar apenas as opções de remoção
@@ -912,36 +1021,67 @@
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
                         `;
                         
-                        // Reconfigurar event listeners para as novas opções de resultado
-                        const resultOptions = resultDropdownOptionsContainer.querySelectorAll('.cursor-pointer');
-                        resultOptions.forEach(option => {
-                            option.addEventListener('click', function () {
-                                const resultButton = document.getElementById('resultButton');
-                                if (resultButton && resultButton.querySelector('span')) {
-                                    resultButton.querySelector('span').textContent = this.textContent;
-                                    resultButton.dataset.selectedValue = this.dataset.value;
-                                }
-                                const resultDropdown = document.getElementById('resultDropdown');
-                                if (resultDropdown) resultDropdown.classList.add('hidden');
-                            });
+                        // Reconfigurar event listeners usando as novas funções
+                        window.setupResultDropdownListeners();
+                        window.setupNextActionDropdownListeners();
+                        
+                    } else if (selectedValue === '10') { // Nova ação
+                        // Reset completo do estado do modal
+                        const methodSection = document.getElementById('methodSection');
+                        if (methodSection) {
+                            methodSection.classList.add('hidden');
+                        }
+                        
+                        // Reset dos radio buttons de método
+                        const methodRadios = document.querySelectorAll('input[name="method-type"]');
+                        methodRadios.forEach(radio => {
+                            radio.checked = false;
                         });
                         
-                        // Reconfigurar event listeners para as novas opções de próxima ação
-                        const nextActionOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                        nextActionOptions.forEach(option => {
-                            option.addEventListener('click', function () {
-                                const nextActionButton = document.getElementById('nextActionButton');
-                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                }
-                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                            });
+                        // Configurar opções específicas para Nova ação
+                        resultDropdownOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="11">Sem método</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="12">Método vencido</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="13">Vencimento próximo</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="14">Atualizar no PEC</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="15">Método em uso</div>
+                        `;
+                        
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                        `;
+                        
+                        // Reset dos botões 
+                        const resultButton = document.getElementById('resultButton');
+                        const nextActionButton = document.getElementById('nextActionButton');
+                        if (resultButton && resultButton.querySelector('span')) {
+                            resultButton.querySelector('span').textContent = 'Selecione o resultado';
+                            delete resultButton.dataset.selectedValue;
+                        }
+                        if (nextActionButton && nextActionButton.querySelector('span')) {
+                            nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                            delete nextActionButton.dataset.selectedValue;
+                        }
+                        
+                        // Reconfigurar event listeners
+                        window.setupResultDropdownListeners();
+                        window.setupNextActionDropdownListeners();
+                        
+                    } else if (selectedValue === '1' || selectedValue === '2') { // Abordagem com pais ou Abordagem direta
+                        // Reset completo do estado do modal
+                        const methodSection = document.getElementById('methodSection');
+                        if (methodSection) {
+                            methodSection.classList.add('hidden');
+                        }
+                        
+                        // Reset dos radio buttons de método
+                        const methodRadios = document.querySelectorAll('input[name="method-type"]');
+                        methodRadios.forEach(radio => {
+                            radio.checked = false;
                         });
                         
-                    } else {
-                        // Restaurar opções originais quando outro tipo de ação for selecionado
+                        // Configurar opções para abordagem
                         resultDropdownOptionsContainer.innerHTML = `
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
@@ -971,164 +1111,47 @@
                             nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
                             delete nextActionButton.dataset.selectedValue;
                         }
+                        
+                        // Reconfigurar event listeners
+                        window.setupResultDropdownListeners();
+                        window.setupNextActionDropdownListeners();
                     }
                 }
             });
             
-            const otherDropdowns = [
-                // { button: 'statusButton', dropdown: 'statusDropdown' }, // Este foi desabilitado no HTML
-                { button: 'resultButton', dropdown: 'resultDropdown', optionsContainer: 'resultDropdownOptionsContainer' },
-                { button: 'nextActionButton', dropdown: 'nextActionDropdown', optionsContainer: 'nextActionDropdownOptionsContainer' }
-                // { button: 'responsibleButton', dropdown: 'responsibleDropdown' } // Removido pois virou input
-            ];
-            otherDropdowns.forEach(item => {
-                const button = document.getElementById(item.button);
-                const dropdown = document.getElementById(item.dropdown);
-                const optionsContainer = document.getElementById(item.optionsContainer);
-                if (button && dropdown && optionsContainer) {
-                    button.addEventListener('click', function (event) {
-                        event.stopPropagation();
-                        dropdown.classList.toggle('hidden');
-                    });
-                    const options = dropdown.querySelectorAll('.cursor-pointer');
-                    options.forEach(option => {
-                        option.addEventListener('click', function () {
-                            if (button.querySelector('span')) {
-                                button.querySelector('span').textContent = this.textContent;
-                                // Armazenar o valor em um atributo do botão ou em uma variável JS se necessário
-                                button.dataset.selectedValue = this.dataset.value; 
-                            }
-                            dropdown.classList.add('hidden');
-                            // Lógica específica como a do methodSection
-                            if (item.button === 'resultButton') {
-                                const methodSection = document.getElementById('methodSection');
-                                const methodSectionLabel = document.getElementById('methodSectionLabel');
-                                const nextActionButton = document.getElementById('nextActionButton');
-                                const nextActionOptionsContainer = document.getElementById('nextActionDropdownOptionsContainer');
-                                
-                                if (this.dataset.value === '1') { // "Deseja iniciar um método contraceptivo"
-                                    methodSection.classList.remove('hidden');
-                                    methodSectionLabel.textContent = 'Método escolhido';
-                                    
-                                    // Filtrar opções do menu "Tipo" para mostrar apenas "Iniciar método na UBS" e "Iniciar método em domicílio"
-                                    if (nextActionOptionsContainer) {
-                                        nextActionOptionsContainer.innerHTML = `
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Iniciar método na UBS</div>
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Iniciar método em domicílio</div>
-                                        `;
-                                        
-                                        // Reconfigurar event listeners para as novas opções
-                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                                        newOptions.forEach(newOption => {
-                                            newOption.addEventListener('click', function () {
-                                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                                }
-                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                                            });
-                                        });
-                                    }
-                                } else if (this.dataset.value === '2') { // "Recusou método contraceptivo"
-                                    methodSection.classList.add('hidden');
-                                    
-                                    // Modificar data da próxima ação para +6 meses quando recusar método
-                                    const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1];
-                                    if (proximaAcaoDataInput) {
-                                        const dataEm6Meses = new Date();
-                                        dataEm6Meses.setMonth(dataEm6Meses.getMonth() + 6);
-                                        proximaAcaoDataInput.value = dataEm6Meses.toISOString().split('T')[0];
-                                    }
-                                    
-                                    // Mostrar apenas opções de abordagem no menu "Tipo"
-                                    if (nextActionOptionsContainer) {
-                                        nextActionOptionsContainer.innerHTML = `
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
-                                        `;
-                                        
-                                        // Reconfigurar event listeners para as novas opções
-                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                                        newOptions.forEach(newOption => {
-                                            newOption.addEventListener('click', function () {
-                                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                                }
-                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                                            });
-                                        });
-                                    }
-                                } else if (this.dataset.value === '4') { // "Já usa um método"
-                                    methodSection.classList.remove('hidden');
-                                    methodSectionLabel.textContent = 'Método em uso';
-                                    
-                                    // Mostrar opções específicas para quem já usa método
-                                    if (nextActionOptionsContainer) {
-                                        nextActionOptionsContainer.innerHTML = `
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
-                                        `;
-                                        
-                                        // Reconfigurar event listeners
-                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                                        newOptions.forEach(newOption => {
-                                            newOption.addEventListener('click', function () {
-                                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                                }
-                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                                            });
-                                        });
-                                    }
-                                } else {
-                                    methodSection.classList.add('hidden');
-                                    
-                                    // Para outros resultados (como "Ausente em domicílio"), mostrar apenas opções de abordagem
-                                    if (nextActionOptionsContainer) {
-                                        nextActionOptionsContainer.innerHTML = `
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
-                                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
-                                        `;
-                                        
-                                        // Reconfigurar event listeners
-                                        const newOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
-                                        newOptions.forEach(newOption => {
-                                            newOption.addEventListener('click', function () {
-                                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                                    nextActionButton.querySelector('span').textContent = this.textContent;
-                                                    nextActionButton.dataset.selectedValue = this.dataset.value;
-                                                }
-                                                const nextActionDropdown = document.getElementById('nextActionDropdown');
-                                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
-                                            });
-                                        });
-                                    }
-                                }
-                                
-                                // Reset the next action button text when changing result
-                                if (nextActionButton && nextActionButton.querySelector('span')) {
-                                    nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
-                                    delete nextActionButton.dataset.selectedValue;
-                                }
-                            }
-                        });
-                    });
-                }
-            });
-            // Fechar outros dropdowns se clicar fora
-            document.addEventListener('click', function (e) {
-                otherDropdowns.forEach(item => {
-                    const button = document.getElementById(item.button);
-                    const dropdown = document.getElementById(item.dropdown);
-                    if (button && dropdown && !button.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.add('hidden');
-                    }
+            // Configurar event listeners iniciais dos dropdowns
+            const resultButton = document.getElementById('resultButton');
+            const resultDropdown = document.getElementById('resultDropdown');
+            const nextActionButton = document.getElementById('nextActionButton');
+            const nextActionDropdown = document.getElementById('nextActionDropdown');
+            
+            if (resultButton && resultDropdown) {
+                resultButton.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    resultDropdown.classList.toggle('hidden');
                 });
+                
+                // Configurar event listeners iniciais
+                window.setupResultDropdownListeners();
+            }
+            
+            if (nextActionButton && nextActionDropdown) {
+                nextActionButton.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    nextActionDropdown.classList.toggle('hidden');
+                });
+                
+                // Configurar event listeners iniciais
+                window.setupNextActionDropdownListeners();
+            }
+            // Fechar dropdowns se clicar fora
+            document.addEventListener('click', function (e) {
+                if (resultButton && resultDropdown && !resultButton.contains(e.target) && !resultDropdown.contains(e.target)) {
+                    resultDropdown.classList.add('hidden');
+                }
+                if (nextActionButton && nextActionDropdown && !nextActionButton.contains(e.target) && !nextActionDropdown.contains(e.target)) {
+                    nextActionDropdown.classList.add('hidden');
+                }
             });
         });
     </script>

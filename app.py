@@ -962,7 +962,11 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             m.metodo, m.nome_equipe, m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
             ag.nome_agente, m.nome_responsavel,
             pa_futura.data_acao AS data_proxima_acao_ordenacao,
-            pa_futura.tipo_abordagem AS tipo_proxima_acao_ordenacao
+            pa_futura.tipo_abordagem AS tipo_proxima_acao_ordenacao,
+            pa_ultima.tipo_abordagem AS ultimo_tipo_abordagem,
+            pa_ultima.resultado_abordagem AS ultimo_resultado_abordagem,
+            pa_ultima.data_acao AS ultima_data_acao,
+            pa_ultima.responsavel_pela_acao AS responsavel_pela_acao
         """
         
         from_join_clause = """
@@ -977,6 +981,14 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             ORDER BY pa.data_acao ASC
             LIMIT 1
         ) pa_futura ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT pa.tipo_abordagem, pa.resultado_abordagem, pa.data_acao, pa.responsavel_pela_acao
+            FROM sistemaaps.tb_plafam_adolescentes pa
+            WHERE pa.co_cidadao = m.cod_paciente
+              AND pa.resultado_abordagem IS NOT NULL
+            ORDER BY pa.data_acao DESC, pa.co_abordagem DESC
+            LIMIT 1
+        ) pa_ultima ON TRUE
         """
 
         # Para contagem, usar FROM clause completo se filtro de próxima ação for aplicado
@@ -987,6 +999,14 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             from_clause_for_count = """
         FROM sistemaaps.mv_plafam m
         LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area
+        LEFT JOIN LATERAL (
+            SELECT pa.tipo_abordagem, pa.resultado_abordagem, pa.data_acao, pa.responsavel_pela_acao
+            FROM sistemaaps.tb_plafam_adolescentes pa
+            WHERE pa.co_cidadao = m.cod_paciente
+              AND pa.resultado_abordagem IS NOT NULL
+            ORDER BY pa.data_acao DESC, pa.co_abordagem DESC
+            LIMIT 1
+        ) pa_ultima ON TRUE
         """
         count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + from_clause_for_count + where_clause
         cur.execute(count_query, query_params)
@@ -1017,6 +1037,13 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             else:
                 row_dict['proxima_acao_data_formatada'] = None
                 row_dict['proxima_acao_descricao'] = None
+
+            # Processar dados da última ação realizada
+            ultima_data_acao = row_dict.get('ultima_data_acao')
+            if ultima_data_acao and isinstance(ultima_data_acao, date):
+                row_dict['ultima_data_acao_formatada'] = ultima_data_acao.strftime('%d/%m/%Y')
+            else:
+                row_dict['ultima_data_acao_formatada'] = None
 
 
             # Tratamento de datas para cada linha

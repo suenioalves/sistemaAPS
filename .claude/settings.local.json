@@ -26,7 +26,9 @@
       "Bash(\"env/Scripts/python.exe\" app.py)",
       "Bash(C:UsersPichauDesktopSISTEMA APSsistemaAPSenvScriptspython.exe app.py)",
       "Bash(C:UsersPichauDesktopSISTEMA APSsistemaAPSenvScriptspython.exe -c \"\nimport psycopg2\ntry:\n    conn = psycopg2.connect(\n        host=''localhost'',\n        database=''esus'',\n        user=''postgres'',\n        password=''EUC[x*x~Mc#S+H_Ui#xZBr0O~'',\n        port=''5433''\n    )\n    cur = conn.cursor()\n    \n    # Verificar se há medicamentos na tabela\n    cur.execute(''SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_has_medicamentos WHERE data_fim IS NULL OR data_fim > CURRENT_DATE'')\n    count = cur.fetchone()[0]\n    print(f''Total de medicamentos ativos: {count}'')\n    \n    # Mostrar alguns exemplos se houver dados\n    if count > 0:\n        cur.execute(''''''\n            SELECT codcidadao, nome_medicamento, dose, frequencia, data_inicio, data_fim \n            FROM sistemaaps.tb_hiperdia_has_medicamentos \n            WHERE data_fim IS NULL OR data_fim > CURRENT_DATE\n            LIMIT 5\n        '''''')\n        rows = cur.fetchall()\n        print(''\\nExemplos de medicamentos ativos:'')\n        for row in rows:\n            print(f''Paciente: {row[0]}, Medicamento: {row[1]}, Dose: {row[2]}, Frequência: {row[3]}, Início: {row[4]}, Fim: {row[5]}'')\n    \n    cur.close()\n    conn.close()\n    \nexcept Exception as e:\n    print(f''Erro: {e}'')\n\")",
-      "Bash(.envScriptspython.exe app.py)"
+      "Bash(.envScriptspython.exe app.py)",
+      "Bash(npx eslint:*)",
+      "Bash(where psql)"
     ],
     "deny": []
   }

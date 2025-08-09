@@ -93,7 +93,8 @@ document.addEventListener('DOMContentLoaded', function () {
         2: "Abordagem direta com adolescente",
         5: "Mudou de área", 
         7: "Remover do acompanhamento",
-        8: "Atualizar no PEC"
+        8: "Atualizar no PEC",
+        10: "Nova ação"
     };
     const resultadoAbordagemMap = {
         1: "Deseja iniciar um método contraceptivo",
@@ -103,7 +104,13 @@ document.addEventListener('DOMContentLoaded', function () {
         5: "Mudou de área",
         6: "Mudou de cidade",
         7: "Método particular",
-        8: "Outros motivos"
+        8: "Outros motivos",
+        // Nova ação - códigos 11-15
+        11: "Sem método",
+        12: "Método atrasado",
+        13: "Vencimento próximo",
+        14: "Atualizar no PEC",
+        15: "Outros"
     };
 
     const registerModal = document.getElementById('registerModal');
@@ -663,6 +670,29 @@ document.addEventListener('DOMContentLoaded', function () {
             let proximaAcaoDisplay = 'A definir';
             if (shouldHideActions) {
                 proximaAcaoDisplay = '';
+            } else if (ado.ultimo_tipo_abordagem === 10) {
+                // Casos especiais para "Nova ação" (tipo 10) com diferentes abordagens
+                const dataAcao = ado.proxima_acao_data_formatada || ado.ultima_data_acao_formatada || 'Data não informada';
+                
+                if (ado.ultimo_resultado_abordagem === 11) {
+                    // "Sem método"
+                    proximaAcaoDisplay = `<span class="text-yellow-800 font-medium">Sem método - Avisar equipe</span><br><span class="text-xs text-yellow-600">(${dataAcao})</span>`;
+                } else if (ado.ultimo_resultado_abordagem === 12) {
+                    // "Método vencido"
+                    proximaAcaoDisplay = `<span class="text-red-800 font-medium">Método vencido - Avisar equipe</span><br><span class="text-xs text-red-600">(${dataAcao})</span>`;
+                } else if (ado.ultimo_resultado_abordagem === 13) {
+                    // "Vencimento próximo"
+                    proximaAcaoDisplay = `<span class="text-green-800 font-medium">Vencimento próximo - Avisar equipe</span><br><span class="text-xs text-green-600">(${dataAcao})</span>`;
+                } else if (ado.ultimo_resultado_abordagem === 14) {
+                    // "Atualizar no PEC"
+                    proximaAcaoDisplay = `<span class="text-blue-800 font-medium">Atualizar no PEC - Avisar equipe</span><br><span class="text-xs text-blue-600">(${dataAcao})</span>`;
+                } else if (ado.ultimo_resultado_abordagem === 15) {
+                    // "Método em uso"
+                    proximaAcaoDisplay = `<span class="text-gray-700 font-medium">Método em uso</span><br><span class="text-xs text-gray-600">(${dataAcao})</span>`;
+                } else {
+                    // Fallback para outros códigos de "Nova ação"
+                    proximaAcaoDisplay = `<span class="text-purple-700 font-medium">Nova ação</span><br><span class="text-xs text-purple-600">(${dataAcao})</span>`;
+                }
             } else if (ado.ultimo_resultado_abordagem === 4) {
                 // Caso especial: "Já usa um método" - mostrar em verde
                 proximaAcaoDisplay = `<span class="text-green-600 font-medium">(Paciente em uso)</span><br><span class="text-xs text-green-500">(Atualizar no PEC)</span>`;
@@ -681,9 +711,9 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (ado.proxima_acao_descricao) {
                 // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
                 if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {
-                    proximaAcaoDisplay = `<span class="text-yellow-700 font-medium">${ado.proxima_acao_descricao}</span> <br> <span class="text-xs text-yellow-700">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                    proximaAcaoDisplay = `<span class="text-yellow-700 font-medium">${ado.proxima_acao_descricao}</span><br><span class="text-xs text-yellow-600">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
                 } else {
-                    proximaAcaoDisplay = `${ado.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                    proximaAcaoDisplay = `<span class="font-medium">${ado.proxima_acao_descricao}</span><br><span class="text-xs text-gray-500">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
                 }
             }
 
@@ -1059,8 +1089,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = registerModal.querySelector('form'); // Supondo que os inputs estão dentro de um form
         if (form) form.reset();
 
-        // Definir a data atual para o primeiro campo de data (ação atual)
-        const dataAcaoAtualInput = registerModal.querySelector('input[type="date"]'); // Pega o primeiro input de data
+        // Definir a data atual para o campo de data da ação (com ID específico)
+        const dataAcaoAtualInput = document.getElementById('actionDateInput');
         if (dataAcaoAtualInput) {
             const hoje = new Date();
             dataAcaoAtualInput.value = hoje.toISOString().split('T')[0]; // Formato YYYY-MM-DD
@@ -1090,6 +1120,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (registerModal) registerModal.classList.remove('hidden');
         if (timelineModal) timelineModal.classList.add('hidden'); // Fecha o modal da timeline
+        
+        // Setup conditional logic after modal is shown
+        setupNovaAcaoConditionalLogic();
+        
+        // Configurar event listeners iniciais dos dropdowns
+        if (typeof window.setupResultDropdownListeners === 'function') {
+            window.setupResultDropdownListeners();
+        }
+        if (typeof window.setupNextActionDropdownListeners === 'function') {
+            window.setupNextActionDropdownListeners();
+        }
     }
 
     function generateMotherInformativePDF(selectedAdolescents) {
@@ -1453,7 +1494,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const tipoAcaoRadio = registerModal.querySelector('input[name="action-type"]:checked');
-            const dataAcaoInput = registerModal.querySelector('input[type="date"]'); // Primeira data é da ação atual
+            const dataAcaoInput = document.getElementById('actionDateInput'); // Use the specific ID for the action date
             const resultadoButton = document.getElementById('resultButton');
             const observacoesTextarea = registerModal.querySelector('textarea');
             const responsavelInput = document.getElementById('registerResponsibleInput');
@@ -1497,7 +1538,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             };
 
-            if (proximaAcaoDataInput && proximaAcaoDataInput.value && proximaAcaoTipoButton.dataset.selectedValue) {
+            // Only add próxima ação if not "Nova ação" (tipo 10) and required fields are filled
+            if (payload.acao_atual.tipo_abordagem !== 10 && proximaAcaoDataInput && proximaAcaoDataInput.value && proximaAcaoTipoButton.dataset.selectedValue) {
                 // Mapear o código do tipo para o texto correto
                 const tipoCode = proximaAcaoTipoButton.dataset.selectedValue;
                 const tipoTextoMap = {
@@ -1539,7 +1581,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             // Validação para resultado da abordagem, se um tipo de ação que o requer for selecionado
             if (payload.acao_atual.tipo_abordagem !== 4 && payload.acao_atual.tipo_abordagem !== 7 && !payload.acao_atual.resultado_abordagem) { // Se não for "Entrega de convite" nem "Remover do acompanhamento"
-                alert("Por favor, selecione o Resultado da abordagem.");
+                const errorMessage = payload.acao_atual.tipo_abordagem === 10 ? 
+                    "Por favor, selecione a Abordagem." : 
+                    "Por favor, selecione o Resultado da abordagem.";
+                alert(errorMessage);
                 return;
             }
 
@@ -1595,5 +1640,146 @@ document.addEventListener('DOMContentLoaded', function () {
             const adolescentesParaInformativo = currentFetchedTimelineAdolescents.filter(ado => selectedAdolescentCodes.includes(String(ado.cod_paciente)));
             generateMotherInformativePDF(adolescentesParaInformativo);
         });
+    }
+
+    // Setup conditional logic for "Nova ação" type
+    function setupNovaAcaoConditionalLogic() {
+        const actionTypeRadios = document.querySelectorAll('input[name="action-type"]');
+        const nextActionSection = document.getElementById('nextActionSection');
+        const resultDropdownOptionsContainer = document.getElementById('resultDropdownOptionsContainer');
+        const defaultOptions = resultDropdownOptionsContainer?.querySelectorAll('.default-options');
+        const novaAcaoOptions = resultDropdownOptionsContainer?.querySelectorAll('.nova-acao-options');
+
+        function toggleAbordagemOptions() {
+            const selectedActionType = document.querySelector('input[name="action-type"]:checked');
+            if (!selectedActionType) return;
+
+            // RESET COMPLETO DO MODAL ANTES DE APLICAR MUDANÇAS
+            resetModalState();
+
+            if (selectedActionType.value === '10') { // Nova ação
+                // Hide próxima ação section
+                if (nextActionSection) {
+                    nextActionSection.style.display = 'none';
+                }
+                // Show Nova ação dropdown options and hide default options
+                if (defaultOptions) defaultOptions.forEach(option => option.classList.add('hidden'));
+                if (novaAcaoOptions) novaAcaoOptions.forEach(option => option.classList.remove('hidden'));
+                
+                // Reset result button text
+                const resultButton = document.getElementById('resultButton');
+                const resultButtonSpan = resultButton?.querySelector('span');
+                if (resultButtonSpan) {
+                    resultButtonSpan.textContent = 'Selecione a abordagem';
+                }
+                if (resultButton) delete resultButton.dataset.selectedValue;
+                
+                // Reconfigurar event listeners para nova ação options
+                if (typeof window.setupResultDropdownListeners === 'function') {
+                    window.setupResultDropdownListeners();
+                }
+            } else {
+                // Show próxima ação section
+                if (nextActionSection) {
+                    nextActionSection.style.display = 'block';
+                }
+                // Show default options and hide Nova ação options
+                if (defaultOptions) defaultOptions.forEach(option => option.classList.remove('hidden'));
+                if (novaAcaoOptions) novaAcaoOptions.forEach(option => option.classList.add('hidden'));
+                
+                // Reset result button text
+                const resultButton = document.getElementById('resultButton');
+                const resultButtonSpan = resultButton?.querySelector('span');
+                if (resultButtonSpan) {
+                    resultButtonSpan.textContent = 'Selecione o resultado';
+                }
+                if (resultButton) delete resultButton.dataset.selectedValue;
+                
+                // Reconfigurar event listeners para default options
+                if (typeof window.setupResultDropdownListeners === 'function') {
+                    window.setupResultDropdownListeners();
+                }
+                
+                // Reset próxima ação dropdown para opções padrão
+                const nextActionOptionsContainer = document.getElementById('nextActionDropdownOptionsContainer');
+                if (nextActionOptionsContainer) {
+                    nextActionOptionsContainer.innerHTML = `
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                    `;
+                    
+                    // Reconfigurar event listeners para próxima ação
+                    if (typeof window.setupNextActionDropdownListeners === 'function') {
+                        window.setupNextActionDropdownListeners();
+                    }
+                }
+                
+                // Reset next action button
+                const nextActionButton = document.getElementById('nextActionButton');
+                if (nextActionButton && nextActionButton.querySelector('span')) {
+                    nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                    delete nextActionButton.dataset.selectedValue;
+                }
+            }
+        }
+
+        // Função para fazer reset completo do estado do modal
+        function resetModalState() {
+            // Hide method section sempre que mudar tipo de ação
+            const methodSection = document.getElementById('methodSection');
+            if (methodSection) {
+                methodSection.classList.add('hidden');
+            }
+            
+            // Reset method radio buttons
+            const methodRadios = document.querySelectorAll('input[name="method-type"]');
+            methodRadios.forEach(radio => {
+                radio.checked = false;
+            });
+            
+            // Reset result button
+            const resultButton = document.getElementById('resultButton');
+            const resultButtonSpan = resultButton?.querySelector('span');
+            if (resultButtonSpan) {
+                resultButtonSpan.textContent = 'Selecione o resultado';
+            }
+            if (resultButton) delete resultButton.dataset.selectedValue;
+            
+            // Reset next action button
+            const nextActionButton = document.getElementById('nextActionButton');
+            if (nextActionButton && nextActionButton.querySelector('span')) {
+                nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                delete nextActionButton.dataset.selectedValue;
+            }
+            
+            console.log('Modal state reset completed'); // Debug log
+        }
+
+        // Add event listeners to all action type radio buttons (remove existing first to avoid duplicates)
+        if (actionTypeRadios) {
+            actionTypeRadios.forEach((radio, index) => {
+                // Remove existing event listeners by cloning
+                const newRadio = radio.cloneNode(true);
+                radio.parentNode.replaceChild(newRadio, radio);
+                
+                newRadio.addEventListener('change', function() {
+                    console.log(`Action type changed to: ${this.value}`); // Debug log
+                    toggleAbordagemOptions();
+                });
+                
+                // Update reference in NodeList
+                document.querySelectorAll('input[name="action-type"]')[index] = newRadio;
+            });
+        }
+
+        // Set initial state
+        toggleAbordagemOptions();
+    }
+
+    // Initialize the conditional logic when modal is available
+    if (registerModal) {
+        setupNovaAcaoConditionalLogic();
     }
 });
