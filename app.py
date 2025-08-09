@@ -306,6 +306,10 @@ def painel_hiperdia_has():
 def painel_plafam_analise():
     return render_template('painel-plafam-analise.html')
 
+@app.route('/painel-plafam-analise-adolescentes')
+def painel_plafam_analise_adolescentes():
+    return render_template('painel-plafam-analise-adolescentes.html')
+
 
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
@@ -5256,6 +5260,426 @@ def api_diabetes_medicamentos_atuais(cod_cidadao):
         print(f"Erro ao buscar medicamentos do diabético: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+# --- API Routes para Análise de Adolescentes ---
+
+@app.route('/api/adolescentes/analytics/status_snapshot')
+def api_adolescentes_status_snapshot():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    inicio = request.args.get('inicio')
+    fim = request.args.get('fim')
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+        
+        # KPIs seguindo o padrão do painel geral (gestantes, sem método, atraso, em dia)
+        query = f"""
+            SELECT 
+                SUM(CASE WHEN m.status_gravidez = 'Grávida' THEN 1 ELSE 0 END) as gestantes,
+                SUM(CASE WHEN (m.metodo IS NULL OR m.metodo = '') AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') THEN 1 ELSE 0 END) as sem_metodo,
+                SUM(CASE WHEN 
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '90 days')) OR
+                                ((m.metodo ILIKE '%%implante%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '1095 days')) OR
+                                ((m.metodo ILIKE '%%diu%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '3650 days'))
+                            ))
+                        )
+                    THEN 1 ELSE 0 END) as metodo_atraso,
+                SUM(CASE WHEN
+                        (m.metodo IS NOT NULL AND m.metodo != '') AND
+                        (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida') AND
+                        NOT (m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%') AND
+                        (
+                            (m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' AND (
+                                ((m.metodo ILIKE '%%mensal%%' OR m.metodo ILIKE '%%pílula%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days')) OR
+                                ((m.metodo ILIKE '%%trimestral%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days')) OR
+                                ((m.metodo ILIKE '%%implante%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '1095 days')) OR
+                                ((m.metodo ILIKE '%%diu%%') AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '3650 days'))
+                            )) OR
+                            (m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%') OR
+                            (m.data_aplicacao IS NULL OR m.data_aplicacao = '')
+                        )
+                    THEN 1 ELSE 0 END) as metodo_em_dia
+            FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
+            {where_str}
+        """
+        
+        cur.execute(query, params)
+        result = cur.fetchone()
+        
+        return jsonify({
+            'gestantes': result['gestantes'] or 0,
+            'sem_metodo': result['sem_metodo'] or 0,
+            'metodo_atraso': result['metodo_atraso'] or 0,
+            'metodo_em_dia': result['metodo_em_dia'] or 0
+        })
+        
+    except Exception as e:
+        print(f"Erro ao buscar status dos adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/adolescentes/analytics/metodos_desejados')
+def api_adolescentes_metodos_desejados():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+        
+        # Mix de métodos das adolescentes (apenas quem usa métodos contraceptivos)
+        query = f"""
+            SELECT 
+                CASE 
+                    WHEN m.metodo ILIKE '%%mensal%%' THEN 'Mensal'
+                    WHEN m.metodo ILIKE '%%trimestral%%' THEN 'Trimestral'
+                    WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'Pílulas'
+                    WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
+                    WHEN m.metodo ILIKE '%%implante%%' THEN 'Implante'
+                    WHEN m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%' OR m.metodo ILIKE '%%esterilização%%' OR m.metodo ILIKE '%%esterilizacao%%' THEN 'Esterilização'
+                    WHEN m.metodo ILIKE '%%camisinha%%' OR m.metodo ILIKE '%%preservativo%%' THEN 'Preservativo'
+                    WHEN m.metodo ILIKE '%%injeção%%' OR m.metodo ILIKE '%%injecao%%' THEN 'Injeção'
+                    WHEN m.metodo IS NOT NULL AND m.metodo != '' THEN 'Outros métodos'
+                    ELSE NULL
+                END as metodo_categorizado,
+                COUNT(*) as quantidade
+            FROM sistemaaps.mv_plafam m
+            {where_str} 
+            AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida')
+            AND m.metodo IS NOT NULL 
+            AND m.metodo != ''
+            GROUP BY 
+                CASE 
+                    WHEN m.metodo ILIKE '%%mensal%%' THEN 'Mensal'
+                    WHEN m.metodo ILIKE '%%trimestral%%' THEN 'Trimestral'
+                    WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'Pílulas'
+                    WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
+                    WHEN m.metodo ILIKE '%%implante%%' THEN 'Implante'
+                    WHEN m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%' OR m.metodo ILIKE '%%esterilização%%' OR m.metodo ILIKE '%%esterilizacao%%' THEN 'Esterilização'
+                    WHEN m.metodo ILIKE '%%camisinha%%' OR m.metodo ILIKE '%%preservativo%%' THEN 'Preservativo'
+                    WHEN m.metodo ILIKE '%%injeção%%' OR m.metodo ILIKE '%%injecao%%' THEN 'Injeção'
+                    WHEN m.metodo IS NOT NULL AND m.metodo != '' THEN 'Outros métodos'
+                    ELSE NULL
+                END
+            ORDER BY quantidade DESC
+        """
+        
+        cur.execute(query, params)
+        results = cur.fetchall()
+        
+        metodos = []
+        for row in results:
+            if row['metodo_categorizado']:  # Apenas métodos válidos (não nulos)
+                metodos.append({
+                    'nome': row['metodo_categorizado'],
+                    'quantidade': row['quantidade']
+                })
+        
+        return jsonify({'metodos': metodos})
+        
+    except Exception as e:
+        print(f"Erro ao buscar métodos desejados: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/adolescentes/analytics/tipos_abordagem')
+def api_adolescentes_tipos_abordagem():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+        
+        # Mapear códigos de tipo de abordagem para nomes
+        tipo_abordagem_map = {
+            1: 'Abordagem com pais',
+            2: 'Abordagem direta com adolescente', 
+            5: 'Mudou de área',
+            7: 'Remover do acompanhamento'
+        }
+        
+        # Contar total de adolescentes e abordagens por tipo
+        query_total = f"""
+            SELECT COUNT(DISTINCT m.cod_paciente) as total_adolescentes
+            FROM sistemaaps.mv_plafam m
+            {where_str}
+        """
+        
+        cur.execute(query_total, params)
+        total_adolescentes = cur.fetchone()['total_adolescentes']
+        
+        query_abordagens = f"""
+            SELECT 
+                pa.tipo_abordagem,
+                COUNT(DISTINCT pa.co_cidadao) as quantidade
+            FROM sistemaaps.mv_plafam m
+            INNER JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
+            {where_str}
+            GROUP BY pa.tipo_abordagem
+            ORDER BY quantidade DESC
+        """
+        
+        cur.execute(query_abordagens, params)
+        results = cur.fetchall()
+        
+        abordagens = []
+        total_com_abordagem = 0
+        
+        for row in results:
+            tipo = row['tipo_abordagem']
+            quantidade = row['quantidade']
+            total_com_abordagem += quantidade
+            abordagens.append({
+                'tipo': tipo_abordagem_map.get(tipo, f'Tipo {tipo}'),
+                'codigo': tipo,
+                'quantidade': quantidade
+            })
+        
+        # Adicionar adolescentes sem abordagem
+        sem_abordagem = total_adolescentes - total_com_abordagem
+        if sem_abordagem > 0:
+            abordagens.insert(0, {
+                'tipo': 'Sem abordagem',
+                'codigo': 0,
+                'quantidade': sem_abordagem
+            })
+        
+        return jsonify({'abordagens': abordagens})
+        
+    except Exception as e:
+        print(f"Erro ao buscar tipos de abordagem: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/adolescentes/analytics/resultados_abordagem')
+def api_adolescentes_resultados_abordagem():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+        
+        # Mapear códigos de resultado para nomes
+        resultado_map = {
+            1: 'Deseja iniciar método contraceptivo',
+            2: 'Recusou método contraceptivo',
+            3: 'Ausente em domicílio',
+            4: 'Já usa um método',
+            5: 'Mudou de área',
+            6: 'Mudou de cidade',
+            7: 'Método particular',
+            8: 'Outros motivos'
+        }
+        
+        query = f"""
+            SELECT 
+                pa.resultado_abordagem,
+                COUNT(*) as quantidade
+            FROM sistemaaps.mv_plafam m
+            INNER JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
+            {where_str} AND pa.resultado_abordagem IS NOT NULL
+            GROUP BY pa.resultado_abordagem
+            ORDER BY quantidade DESC
+        """
+        
+        cur.execute(query, params)
+        results = cur.fetchall()
+        
+        resultados = []
+        for row in results:
+            resultado = row['resultado_abordagem']
+            quantidade = row['quantidade']
+            resultados.append({
+                'resultado': resultado_map.get(resultado, f'Resultado {resultado}'),
+                'codigo': resultado,
+                'quantidade': quantidade
+            })
+        
+        return jsonify({'resultados': resultados})
+        
+    except Exception as e:
+        print(f"Erro ao buscar resultados de abordagem: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/adolescentes/analytics/timeline_acoes')
+def api_adolescentes_timeline_acoes():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    granularidade = request.args.get('granularidade', 'month')
+    inicio = request.args.get('inicio')
+    fim = request.args.get('fim')
+    
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        if inicio:
+            where_clauses.append("pa.data_acao >= %(inicio)s")
+            params['inicio'] = inicio
+        if fim:
+            where_clauses.append("pa.data_acao <= %(fim)s")
+            params['fim'] = fim
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+        
+        # Definir formato de data baseado na granularidade
+        if granularidade == 'day':
+            date_trunc = 'day'
+            date_format = 'DD/MM/YYYY'
+        elif granularidade == 'week':
+            date_trunc = 'week'
+            date_format = 'DD/MM/YYYY'
+        else:  # month
+            date_trunc = 'month'
+            date_format = 'MM/YYYY'
+        
+        query = f"""
+            SELECT 
+                DATE_TRUNC('{date_trunc}', pa.data_acao) as periodo,
+                TO_CHAR(DATE_TRUNC('{date_trunc}', pa.data_acao), '{date_format}') as periodo_str,
+                COUNT(*) as total_acoes
+            FROM sistemaaps.mv_plafam m
+            INNER JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
+            {where_str} AND pa.data_acao IS NOT NULL
+            GROUP BY DATE_TRUNC('{date_trunc}', pa.data_acao)
+            ORDER BY periodo
+        """
+        
+        cur.execute(query, params)
+        results = cur.fetchall()
+        
+        timeline = []
+        for row in results:
+            timeline.append({
+                'periodo': row['periodo_str'],
+                'acoes': row['total_acoes']
+            })
+        
+        return jsonify({'timeline': timeline})
+        
+    except Exception as e:
+        print(f"Erro ao buscar timeline de ações: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
