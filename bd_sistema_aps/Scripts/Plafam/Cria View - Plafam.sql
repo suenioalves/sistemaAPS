@@ -34,9 +34,9 @@ MulheresNaFaixaEtariaRanked AS (
         ROW_NUMBER() OVER (
             PARTITION BY c.co_seq_cidadao
             ORDER BY 
-                cve.dt_vinculacao DESC,  -- Vinculação mais recente primeiro
+                cve.dt_atualizacao_cadastro DESC NULLS LAST,  -- Atualização mais recente primeiro
                 e.no_equipe ASC,        -- Se datas iguais, equipe por ordem alfabética
-                cve.co_cidadao_vinculacao_equipe DESC -- Desempate final por ID
+                cve.co_seq_cidadao_vinculacao_eqp DESC -- Desempate final por ID
         ) as rn_vinculacao
     FROM
         tb_cidadao c
@@ -57,7 +57,6 @@ MulheresNaFaixaEtariaRanked AS (
         AND (DATE_PART('year', AGE(CURRENT_DATE, c.dt_nascimento)) >= 14
         AND DATE_PART('year', AGE(CURRENT_DATE, c.dt_nascimento)) <= 45)
         AND e.st_ativo = 1
-        AND cve.st_ativo = 1  -- Adiciona filtro para vinculação ativa
 ),
 MulheresNaFaixaEtariaBase AS (
     -- CTE 1: Seleciona apenas uma vinculação por cidadão (a mais recente)
@@ -284,8 +283,7 @@ UltimaEsterilizacao AS (
             UPPER(tci.ds_cirurgia_internacao) LIKE '%LIGAD%' OR
             UPPER(tci.ds_cirurgia_internacao) LIKE '%SALPING%'
         )
-)
-
+),
 
 -- CTE Final: Garantia absoluta de unicidade por co_seq_cidadao
 ResultadoFinalRanked AS (
