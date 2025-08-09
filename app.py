@@ -1148,6 +1148,26 @@ def api_registrar_acao_adolescente():
         acao_atual_payload = data['acao_atual']
         proxima_acao_payload = data.get('proxima_acao')
 
+        # Mapping function to convert method names to numeric codes
+        def convert_method_to_code(method_name):
+            if not method_name:
+                return None
+            method_mapping = {
+                'Pílula anticoncepcional': 1,
+                'Injetável mensal': 2,
+                'Injetável trimestral': 3,
+                'DIU': 4,
+                'Implante subdérmico': 5
+            }
+            return method_mapping.get(method_name, None)
+
+        # Convert method names to codes in payloads
+        if acao_atual_payload and 'metodo_desejado' in acao_atual_payload:
+            acao_atual_payload['metodo_desejado'] = convert_method_to_code(acao_atual_payload['metodo_desejado'])
+        
+        if proxima_acao_payload and 'metodo_desejado' in proxima_acao_payload:
+            proxima_acao_payload['metodo_desejado'] = convert_method_to_code(proxima_acao_payload['metodo_desejado'])
+
         # Obter o próximo valor para co_abordagem de forma segura para múltiplas inserções
         cur.execute("SELECT MAX(co_abordagem) FROM sistemaaps.tb_plafam_adolescentes")
         max_co_abordagem = cur.fetchone()[0]
@@ -5352,6 +5372,67 @@ def api_adolescentes_status_snapshot():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/adolescentes/analytics/mix_metodos')
+def api_adolescentes_mix_metodos():
+    equipe_req = request.args.get('equipe', 'Todas')
+    microarea_req = request.args.get('microarea', 'Todas as áreas')
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        where_clauses = ["m.idade_calculada BETWEEN 14 AND 18"]
+        params = {}
+        
+        if equipe_req != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe)s")
+            params['equipe'] = equipe_req
+        if microarea_req != 'Todas as áreas':
+            if ' - ' in microarea_req:
+                parts = microarea_req.split(' - ', 1)
+                micro_area_str = parts[0].replace('Área ', '').strip()
+            else:
+                micro_area_str = microarea_req.replace('Área ', '').strip()
+            if micro_area_str:
+                where_clauses.append("m.microarea = %(microarea)s")
+                params['microarea'] = micro_area_str
+        
+        where_str = " WHERE " + " AND ".join(where_clauses)
+
+        # Mix de métodos das adolescentes de 14-18 anos (métodos atualmente em uso)
+        query = f"""
+        SELECT
+            CASE
+                WHEN m.metodo ILIKE '%%laqueadura%%' THEN 'LAQUEADURA'
+                WHEN m.metodo ILIKE '%%histerectomia%%' THEN 'HISTERECTOMIA'
+                WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
+                WHEN m.metodo ILIKE '%%implante%%' THEN 'IMPLANTE SUBDÉRMICO'
+                WHEN m.metodo ILIKE '%%mensal%%' THEN 'MENSAL'
+                WHEN m.metodo ILIKE '%%trimestral%%' THEN 'TRIMESTRAL'
+                WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'PÍLULA'
+                WHEN m.metodo IS NULL OR m.metodo = '' THEN 'SEM MÉTODO'
+                ELSE 'OUTROS'
+            END AS categoria,
+            COUNT(*) AS total
+        FROM sistemaaps.mv_plafam m
+        {where_str}
+        GROUP BY categoria
+        ORDER BY total DESC;
+        """
+        
+        cur.execute(query, params)
+        rows = cur.fetchall() or []
+        data = [{"categoria": r['categoria'], "total": int(r['total'])} for r in rows]
+        return jsonify({"mix": data})
+        
+    except Exception as e:
+        print(f"Erro ao buscar mix de métodos de adolescentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 @app.route('/api/adolescentes/analytics/metodos_desejados')
 def api_adolescentes_metodos_desejados():
     equipe_req = request.args.get('equipe', 'Todas')
@@ -5381,39 +5462,31 @@ def api_adolescentes_metodos_desejados():
         
         where_str = " WHERE " + " AND ".join(where_clauses)
         
-        # Mix de métodos das adolescentes (apenas quem usa métodos contraceptivos)
+        # Query métodos desejados from adolescent action registrations (numeric codes)
         query = f"""
             SELECT 
                 CASE 
-                    WHEN m.metodo ILIKE '%%mensal%%' THEN 'Mensal'
-                    WHEN m.metodo ILIKE '%%trimestral%%' THEN 'Trimestral'
-                    WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'Pílulas'
-                    WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
-                    WHEN m.metodo ILIKE '%%implante%%' THEN 'Implante'
-                    WHEN m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%' OR m.metodo ILIKE '%%esterilização%%' OR m.metodo ILIKE '%%esterilizacao%%' THEN 'Esterilização'
-                    WHEN m.metodo ILIKE '%%camisinha%%' OR m.metodo ILIKE '%%preservativo%%' THEN 'Preservativo'
-                    WHEN m.metodo ILIKE '%%injeção%%' OR m.metodo ILIKE '%%injecao%%' THEN 'Injeção'
-                    WHEN m.metodo IS NOT NULL AND m.metodo != '' THEN 'Outros métodos'
-                    ELSE NULL
+                    WHEN pa.metodo_desejado = 1 THEN 'Pílula anticoncepcional'
+                    WHEN pa.metodo_desejado = 2 THEN 'Injetável mensal'
+                    WHEN pa.metodo_desejado = 3 THEN 'Injetável trimestral'
+                    WHEN pa.metodo_desejado = 4 THEN 'DIU'
+                    WHEN pa.metodo_desejado = 5 THEN 'Implante subdérmico'
+                    ELSE 'Outros métodos'
                 END as metodo_categorizado,
-                COUNT(*) as quantidade
+                COUNT(DISTINCT pa.co_cidadao) as quantidade
             FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
             {where_str} 
-            AND (m.status_gravidez IS NULL OR m.status_gravidez != 'Grávida')
-            AND m.metodo IS NOT NULL 
-            AND m.metodo != ''
+            AND pa.metodo_desejado IS NOT NULL 
+            AND pa.resultado_abordagem = 1  -- Apenas quando "Deseja iniciar um método contraceptivo"
             GROUP BY 
                 CASE 
-                    WHEN m.metodo ILIKE '%%mensal%%' THEN 'Mensal'
-                    WHEN m.metodo ILIKE '%%trimestral%%' THEN 'Trimestral'
-                    WHEN m.metodo ILIKE '%%pílula%%' OR m.metodo ILIKE '%%pilula%%' THEN 'Pílulas'
-                    WHEN m.metodo ILIKE '%%diu%%' THEN 'DIU'
-                    WHEN m.metodo ILIKE '%%implante%%' THEN 'Implante'
-                    WHEN m.metodo ILIKE '%%laqueadura%%' OR m.metodo ILIKE '%%vasectomia%%' OR m.metodo ILIKE '%%esterilização%%' OR m.metodo ILIKE '%%esterilizacao%%' THEN 'Esterilização'
-                    WHEN m.metodo ILIKE '%%camisinha%%' OR m.metodo ILIKE '%%preservativo%%' THEN 'Preservativo'
-                    WHEN m.metodo ILIKE '%%injeção%%' OR m.metodo ILIKE '%%injecao%%' THEN 'Injeção'
-                    WHEN m.metodo IS NOT NULL AND m.metodo != '' THEN 'Outros métodos'
-                    ELSE NULL
+                    WHEN pa.metodo_desejado = 1 THEN 'Pílula anticoncepcional'
+                    WHEN pa.metodo_desejado = 2 THEN 'Injetável mensal'
+                    WHEN pa.metodo_desejado = 3 THEN 'Injetável trimestral'
+                    WHEN pa.metodo_desejado = 4 THEN 'DIU'
+                    WHEN pa.metodo_desejado = 5 THEN 'Implante subdérmico'
+                    ELSE 'Outros métodos'
                 END
             ORDER BY quantidade DESC
         """
@@ -5491,7 +5564,7 @@ def api_adolescentes_tipos_abordagem():
                 COUNT(DISTINCT pa.co_cidadao) as quantidade
             FROM sistemaaps.mv_plafam m
             INNER JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
-            {where_str}
+            {where_str} AND pa.tipo_abordagem IN (1, 2, 5, 7)
             GROUP BY pa.tipo_abordagem
             ORDER BY quantidade DESC
         """
@@ -5505,12 +5578,14 @@ def api_adolescentes_tipos_abordagem():
         for row in results:
             tipo = row['tipo_abordagem']
             quantidade = row['quantidade']
-            total_com_abordagem += quantidade
-            abordagens.append({
-                'tipo': tipo_abordagem_map.get(tipo, f'Tipo {tipo}'),
-                'codigo': tipo,
-                'quantidade': quantidade
-            })
+            # Apenas processar códigos válidos
+            if tipo in tipo_abordagem_map:
+                total_com_abordagem += quantidade
+                abordagens.append({
+                    'tipo': tipo_abordagem_map[tipo],
+                    'codigo': tipo,
+                    'quantidade': quantidade
+                })
         
         # Adicionar adolescentes sem abordagem
         sem_abordagem = total_adolescentes - total_com_abordagem
@@ -5573,12 +5648,25 @@ def api_adolescentes_resultados_abordagem():
         
         query = f"""
             SELECT 
-                pa.resultado_abordagem,
+                CASE 
+                    WHEN pa.resultado_abordagem = 1 THEN 'Deseja iniciar método contraceptivo'
+                    WHEN pa.resultado_abordagem = 2 THEN 'Recusou método contraceptivo'
+                    WHEN pa.resultado_abordagem IN (4, 7) THEN 'Já usa um método'
+                    WHEN pa.resultado_abordagem IN (3, 5, 6, 8) THEN 'Outros resultados'
+                    ELSE 'Outros resultados'
+                END as resultado_agrupado,
                 COUNT(*) as quantidade
             FROM sistemaaps.mv_plafam m
             INNER JOIN sistemaaps.tb_plafam_adolescentes pa ON m.cod_paciente = pa.co_cidadao
             {where_str} AND pa.resultado_abordagem IS NOT NULL
-            GROUP BY pa.resultado_abordagem
+            GROUP BY 
+                CASE 
+                    WHEN pa.resultado_abordagem = 1 THEN 'Deseja iniciar método contraceptivo'
+                    WHEN pa.resultado_abordagem = 2 THEN 'Recusou método contraceptivo'
+                    WHEN pa.resultado_abordagem IN (4, 7) THEN 'Já usa um método'
+                    WHEN pa.resultado_abordagem IN (3, 5, 6, 8) THEN 'Outros resultados'
+                    ELSE 'Outros resultados'
+                END
             ORDER BY quantidade DESC
         """
         
@@ -5587,12 +5675,9 @@ def api_adolescentes_resultados_abordagem():
         
         resultados = []
         for row in results:
-            resultado = row['resultado_abordagem']
-            quantidade = row['quantidade']
             resultados.append({
-                'resultado': resultado_map.get(resultado, f'Resultado {resultado}'),
-                'codigo': resultado,
-                'quantidade': quantidade
+                'resultado': row['resultado_agrupado'],
+                'quantidade': row['quantidade']
             })
         
         return jsonify({'resultados': resultados})

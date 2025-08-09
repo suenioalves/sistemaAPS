@@ -261,12 +261,13 @@ console.log('adolescentes_analise.js carregado');
       if(state.equipe !== 'Todas') params.set('equipe', state.equipe);
       if(state.microarea !== 'Todas as áreas') params.set('microarea', state.microarea);
       
-      const resp = await fetch('/api/adolescentes/analytics/metodos_desejados?' + params);
+      const resp = await fetch('/api/adolescentes/analytics/mix_metodos?' + params);
       const data = await resp.json();
       
-      const metodos = data.metodos || [];
-      const labels = metodos.map(m => m.nome);
-      const values = metodos.map(m => m.quantidade);
+      // Filtrar fora 'SEM MÉTODO' (igual ao plafam_analise.js)
+      const filtered = (data.mix || []).filter(x => x.categoria !== 'SEM MÉTODO');
+      const labels = filtered.map(x => x.categoria);
+      const values = filtered.map(x => x.total);
       const total = values.reduce((a, b) => a + b, 0);
       const percentages = values.map(v => total > 0 ? ((v / total) * 100) : 0);
       
@@ -405,7 +406,7 @@ console.log('adolescentes_analise.js carregado');
 
   function createMixChart() {
     const container = qs('chart-mix');
-    if(!container || !mixDataCache.labels.length) return;
+    if(!container) return;
     
     if(charts.mix) {
       charts.mix.dispose();
@@ -416,45 +417,76 @@ console.log('adolescentes_analise.js carregado');
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#f3f4f6' : '#1f2937';
     
-    const values = mixMode === 'pct' ? mixDataCache.valuesPct : mixDataCache.valuesAbs;
-    const suffix = mixMode === 'pct' ? '%' : '';
-    
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
-    
-    const option = {
-      tooltip: {
-        trigger: 'item',
-        formatter: function(params) {
-          const value = mixMode === 'pct' ? 
-            `${params.value.toFixed(1)}%` : 
-            `${params.value} (${((params.value / mixDataCache.total) * 100).toFixed(1)}%)`;
-          return `${params.name}: ${value}`;
-        }
-      },
-      legend: {
-        orient: 'vertical',
-        left: 'left',
-        textStyle: { color: textColor }
-      },
-      series: [
-        {
-          name: 'Mix de Métodos',
-          type: 'pie',
-          radius: '50%',
-          data: mixDataCache.labels.map((label, i) => ({
-            value: values[i],
-            name: label,
-            itemStyle: { color: colors[i % colors.length] }
-          })),
-          emphasis: {
-            itemStyle: {
-              shadowBlur: 10,
-              shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)'
-            }
+    // Check if there's no data
+    if(!mixDataCache.labels || mixDataCache.labels.length === 0) {
+      const option = {
+        title: {
+          text: 'Nenhum método em uso',
+          subtext: 'Os dados aparecerão quando houver adolescentes\nde 14-18 anos usando métodos contraceptivos',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            color: textColor,
+            fontSize: 14
+          },
+          subtextStyle: {
+            color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: 12
           }
         }
-      ]
+      };
+      charts.mix.setOption(option);
+      return;
+    }
+    
+    const values = mixMode === 'abs' ? mixDataCache.valuesAbs : mixDataCache.valuesPct;
+    const yAxisLabel = {
+      color: textColor,
+      formatter: (val) => mixMode === 'pct' ? `${val}%` : `${val}`
+    };
+    
+    const option = {
+      backgroundColor: 'transparent',
+      tooltip: { 
+        trigger: 'axis', 
+        formatter: (params) => {
+          const p = params[0];
+          const idx = p.dataIndex;
+          const abs = mixDataCache.valuesAbs[idx];
+          const pct = mixDataCache.valuesPct[idx];
+          return `${p.axisValue}<br/>${abs} (${pct.toFixed(1)}%)`;
+        } 
+      },
+      xAxis: { 
+        type: 'category', 
+        data: mixDataCache.labels, 
+        axisLabel: { rotate: 30, color: textColor }
+      },
+      yAxis: { 
+        type: 'value', 
+        axisLabel: yAxisLabel, 
+        max: mixMode === 'pct' ? 100 : null, 
+        splitLine: { 
+          lineStyle: { color: isDark ? '#374151' : '#e5e7eb' } 
+        } 
+      },
+      grid: { left: 40, right: 16, bottom: 60, top: 16 },
+      series: [{ 
+        type: 'bar', 
+        data: values, 
+        itemStyle: { color: '#1D70B8' }, 
+        label: { 
+          show: true, 
+          position: 'top', 
+          formatter: (p) => {
+            const idx = p.dataIndex;
+            const abs = mixDataCache.valuesAbs[idx];
+            const pct = mixDataCache.valuesPct[idx];
+            return mixMode === 'abs' ? `${abs} (${pct.toFixed(1)}%)` : `${pct.toFixed(1)}% (${abs})`;
+          }, 
+          color: textColor 
+        } 
+      }]
     };
     
     charts.mix.setOption(option);
@@ -472,6 +504,28 @@ console.log('adolescentes_analise.js carregado');
     
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#f3f4f6' : '#1f2937';
+    
+    // Check if there's no data
+    if(!data || data.length === 0) {
+      const option = {
+        title: {
+          text: 'Nenhuma abordagem registrada',
+          subtext: 'Os dados aparecerão quando houver registros\nde ações com adolescentes',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            color: textColor,
+            fontSize: 14
+          },
+          subtextStyle: {
+            color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: 12
+          }
+        }
+      };
+      charts.abordagem.setOption(option);
+      return;
+    }
     
     if(chartTypes.abordagem === 'pie') {
       const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -564,6 +618,28 @@ console.log('adolescentes_analise.js carregado');
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#f3f4f6' : '#1f2937';
     
+    // Check if there's no data
+    if(!data || data.length === 0) {
+      const option = {
+        title: {
+          text: 'Nenhum resultado registrado',
+          subtext: 'Os dados aparecerão quando houver registros\nde resultados de abordagens com adolescentes',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            color: textColor,
+            fontSize: 14
+          },
+          subtextStyle: {
+            color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: 12
+          }
+        }
+      };
+      charts.resultado.setOption(option);
+      return;
+    }
+    
     if(chartTypes.resultado === 'pie') {
       const colors = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
       
@@ -654,6 +730,28 @@ console.log('adolescentes_analise.js carregado');
     
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#f3f4f6' : '#1f2937';
+    
+    // Check if there's no data
+    if(!data || data.length === 0) {
+      const option = {
+        title: {
+          text: 'Nenhum método desejado registrado',
+          subtext: 'Os dados aparecerão quando houver registros de ações\ncom adolescentes que desejam iniciar métodos contraceptivos',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            color: textColor,
+            fontSize: 14
+          },
+          subtextStyle: {
+            color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: 12
+          }
+        }
+      };
+      charts.metodo.setOption(option);
+      return;
+    }
     
     if(chartTypes.metodo === 'pie') {
       const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
@@ -746,6 +844,28 @@ console.log('adolescentes_analise.js carregado');
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#f3f4f6' : '#1f2937';
     
+    // Check if there's no data
+    if(!data || data.length === 0) {
+      const option = {
+        title: {
+          text: 'Nenhuma ação registrada no período',
+          subtext: 'Os dados aparecerão quando houver registros\nde ações com adolescentes no período selecionado',
+          left: 'center',
+          top: 'middle',
+          textStyle: {
+            color: textColor,
+            fontSize: 14
+          },
+          subtextStyle: {
+            color: isDark ? '#9ca3af' : '#6b7280',
+            fontSize: 12
+          }
+        }
+      };
+      charts.timeline.setOption(option);
+      return;
+    }
+    
     const option = {
       tooltip: {
         trigger: 'axis'
@@ -792,7 +912,7 @@ console.log('adolescentes_analise.js carregado');
     mixMode = mixMode === 'abs' ? 'pct' : 'abs';
     const btn = qs('toggle-mix-text');
     if(btn) {
-      btn.textContent = mixMode === 'abs' ? 'Ver %' : 'Ver Abs';
+      btn.textContent = mixMode === 'abs' ? 'Ver %' : 'Ver nº';
     }
     createMixChart();
   }
