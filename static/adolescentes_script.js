@@ -99,7 +99,11 @@ document.addEventListener('DOMContentLoaded', function () {
         1: "Deseja iniciar um método contraceptivo",
         2: "Recusou método contraceptivo",
         3: "Ausente em domicílio",
-        4: "Já usa um método"
+        4: "Já usa um método",
+        5: "Mudou de área",
+        6: "Mudou de cidade",
+        7: "Método particular",
+        8: "Outros motivos"
     };
 
     const registerModal = document.getElementById('registerModal');

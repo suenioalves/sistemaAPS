@@ -716,6 +716,10 @@
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Já usa um método</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Mudou de cidade</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Método particular</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Outros motivos</div>
                                     </div>
                                 </div>
                             </div>
@@ -829,7 +833,148 @@
         // Por ora, focamos nos dropdowns de Equipe e Área/Agente.
 
         // Lógica para os dropdowns de "Status do método", "Resultado da abordagem", etc., se ainda necessária:
+        // Lógica para filtrar resultado quando "Mudou de área" é selecionado
         document.addEventListener('DOMContentLoaded', function () {
+            const registerModal = document.getElementById('registerModal');
+            const resultDropdownOptionsContainer = document.getElementById('resultDropdownOptionsContainer');
+            const nextActionOptionsContainer = document.getElementById('nextActionDropdownOptionsContainer');
+            
+            // Event listener para mudanças no tipo de ação
+            registerModal.addEventListener('change', function(e) {
+                if (e.target.name === 'action-type') {
+                    const selectedValue = e.target.value;
+                    
+                    if (selectedValue === '5') { // Mudou de área
+                        // Filtrar resultado para mostrar apenas "Mudou de área"
+                        resultDropdownOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                        `;
+                        
+                        // Atualizar data da próxima ação para +7 dias
+                        const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1];
+                        if (proximaAcaoDataInput) {
+                            const proximaData = new Date();
+                            proximaData.setDate(proximaData.getDate() + 7);
+                            proximaAcaoDataInput.value = proximaData.toISOString().split('T')[0];
+                        }
+                        
+                        // Filtrar próxima ação para mostrar apenas "Atualizar no PEC"
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
+                        `;
+                        
+                        // Reconfigurar event listeners para as novas opções de resultado
+                        const resultOptions = resultDropdownOptionsContainer.querySelectorAll('.cursor-pointer');
+                        resultOptions.forEach(option => {
+                            option.addEventListener('click', function () {
+                                const resultButton = document.getElementById('resultButton');
+                                if (resultButton && resultButton.querySelector('span')) {
+                                    resultButton.querySelector('span').textContent = this.textContent;
+                                    resultButton.dataset.selectedValue = this.dataset.value;
+                                }
+                                const resultDropdown = document.getElementById('resultDropdown');
+                                if (resultDropdown) resultDropdown.classList.add('hidden');
+                            });
+                        });
+                        
+                        // Reconfigurar event listeners para as novas opções de próxima ação
+                        const nextActionOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
+                        nextActionOptions.forEach(option => {
+                            option.addEventListener('click', function () {
+                                const nextActionButton = document.getElementById('nextActionButton');
+                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                    nextActionButton.querySelector('span').textContent = this.textContent;
+                                    nextActionButton.dataset.selectedValue = this.dataset.value;
+                                }
+                                const nextActionDropdown = document.getElementById('nextActionDropdown');
+                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                            });
+                        });
+                        
+                    } else if (selectedValue === '7') { // Remover do acompanhamento
+                        // Filtrar resultado para mostrar apenas as opções de remoção
+                        resultDropdownOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Mudou de cidade</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Método particular</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Outros motivos</div>
+                        `;
+                        
+                        // Atualizar data da próxima ação para +7 dias
+                        const proximaAcaoDataInput = registerModal.querySelectorAll('input[type="date"]')[1];
+                        if (proximaAcaoDataInput) {
+                            const proximaData = new Date();
+                            proximaData.setDate(proximaData.getDate() + 7);
+                            proximaAcaoDataInput.value = proximaData.toISOString().split('T')[0];
+                        }
+                        
+                        // Filtrar próxima ação para mostrar apenas "Atualizar no PEC"
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar no PEC</div>
+                        `;
+                        
+                        // Reconfigurar event listeners para as novas opções de resultado
+                        const resultOptions = resultDropdownOptionsContainer.querySelectorAll('.cursor-pointer');
+                        resultOptions.forEach(option => {
+                            option.addEventListener('click', function () {
+                                const resultButton = document.getElementById('resultButton');
+                                if (resultButton && resultButton.querySelector('span')) {
+                                    resultButton.querySelector('span').textContent = this.textContent;
+                                    resultButton.dataset.selectedValue = this.dataset.value;
+                                }
+                                const resultDropdown = document.getElementById('resultDropdown');
+                                if (resultDropdown) resultDropdown.classList.add('hidden');
+                            });
+                        });
+                        
+                        // Reconfigurar event listeners para as novas opções de próxima ação
+                        const nextActionOptions = nextActionOptionsContainer.querySelectorAll('.cursor-pointer');
+                        nextActionOptions.forEach(option => {
+                            option.addEventListener('click', function () {
+                                const nextActionButton = document.getElementById('nextActionButton');
+                                if (nextActionButton && nextActionButton.querySelector('span')) {
+                                    nextActionButton.querySelector('span').textContent = this.textContent;
+                                    nextActionButton.dataset.selectedValue = this.dataset.value;
+                                }
+                                const nextActionDropdown = document.getElementById('nextActionDropdown');
+                                if (nextActionDropdown) nextActionDropdown.classList.add('hidden');
+                            });
+                        });
+                        
+                    } else {
+                        // Restaurar opções originais quando outro tipo de ação for selecionado
+                        resultDropdownOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Deseja iniciar um método contraceptivo</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Já usa um método</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Mudou de cidade</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Método particular</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Outros motivos</div>
+                        `;
+                        
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
+                        `;
+                        
+                        // Reset dos botões 
+                        const resultButton = document.getElementById('resultButton');
+                        const nextActionButton = document.getElementById('nextActionButton');
+                        if (resultButton && resultButton.querySelector('span')) {
+                            resultButton.querySelector('span').textContent = 'Selecione o resultado';
+                            delete resultButton.dataset.selectedValue;
+                        }
+                        if (nextActionButton && nextActionButton.querySelector('span')) {
+                            nextActionButton.querySelector('span').textContent = 'Selecione o tipo';
+                            delete nextActionButton.dataset.selectedValue;
+                        }
+                    }
+                }
+            });
+            
             const otherDropdowns = [
                 // { button: 'statusButton', dropdown: 'statusDropdown' }, // Este foi desabilitado no HTML
                 { button: 'resultButton', dropdown: 'resultDropdown', optionsContainer: 'resultDropdownOptionsContainer' },
