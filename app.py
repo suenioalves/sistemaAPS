@@ -4067,6 +4067,148 @@ def api_export_plafam():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/plano_semanal_plafam')
+def api_plano_semanal_plafam():
+    """API para gerar Plano Semanal - seleciona 2 mulheres por microárea (>=19 anos, sem método, sem acompanhamento) ordenadas por idade (mais novas primeiro)"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Parâmetro opcional para equipe específica
+        equipe_selecionada = request.args.get('equipe_selecionada', None)
+        
+        # Construir filtros
+        where_clauses = []
+        query_params = {}
+        
+        # Se há equipe específica, usar apenas ela
+        if equipe_selecionada and equipe_selecionada != 'Todas':
+            where_clauses.append("m.nome_equipe = %(equipe_selecionada)s")
+            query_params['equipe_selecionada'] = equipe_selecionada
+        
+        # Filtros fixos do Plano Semanal
+        where_clauses.extend([
+            "m.microarea NOT IN (0, 7, 8)",  # Excluir microáreas específicas
+            "(m.metodo = '' OR m.metodo IS NULL)",  # Sem método
+            "m.status_gravidez != 'Grávida'",  # Não grávidas
+            "m.idade_calculada >= 19",  # Apenas mulheres com 19 anos ou mais
+            "(pa.status_acompanhamento IS NULL OR pa.status_acompanhamento = 0)"  # Sem acompanhamento
+        ])
+        
+        where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        
+        # Query para buscar mulheres elegíveis, limitando 2 por microárea
+        query = f"""
+        WITH MulheresElegiveis AS (
+            SELECT
+                m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
+                m.microarea, m.metodo, m.nome_equipe, m.data_aplicacao, 
+                m.status_gravidez, m.data_provavel_parto,
+                pa.status_acompanhamento, pa.data_acompanhamento,
+                ag.nome_agente,
+                ROW_NUMBER() OVER (PARTITION BY m.nome_equipe, m.microarea ORDER BY m.idade_calculada ASC, m.nome_paciente) as rn
+            FROM sistemaaps.mv_plafam m
+            LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+            LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
+            {where_clause}
+        )
+        SELECT 
+            cod_paciente, nome_paciente, cartao_sus, idade_calculada, 
+            microarea, metodo, nome_equipe, data_aplicacao, 
+            status_gravidez, data_provavel_parto,
+            status_acompanhamento, data_acompanhamento, nome_agente
+        FROM MulheresElegiveis
+        WHERE rn <= 2
+        ORDER BY nome_equipe, microarea, idade_calculada ASC, nome_paciente
+        """
+        
+        print(f"DEBUG Plano Semanal Query: {query}")
+        print(f"DEBUG Plano Semanal Params: {query_params}")
+        
+        cur.execute(query, query_params)
+        pacientes_selecionadas = cur.fetchall()
+        
+        # Se não há pacientes elegíveis
+        if not pacientes_selecionadas:
+            return jsonify({
+                'pacientes': [],
+                'total': 0,
+                'mensagem': 'Nenhuma paciente elegível encontrada para o Plano Semanal.'
+            })
+        
+        # Inserir registros de acompanhamento para as pacientes selecionadas
+        pacientes_inseridos = []
+        resumo_equipes = set()
+        total_microareas = set()
+        
+        for pac in pacientes_selecionadas:
+            cod_paciente = pac[0]
+            
+            try:
+                # Inserir registro de acompanhamento com status "Convite com o agente" (status = 1)
+                sql_insert_acompanhamento = """
+                    INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
+                    VALUES (%(co_cidadao)s, 1, CURRENT_DATE)
+                    ON CONFLICT (co_cidadao) DO UPDATE
+                    SET status_acompanhamento = EXCLUDED.status_acompanhamento,
+                        data_acompanhamento = EXCLUDED.data_acompanhamento;
+                """
+                
+                cur.execute(sql_insert_acompanhamento, {'co_cidadao': cod_paciente})
+                print(f"DEBUG: Inserido acompanhamento para paciente {cod_paciente}")
+                
+                # Adicionar à lista de pacientes para PDF
+                pac_dict = {
+                    'cod_paciente': pac[0],
+                    'nome_paciente': pac[1],
+                    'cartao_sus': pac[2],
+                    'idade_calculada': pac[3],
+                    'microarea': pac[4],
+                    'metodo': pac[5] or '',
+                    'nome_equipe': pac[6],
+                    'data_aplicacao': pac[7],
+                    'status_gravidez': pac[8],
+                    'data_provavel_parto': pac[9],
+                    'status_acompanhamento': 1,  # Agora com status "Convite com o agente"
+                    'data_acompanhamento': datetime.now().date().strftime('%d/%m/%Y'),
+                    'nome_agente': pac[12] or 'A definir'
+                }
+                pacientes_inseridos.append(pac_dict)
+                resumo_equipes.add(pac[6])
+                total_microareas.add(f"{pac[6]}-{pac[4]}")
+                
+            except Exception as e_insert:
+                print(f"Erro ao inserir acompanhamento para paciente {cod_paciente}: {e_insert}")
+                # Continua com os outros pacientes mesmo se um falhar
+        
+        # Commit das inserções
+        conn.commit()
+        
+        # Preparar resposta
+        resumo_equipes_str = ', '.join(sorted(resumo_equipes)) if resumo_equipes else 'Nenhuma'
+        
+        response_data = {
+            'pacientes': pacientes_inseridos,
+            'total': len(pacientes_inseridos),
+            'resumo_equipes': resumo_equipes_str,
+            'total_microareas': len(total_microareas),
+            'mensagem': f'Plano Semanal gerado com sucesso! {len(pacientes_inseridos)} convites selecionados.'
+        }
+        
+        print(f"DEBUG Plano Semanal: Retornando {len(pacientes_inseridos)} pacientes")
+        return jsonify(response_data)
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro na API plano_semanal_plafam: {e}")
+        return jsonify({'erro': f'Erro no servidor: {e}'}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 @app.route('/api/hiperdia/debug_table_structure')
 def api_debug_table_structure():
     """Debug: Verifica a estrutura da tabela tb_hiperdia_has_medicamentos"""

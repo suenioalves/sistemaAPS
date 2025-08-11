@@ -1666,6 +1666,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (exportDropdown) exportDropdown.classList.add('hidden');
         });
     }
+
+    // Configurar botão do Plano Semanal
+    const planoSemanalBtn = document.getElementById('plano-semanal-btn');
+    if (planoSemanalBtn) {
+        planoSemanalBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            gerarPlanoSemanal();
+            if (exportDropdown) exportDropdown.classList.add('hidden');
+        });
+    }
     
     // Atualizar o event listener para fechar dropdowns ao clicar fora
     document.addEventListener('click', function(e) {
@@ -1733,4 +1743,80 @@ function clearAllSelections() {
     
     updatePrintButtonText();
     console.log('Todas as seleções foram limpas');
+}
+
+// Função global para gerar Plano Semanal
+function gerarPlanoSemanal() {
+    console.log('Iniciando geração do Plano Semanal...');
+    
+    // Mostrar loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Gerando Plano Semanal...</div></div>';
+    document.body.appendChild(loadingMsg);
+    
+    // Construir parâmetros baseados nos filtros atuais
+    const params = new URLSearchParams();
+    
+    // Se há uma equipe selecionada, aplicar apenas para essa equipe
+    if (equipeSelecionadaAtual && equipeSelecionadaAtual !== 'Todas') {
+        params.append('equipe_selecionada', equipeSelecionadaAtual);
+    }
+    
+    console.log('Parâmetros para Plano Semanal:', params.toString());
+    
+    // Fazer requisição para o backend
+    fetch('/api/plano_semanal_plafam?' + params.toString())
+        .then(response => response.json())
+        .then(data => {
+            // Remover loading
+            if (document.body.contains(loadingMsg)) {
+                document.body.removeChild(loadingMsg);
+            }
+            
+            console.log('Resposta do Plano Semanal:', data);
+            
+            if (data.erro) {
+                alert('Erro ao gerar plano semanal: ' + data.erro);
+                return;
+            }
+            
+            if (!data.pacientes || data.pacientes.length === 0) {
+                alert('Nenhuma paciente elegível encontrada para o Plano Semanal.');
+                return;
+            }
+            
+            // Mostrar resumo do plano gerado
+            const resumo = `Plano Semanal gerado com sucesso!\n\n` +
+                          `Total de convites: ${data.pacientes.length}\n` +
+                          `Equipes incluídas: ${data.resumo_equipes || 'Todas'}\n` +
+                          `Microáreas incluídas: ${data.total_microareas || 0}\n\n` +
+                          `Os registros de acompanhamento foram inseridos e os convites serão gerados automaticamente.`;
+            
+            alert(resumo);
+            
+            // Gerar PDFs dos convites automaticamente
+            if (data.pacientes.length > 0) {
+                console.log('Gerando PDFs para', data.pacientes.length, 'pacientes do Plano Semanal');
+                generateInvitePDF(data.pacientes);
+            }
+            
+            // Atualizar o painel para refletir as mudanças
+            setTimeout(() => {
+                if (typeof fetchPacientesUnificado === 'function') {
+                    fetchPacientesUnificado({
+                        includeFilters: Object.keys(activeFilters).length > 0,
+                        includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                    });
+                }
+            }, 1000);
+        })
+        .catch(error => {
+            // Remover loading em caso de erro
+            if (document.body.contains(loadingMsg)) {
+                document.body.removeChild(loadingMsg);
+            }
+            console.error('Erro ao gerar Plano Semanal:', error);
+            alert('Erro ao gerar Plano Semanal. Tente novamente.');
+        });
 }
