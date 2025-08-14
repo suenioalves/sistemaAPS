@@ -20,7 +20,7 @@ Representa a ação atual sendo realizada com o adolescente:
 ├────────┼──────────────────────────────────┼──────────┤
 │ 1      │ Abordagem com pais               │ ✅ Ativo │
 │ 2      │ Abordagem direta com adolescente │ ✅ Ativo │
-│ 5      │ Mudou de área                    │ ✅ Ativo │
+│ 5      │ Fora de área                     │ ✅ Ativo │
 │ 7      │ Remover do acompanhamento        │ ✅ Ativo │
 └────────┴──────────────────────────────────┴──────────┘
 
@@ -34,7 +34,10 @@ Representa o resultado obtido após a ação realizada:
 │ 2      │ Recusou método contraceptivo               │ ✅ Ativo │
 │ 3      │ Ausente em domicílio                       │ ✅ Ativo │
 │ 4      │ Já usa um método                           │ ✅ Ativo │
-│ 5      │ Mudou de área                              │ ✅ Ativo │
+│ 5      │ Fora de área                               │ ✅ Ativo │
+│ 9      │ Outra área                                 │ ✅ Ativo │
+│ 10     │ Não reside na cidade                       │ ✅ Ativo │
+│ 11     │ Sem informação                             │ ✅ Ativo │
 │ 6      │ Mudou de cidade                            │ ✅ Ativo │
 │ 7      │ Método particular                          │ ✅ Ativo │
 │ 8      │ Outros motivos                             │ ✅ Ativo │
@@ -49,7 +52,7 @@ Define as próximas ações possíveis baseadas no resultado obtido:
 │ 1      │ Abordagem com pais               │ Padrão/Recusou método/Ausente                   │ ✅ Ativo        │
 │ 2      │ Abordagem direta com adolescente │ Padrão/Recusou método/Ausente                   │ ✅ Ativo        │
 │ 3      │ Iniciar método na UBS            │ Deseja iniciar método                           │ 🔄 Condicional │
-│ 5      │ Mudou de área                    │ Padrão                                          │ ✅ Ativo        │
+│ 5      │ Fora de área                     │ Padrão                                          │ ✅ Ativo        │
 │ 6      │ Iniciar método em domicílio      │ Deseja iniciar método                           │ 🔄 Condicional │
 │ 7      │ Remover do acompanhamento        │ Padrão                                          │ ✅ Ativo        │
 │ 8      │ Atualizar no PEC                 │ Já usa método/Mudou área/Remover acompanhamento │ 🔄 Condicional │
@@ -58,8 +61,8 @@ Define as próximas ações possíveis baseadas no resultado obtido:
 🔄 LÓGICA CONDICIONAL ATIVA:
 
 REGRAS ESPECIAIS POR TIPO DE AÇÃO:
-• Mudou de área (5): 
-  - Resultado obrigatório: Apenas "Mudou de área (5)"
+• Fora de área (5): 
+  - Resultado obrigatório: Apenas "Fora de área (5)" ou novas opções (9, 10, 11)
   - Próxima ação obrigatória: Apenas "Atualizar no PEC (8)"
 
 • Remover acompanhamento (7):

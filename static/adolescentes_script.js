@@ -73,9 +73,10 @@ document.addEventListener('DOMContentLoaded', function () {
         2: 'ri-user-voice-line',    // Abordagem direta com adolescente
         3: 'ri-hospital-line',      // Iniciar método na UBS
         4: 'ri-mail-send-line',     // Entrega de convite
-        5: 'ri-map-pin-line',       // Mudou de área
+        5: 'ri-map-pin-line',       // Fora de área
         6: 'ri-home-line',          // Iniciar método em domicílio
         7: 'ri-user-unfollow-line', // Remover do acompanhamento
+        8: 'ri-file-edit-line',     // Atualizar PEC
         'default': 'ri-calendar-event-line'
     };
     const timelineEventColors = { // Tailwind CSS color classes for icon background
@@ -86,12 +87,13 @@ document.addEventListener('DOMContentLoaded', function () {
         5: 'bg-red-100 text-red-600',
         6: 'bg-green-100 text-green-600',
         7: 'bg-gray-100 text-gray-800',
+        8: 'bg-blue-100 text-blue-600',
         'default': 'bg-gray-100 text-gray-600'
     };
     const tipoAbordagemMap = {
         1: "Abordagem com pais",
         2: "Abordagem direta com adolescente",
-        5: "Mudou de área", 
+        5: "Fora de área", 
         7: "Remover do acompanhamento",
         8: "Atualizar no PEC",
         10: "Nova ação"
@@ -101,16 +103,19 @@ document.addEventListener('DOMContentLoaded', function () {
         2: "Recusou método contraceptivo",
         3: "Ausente em domicílio",
         4: "Já usa um método",
-        5: "Mudou de área",
+        5: "Fora de área",
         6: "Mudou de cidade",
         7: "Método particular",
         8: "Outros motivos",
-        // Nova ação - códigos 11-15
-        11: "Sem método",
-        12: "Método atrasado",
-        13: "Vencimento próximo",
-        14: "Atualizar no PEC",
-        15: "Outros"
+        9: "Outra área",
+        10: "Não reside na cidade",
+        11: "Sem informação",
+        // Nova ação - códigos 12-16
+        12: "Sem método",
+        13: "Método atrasado",
+        14: "Vencimento próximo",
+        15: "Atualizar no PEC",
+        16: "Outros"
     };
 
     const registerModal = document.getElementById('registerModal');
@@ -700,7 +705,7 @@ document.addEventListener('DOMContentLoaded', function () {
                       (ado.proxima_acao_descricao && 
                        (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
                         ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')))) {
-                // Caso especial: "Mudou de área" ou "Remover do acompanhamento" - mostrar em vermelho
+                // Caso especial: "Fora de área" ou "Remover do acompanhamento" - mostrar em vermelho
                 proximaAcaoDisplay = `<span class="text-red-700 font-medium text-sm">Fora de área. Atualizar PEC.</span>`;
             } else if (ado.proxima_acao_tipo === 3 || (ado.proxima_acao_descricao && (ado.proxima_acao_descricao.toLowerCase().includes('consulta na ubs') || ado.proxima_acao_descricao.toLowerCase().includes('iniciar método na ubs')))) {
                 // Caso especial: "Iniciar método na UBS" - mostrar em verde escuro
@@ -708,6 +713,9 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (ado.proxima_acao_tipo === 6 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('iniciar método em domicílio'))) {
                 // Caso especial: "Iniciar método em domicílio" - mostrar em verde escuro
                 proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método em domicílio</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da visita'})</span>`;
+            } else if (ado.proxima_acao_tipo === 8 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('atualizar no pec'))) {
+                // Caso especial: "Atualizar PEC" - mostrar em azul
+                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar PEC</span><br><span class="text-xs text-blue-600">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
             } else if (ado.proxima_acao_descricao) {
                 // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
                 if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {
@@ -1546,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     '1': 'Abordagem com pais',
                     '2': 'Abordagem direta com adolescente',
                     '3': 'Iniciar método na UBS', 
-                    '5': 'Mudou de área',
+                    '5': 'Fora de área',
                     '6': 'Iniciar método em domicílio',
                     '7': 'Remover do acompanhamento',
                     '8': 'Atualizar no PEC'
@@ -1706,7 +1714,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     nextActionOptionsContainer.innerHTML = `
                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
-                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="9">Outra área</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="10">Não reside na cidade</div>
+                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="11">Sem informação</div>
                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
                     `;
                     

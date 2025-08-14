@@ -418,11 +418,14 @@
                             <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="4" data-text="Entrega de convite">
                                 <i class="ri-mail-line mr-2"></i> Entrega de convite
                             </a>
-                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="5" data-text="Mudou de área">
-                                <i class="ri-map-pin-line mr-2"></i> Mudou de área
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="5" data-text="Fora de área">
+                                <i class="ri-map-pin-line mr-2"></i> Fora de área
                             </a>
                             <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="7" data-text="Remover do acompanhamento">
                                 <i class="ri-user-unfollow-line mr-2"></i> Remover do acompanhamento
+                            </a>
+                            <a href="#" class="proxima-acao-filter-option flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100" data-acao="8" data-text="Atualizar PEC">
+                                <i class="ri-file-edit-line mr-2"></i> Atualizar PEC
                             </a>
                         </div>
                     </div>
@@ -689,7 +692,7 @@
                                 <label class="custom-radio">
                                     <input type="radio" name="action-type" value="5">
                                     <span class="radio-mark"></span>
-                                    Mudou de área
+                                    Fora de área
                                 </label>
                                 <label class="custom-radio">
                                     <input type="radio" name="action-type" value="7">
@@ -721,7 +724,10 @@
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="2">Recusou método contraceptivo</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="4">Já usa um método</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="3">Ausente em domicílio</div>
-                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="5">Mudou de área</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="5">Fora de área</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="9">Outra área</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="10">Não reside na cidade</div>
+                                        <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="11">Sem informação</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="6">Mudou de cidade</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="7">Método particular</div>
                                         <div class="cursor-pointer hover:bg-gray-100 p-2 rounded default-options" data-value="8">Outros motivos</div>
@@ -795,7 +801,7 @@
                                             <div class="p-2" id="nextActionDropdownOptionsContainer">
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
-                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                                                <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
                                                 <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
                                             </div>
                                         </div>
@@ -844,7 +850,7 @@
         // Por ora, focamos nos dropdowns de Equipe e Área/Agente.
 
         // Lógica para os dropdowns de "Status do método", "Resultado da abordagem", etc., se ainda necessária:
-        // Lógica para filtrar resultado quando "Mudou de área" é selecionado
+        // Lógica para filtrar resultado quando "Fora de área" é selecionado
         document.addEventListener('DOMContentLoaded', function () {
             const registerModal = document.getElementById('registerModal');
             const resultDropdownOptionsContainer = document.getElementById('resultDropdownOptionsContainer');
@@ -977,10 +983,13 @@
                 if (e.target.name === 'action-type') {
                     const selectedValue = e.target.value;
                     
-                    if (selectedValue === '5') { // Mudou de área
-                        // Filtrar resultado para mostrar apenas "Mudou de área"
+                    if (selectedValue === '5') { // Fora de área
+                        // Filtrar resultado para mostrar apenas "Fora de área"
                         resultDropdownOptionsContainer.innerHTML = `
-                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="9">Outra área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="10">Não reside na cidade</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="11">Sem informação</div>
                         `;
                         
                         // Atualizar data da próxima ação para +7 dias
@@ -1087,7 +1096,7 @@
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Recusou método contraceptivo</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="4">Já usa um método</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="3">Ausente em domicílio</div>
-                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="6">Mudou de cidade</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Método particular</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Outros motivos</div>
@@ -1096,7 +1105,7 @@
                         nextActionOptionsContainer.innerHTML = `
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="1">Abordagem com pais</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="2">Abordagem direta com adolescente</div>
-                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Mudou de área</div>
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="7">Remover do acompanhamento</div>
                         `;
                         
