@@ -15,9 +15,11 @@ WHERE pa.co_cidadao = m.cod_paciente
     m.metodo IN ('DIU', 'IMPLANTE SUBDÉRMICO', 'LAQUEADURA')
     OR
     -- Remove se o método hormonal estiver dentro do prazo de validade
-    (m.metodo IN ('Pílulas', 'Mensal') AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '30 days'))
+    (m.metodo IN ('Pílulas', 'Mensal') AND m.data_aplicacao IS NOT NULL AND m.data_aplicacao != '' 
+     AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '30 days'))
     OR
-    (m.metodo = 'Trimestral' AND m.data_aplicacao >= (CURRENT_DATE - INTERVAL '90 days'))
+    (m.metodo = 'Trimestral' AND m.data_aplicacao IS NOT NULL AND m.data_aplicacao != ''
+     AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') >= (CURRENT_DATE - INTERVAL '90 days'))
   );
 
 
@@ -53,7 +55,8 @@ WHERE
     (
         m.metodo IN ('Pílulas', 'Mensal', 'Trimestral')
         AND m.data_aplicacao IS NOT NULL
-        AND m.data_aplicacao < (CURRENT_DATE - INTERVAL '6 months') -- Mantendo sua regra de 6 meses para busca ativa
+        AND m.data_aplicacao != ''
+        AND TO_DATE(m.data_aplicacao, 'DD/MM/YYYY') < (CURRENT_DATE - INTERVAL '6 months') -- Mantendo sua regra de 6 meses para busca ativa
     )
 -- Se um cidadão já estiver na tabela, não faz nada.
 -- Isso é crucial para não sobrescrever um acompanhamento que já está em andamento.
