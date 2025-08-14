@@ -204,7 +204,7 @@ export const hiperdiaDom = {
                 const hasPendingAction = paciente.proxima_acao_descricao && paciente.proxima_acao_data_formatada;
                 let proximaAcaoDisplay = 'A definir';
                 if (paciente.proxima_acao_descricao) {
-                    proximaAcaoDisplay = `${paciente.proxima_acao_descricao} <br> <span class="text-xs text-gray-400">(${paciente.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                    proximaAcaoDisplay = `${paciente.proxima_acao_descricao} <br> <span class="text-xs" style="color: #b45309;">(${paciente.proxima_acao_data_formatada || 'Data não definida'})</span>`;
                 }
 
                 const situacaoDisplay = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';

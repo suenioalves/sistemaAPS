@@ -15,7 +15,7 @@ from docxtpl import DocxTemplate
 import os
 # Importação do docx2pdf será feita condicionalmente dentro da função
 
-# Global map for action types
+# Global map for action types (Hiperdia)
 TIPO_ACAO_MAP_PY = {
     1: "Solicitar MRPA",
     2: "Avaliar MRPA",
@@ -26,6 +26,20 @@ TIPO_ACAO_MAP_PY = {
     7: "Encaminhar para nutrição",
     8: "Registrar consulta nutrição",
     9: "Agendar Hiperdia"
+}
+
+# Global map for Plafam action types
+TIPO_ACAO_PLAFAM_MAP_PY = {
+    1: "Convite com o agente",
+    2: "Convite entregue ao cliente", 
+    3: "Deseja iniciar (via consulta)",
+    4: "Deseja iniciar (após convite)",
+    5: "Cliente não encontrado",
+    6: "Particular",
+    7: "Reavaliar em 6 meses",
+    8: "Reavaliar em 1 ano",
+    9: "Fora de área",
+    10: "Sem ação definida"
 }
 # Função auxiliar para conversão segura para float
 def safe_float_conversion(value):
@@ -423,7 +437,25 @@ def update_acompanhamento():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        if status_str == '0':
+        # Mapear os códigos de status para ações 1-11 do Plafam
+        status_mapping = {
+            '1': 1,      # Convite com o agente
+            '2': 2,      # Convite entregue ao cliente
+            '3': 3,      # Deseja iniciar (após convite)
+            '4': 4,      # Deseja iniciar (após consulta)
+            '5': 5,      # Já em uso de um método
+            '6': 6,      # Cliente não encontrado
+            '7': 7,      # Método particular
+            '8': 8,      # Reavaliar em 6 meses
+            '9': 9,      # Reavaliar em 1 ano
+            '10': 10,    # Outra área ou não reside
+            '11': 11,    # Resetar ações
+            '0': None    # Nenhuma ação (resetar)
+        }
+        
+        status_code = status_mapping.get(status_str)
+        
+        if status_code is None:
             sql_upsert = """
                 INSERT INTO sistemaaps.tb_plafam_acompanhamento (co_cidadao, status_acompanhamento, data_acompanhamento)
                 VALUES (%(co_cidadao)s, NULL, NULL)
@@ -440,7 +472,7 @@ def update_acompanhamento():
                 SET status_acompanhamento = EXCLUDED.status_acompanhamento,
                     data_acompanhamento = EXCLUDED.data_acompanhamento;
             """
-            cur.execute(sql_upsert, {'status': int(status_str), 'co_cidadao': co_cidadao})
+            cur.execute(sql_upsert, {'status': status_code, 'co_cidadao': co_cidadao})
         
         conn.commit()
         

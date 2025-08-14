@@ -80,9 +80,21 @@ console.log('plafam_analise.js carregado');
         const k = btn.getAttribute('data-k');
         if(k === 'equipe') state.equipe = 'Todas';
         if(k === 'microarea') state.microarea = 'Todas as áreas';
-        if(k === 'inicio') { state.inicio = null; qs('inicio').value = ''; }
-        if(k === 'fim') { state.fim = null; qs('fim').value = ''; }
-        if(k === 'gran') { state.granularidade = 'month'; qs('granularidade').value = 'month'; }
+        if(k === 'inicio') { 
+          state.inicio = null; 
+          const inicioEl = qs('inicio');
+          if(inicioEl) inicioEl.value = ''; 
+        }
+        if(k === 'fim') { 
+          state.fim = null; 
+          const fimEl = qs('fim');
+          if(fimEl) fimEl.value = ''; 
+        }
+        if(k === 'gran') { 
+          state.granularidade = 'month'; 
+          const granularidadeEl = qs('granularidade');
+          if(granularidadeEl) granularidadeEl.value = 'month'; 
+        }
         syncControls();
         refreshAll();
       });
@@ -95,9 +107,16 @@ console.log('plafam_analise.js carregado');
     const selAgente = qs('filtro-agente');
     if(selEquipe) selEquipe.value = state.equipe;
     if(selAgente) selAgente.value = state.microarea;
-    if(state.inicio) qs('inicio').value = state.inicio;
-    if(state.fim) qs('fim').value = state.fim;
-    qs('granularidade').value = state.granularidade;
+    if(state.inicio) {
+      const inicioEl = qs('inicio');
+      if(inicioEl) inicioEl.value = state.inicio;
+    }
+    if(state.fim) {
+      const fimEl = qs('fim');
+      if(fimEl) fimEl.value = state.fim;
+    }
+    const granularidadeEl = qs('granularidade');
+    if(granularidadeEl) granularidadeEl.value = state.granularidade;
     renderChips();
     updateUrl();
   }
@@ -253,44 +272,61 @@ console.log('plafam_analise.js carregado');
     hideSkel(['skel-mix']);
   }
 
-  // Mapa de códigos de ação para nomes
+  // Mapa de códigos de ação para nomes (1-11)
   const statusActionMap = {
-    '0': 'Sem ação',
     '1': 'Convite com o agente',
     '2': 'Convite entregue ao cliente',
-    '3': 'Deseja iniciar (via consulta)',
-    '4': 'Deseja iniciar (após convite)',
-    '5': 'Cliente não encontrado',
-    '6': 'Particular',
-    '7': 'Reavaliar em 6 meses',
-    '8': 'Reavaliar em 1 ano',
-    '9': 'Fora de área'
+    '3': 'Deseja iniciar (após convite)',
+    '4': 'Deseja iniciar (após consulta)',
+    '5': 'Já em uso de um método',
+    '6': 'Cliente não encontrado',
+    '7': 'Método particular',
+    '8': 'Reavaliar em 6 meses',
+    '9': 'Reavaliar em 1 ano',
+    '10': 'Outra área ou não reside',
+    '11': 'Resetar ações'
   };
 
   async function atualizarAcoesTimeseries(){
     showSkel(['skel-acoes']);
-    const p = new URLSearchParams(buildParams());
-    p.set('granularity', state.granularidade);
-    const data = await fetchJSON('/api/plafam/analytics/actions_timeseries?' + p.toString());
+    const data = await fetchJSON('/api/plafam/analytics/actions_overview?' + buildParams());
     const el = qs('chart-acoes');
     charts.acoes = charts.acoes || echarts.init(el);
-    const seriesMap = data.series || {};
-    const allPeriods = new Set();
-    Object.values(seriesMap).forEach(arr => arr.forEach(p => allPeriods.add(p.period)));
-    const periods = Array.from(allPeriods).sort();
-    const series = Object.entries(seriesMap).map(([status, arr]) => {
-      const map = new Map(arr.map(x => [x.period, x.count]));
-      const actionName = statusActionMap[status] || `Ação ${status}`;
-      return { name: actionName, type: 'line', smooth: true, data: periods.map(d => map.get(d)||0) };
-    });
+    const entries = Object.entries(data.counts || {}).sort(([a],[b]) => Number(a)-Number(b));
+    const labels = entries.map(([k]) => statusActionMap[k] || `Ação ${k}`);
+    const values = entries.map(([,v]) => v);
     charts.acoes.setOption({
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      legend: { top: 0, textStyle: { color: getLegendColor() } },
-      grid: { left: 40, right: 16, bottom: 40, top: 40 },
-      xAxis: { type: 'category', data: periods, axisLabel: { color: getLegendColor() } },
-      yAxis: { type: 'value', axisLabel: { color: getLegendColor() }, splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } },
-      series
+      tooltip: { trigger: 'axis', formatter: (params) => {
+        const p = params[0];
+        return `${p.axisValue}<br/>Total: ${p.value}`;
+      } },
+      grid: { left: 60, right: 16, bottom: 100, top: 16 },
+      xAxis: { 
+        type: 'category', 
+        data: labels, 
+        axisLabel: { 
+          color: getLegendColor(),
+          rotate: 45,
+          interval: 0
+        } 
+      },
+      yAxis: { 
+        type: 'value', 
+        axisLabel: { color: getLegendColor() }, 
+        splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } 
+      },
+      series: [{ 
+        type: 'bar', 
+        data: values,
+        itemStyle: { color: '#1D70B8' },
+        label: { 
+          show: true, 
+          position: 'top', 
+          formatter: '{c}',
+          color: getLegendColor() 
+        }
+      }]
     });
     hideSkel(['skel-acoes']);
   }
@@ -314,12 +350,103 @@ console.log('plafam_analise.js carregado');
     hideSkel(['skel-acoes-bar']);
   }
 
+  async function atualizarDistribuicaoEquipe(){
+    showSkel(['skel-distribuicao-equipe']);
+    const data = await fetchJSON('/api/graficos_painel_plafam?' + buildParams());
+    const el = qs('chart-distribuicao-equipe');
+    charts.distribuicaoEquipe = charts.distribuicaoEquipe || echarts.init(el);
+    const pizza = data.pizza_data || {};
+    const seriesData = [
+      {name: 'Gestantes', value: pizza.gestantes||0, itemStyle: { color: '#ec4899' }},
+      {name: 'Sem método', value: pizza.sem_metodo||0, itemStyle: { color: '#ef4444' }},
+      {name: 'Método em atraso', value: pizza.metodo_atraso||0, itemStyle: { color: '#facc15' }},
+      {name: 'Método em dia', value: pizza.metodo_em_dia||0, itemStyle: { color: '#22c55e' }}
+    ];
+    charts.distribuicaoEquipe.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: { bottom: 0, textStyle: { color: getLegendColor() } },
+      series: [{
+        type: 'pie', radius: ['50%','75%'], avoidLabelOverlap: true,
+        label: { show: false }, labelLine: { show: false },
+        data: seriesData
+      }]
+    });
+    hideSkel(['skel-distribuicao-equipe']);
+  }
+
+  async function atualizarDistribuicaoMicroarea(){
+    showSkel(['skel-distribuicao-microarea']);
+    const data = await fetchJSON('/api/graficos_painel_plafam?' + buildParams());
+    const el = qs('chart-distribuicao-microarea');
+    charts.distribuicaoMicroarea = charts.distribuicaoMicroarea || echarts.init(el);
+    const barras = data.bar_chart_data || [];
+    let labels = [];
+    let datasets = [[],[],[],[]];
+    let tituloGrafico = '';
+    
+    if(barras.length && barras[0].microarea !== undefined) {
+      // Dados por microárea (equipe específica selecionada)
+      labels = barras.map(x => x.microarea + (x.nome_agente ? ' - ' + x.nome_agente : ''));
+      tituloGrafico = 'Distribuição por Microárea';
+      barras.forEach((x,i)=>{
+        datasets[0].push(x.gestantes||0);
+        datasets[1].push(x.sem_metodo||0);
+        datasets[2].push(x.metodo_atraso||0);
+        datasets[3].push(x.metodo_em_dia||0);
+      });
+    } else if(barras.length && barras[0].nome_equipe !== undefined) {
+      // Dados por equipe (todas as equipes selecionadas)
+      labels = barras.map(x => x.nome_equipe);
+      tituloGrafico = 'Distribuição por Equipe';
+      barras.forEach((x,i)=>{
+        datasets[0].push(x.gestantes||0);
+        datasets[1].push(x.sem_metodo||0);
+        datasets[2].push(x.metodo_atraso||0);
+        datasets[3].push(x.metodo_em_dia||0);
+      });
+    }
+    
+    // Atualizar o título no HTML
+    const tituloEl = qs('chart-microarea-titulo');
+    if(tituloEl) tituloEl.textContent = tituloGrafico;
+    
+    charts.distribuicaoMicroarea.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { top: 0, textStyle: { color: getLegendColor() } },
+      grid: { left: 40, right: 16, bottom: 60, top: 40 },
+      xAxis: { 
+        type: 'category', 
+        data: labels, 
+        axisLabel: { 
+          color: getLegendColor(),
+          rotate: 30,
+          interval: 0 
+        } 
+      },
+      yAxis: { 
+        type: 'value', 
+        axisLabel: { color: getLegendColor() }, 
+        splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } 
+      },
+      series: [
+        { name: 'Gestantes', type: 'bar', stack: 'total', data: datasets[0], itemStyle: { color: '#ec4899' } },
+        { name: 'Sem método', type: 'bar', stack: 'total', data: datasets[1], itemStyle: { color: '#ef4444' } },
+        { name: 'Método em atraso', type: 'bar', stack: 'total', data: datasets[2], itemStyle: { color: '#facc15' } },
+        { name: 'Método em dia', type: 'bar', stack: 'total', data: datasets[3], itemStyle: { color: '#22c55e' } }
+      ]
+    });
+    hideSkel(['skel-distribuicao-microarea']);
+  }
+
   async function refreshAll(){
     await atualizarKPIs();
     await atualizarDonut();
     await atualizarMethodMix();
     await atualizarAcoesTimeseries();
     await atualizarAcoesBar();
+    await atualizarDistribuicaoMicroarea();
   }
 
   function attachHandlers(){
@@ -342,6 +469,7 @@ console.log('plafam_analise.js carregado');
     qs('export-mix')?.addEventListener('click', () => exportChartPNG(charts.mix, 'plafam-mix.png'));
     qs('export-acoes')?.addEventListener('click', () => exportChartPNG(charts.acoes, 'plafam-acoes-tempo.png'));
     qs('export-acoes-bar')?.addEventListener('click', () => exportChartPNG(charts.acoesBar, 'plafam-acoes-overview.png'));
+    qs('export-distribuicao-microarea')?.addEventListener('click', () => exportChartPNG(charts.distribuicaoMicroarea, 'plafam-distribuicao-microarea.png'));
 
     // Filtros
     qs('btn-aplicar').addEventListener('click', () => {
@@ -353,14 +481,20 @@ console.log('plafam_analise.js carregado');
     qs('btn-limpar').addEventListener('click', () => {
       state.equipe = 'Todas';
       state.microarea = 'Todas as áreas';
-      state.inicio = null; qs('inicio').value = '';
-      state.fim = null; qs('fim').value = '';
-      qs('filtro-equipe').value = 'Todas';
-      qs('filtro-agente').value = 'Todas as áreas';
+      state.inicio = null; 
+      const inicioEl = qs('inicio');
+      if(inicioEl) inicioEl.value = '';
+      state.fim = null; 
+      const fimEl = qs('fim');
+      if(fimEl) fimEl.value = '';
+      const filtroEquipeEl = qs('filtro-equipe');
+      if(filtroEquipeEl) filtroEquipeEl.value = 'Todas';
+      const filtroAgenteEl = qs('filtro-agente');
+      if(filtroAgenteEl) filtroAgenteEl.value = 'Todas as áreas';
       syncControls();
       refreshAll();
     });
-    qs('granularidade').addEventListener('change', (e) => {
+    qs('granularidade')?.addEventListener('change', (e) => {
       state.granularidade = e.target.value;
       syncControls();
       atualizarAcoesTimeseries();

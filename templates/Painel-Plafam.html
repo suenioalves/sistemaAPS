@@ -96,9 +96,50 @@
         }
         .status-com-agente { background-color: #fef9c3; color: #854d0e; }
         .status-entregue { background-color: #dbeafe; color: #1e40af; }
+        .status-ja-usa-metodo { background-color: #dcfce7; color: #166534; }
+        .status-deseja-iniciar { background-color: #dcfce7; color: #166534; }
+        .status-iniciou-metodo { background-color: #dcfce7; color: #166534; }
+        .status-nao-domicilio { background-color: #fef9c3; color: #854d0e; }
+        .status-outra-area { background-color: #fee2e2; color: #991b1b; }
+        .status-desconhecido { background-color: #fee2e2; color: #991b1b; }
+        .status-nao-deseja-6m { background-color: #fef9c3; color: #854d0e; }
+        .status-nao-deseja-1a { background-color: #fef9c3; color: #854d0e; }
+        .status-nenhuma-acao { background-color: #f3f4f6; color: #374151; }
         .status-compareceu { background-color: #dcfce7; color: #166534; }
-        .status-domicilio { background-color: #dcfce7; color: #166534; } /* Mesmo estilo do compareceu para verde claro */
+        .status-domicilio { background-color: #dcfce7; color: #166534; }
         .status-nao-encontrado { background-color: #fee2e2; color: #991b1b; }
+        
+        /* Garantir que os dropdowns de ações sejam sempre visíveis */
+        .acompanhamento-dropdown {
+            z-index: 9999 !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+            /* Força o dropdown a ficar acima de qualquer container */
+            max-height: 350px;
+            overflow-y: auto;
+            min-width: 224px; /* Garantir largura mínima */
+        }
+        
+        /* Força o posicionamento quando estiver em modo fixed */
+        .acompanhamento-dropdown[style*="position: fixed"] {
+            z-index: 99999 !important;
+            /* Garante que o menu seja sempre visível, mesmo em viewports pequenos */
+            max-height: calc(100vh - 40px);
+        }
+        
+        /* Melhorar o hover das opções do menu de ações */
+        .acompanhamento-option:hover {
+            background-color: #dbeafe !important; /* bg-blue-100 */
+            color: #1e40af !important; /* text-blue-800 */
+        }
+        
+        /* Garantir que a tabela não corte os dropdowns */
+        .table-container {
+            overflow: visible !important;
+        }
+        
+        .table-container .overflow-x-auto {
+            overflow-y: visible !important;
+        }
     </style>
     <style>
         /* Estilo adicional para a aba de equipe selecionada */
@@ -429,8 +470,8 @@
             </div>
         </div>
 
-        <div class="bg-white rounded shadow-sm overflow-hidden mb-6">
-            <div class="overflow-x-auto">
+        <div class="bg-white rounded shadow-sm overflow-visible mb-6 table-container" style="min-height: 400px;">
+            <div class="overflow-x-auto overflow-y-visible">
                 <table class="min-w-full divide-y-200">
                     <thead class="bg-gray-50">
                         <tr>
@@ -454,93 +495,7 @@
              <div id="pagination-container" class="flex space-x-1"></div>
         </div>
 
-        <!-- Gráficos do Painel Plafam -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 mb-8" id="graficos-plafam-container">
-            <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição da Equipe</h2>
-                <canvas id="grafico-pizza-plafam" width="350" height="350"></canvas>
-                                    <div class="flex flex-wrap justify-center gap-4 mt-4">
-                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ec4899"></span> <span class="text-sm">Grávidas</span></div>
-                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#ef4444"></span> <span class="text-sm">Sem Método</span></div>
-                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#facc15"></span> <span class="text-sm">Método em Atraso</span></div>
-                        <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full inline-block" style="background:#22c55e"></span> <span class="text-sm">Método em Dia</span></div>
-                    </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Distribuição por Micro-área</h2>
-                <canvas id="grafico-barras-plafam" width="500" height="350"></canvas>
-            </div>
-        </div>
 
-        <!-- Chart.js -->
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script>
-        function corStatusPlafam(idx) {
-            // 0: grávidas (rosa), 1: sem método (vermelho), 2: método em atraso (amarelo), 3: método em dia (verde)
-            return ['#ec4899', '#ef4444', '#facc15', '#22c55e'][idx];
-        }
-
-        function carregarGraficosPlafam(equipeSelecionada = 'Todas') {
-            fetch(`/api/graficos_painel_plafam?equipe=${encodeURIComponent(equipeSelecionada)}`)
-                .then(r => r.json())
-                .then(dados => {
-                    // Pizza
-                    const pizza = dados.pizza_data || {};
-                    const pizzaLabels = ['Grávidas', 'Sem Método', 'Método em Atraso', 'Método em Dia'];
-                    const pizzaData = [pizza.gestantes||0, pizza.sem_metodo||0, pizza.metodo_atraso||0, pizza.metodo_em_dia||0];
-                    if(window.graficoPizzaPlafam) window.graficoPizzaPlafam.destroy();
-                    window.graficoPizzaPlafam = new Chart(document.getElementById('grafico-pizza-plafam'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: pizzaLabels,
-                            datasets: [{ data: pizzaData, backgroundColor: pizzaLabels.map((_,i)=>corStatusPlafam(i)) }]
-                        },
-                        options: { cutout: '70%', plugins: { legend: { display: false } } }
-                    });
-                    // Barras
-                    const barras = dados.bar_chart_data || [];
-                    let labels = [];
-                    let datasets = [[],[],[],[]];
-                    if(barras.length && barras[0].microarea !== undefined) {
-                        labels = barras.map(x => x.microarea + (x.nome_agente ? ' - ' + x.nome_agente : ''));
-                        barras.forEach((x,i)=>{
-                            datasets[0].push(x.gestantes||0);
-                            datasets[1].push(x.sem_metodo||0);
-                            datasets[2].push(x.metodo_atraso||0);
-                            datasets[3].push(x.metodo_em_dia||0);
-                        });
-                    } else if(barras.length && barras[0].nome_equipe !== undefined) {
-                        labels = barras.map(x => x.nome_equipe);
-                        barras.forEach((x,i)=>{
-                            datasets[0].push(x.gestantes||0);
-                            datasets[1].push(x.sem_metodo||0);
-                            datasets[2].push(x.metodo_atraso||0);
-                            datasets[3].push(x.metodo_em_dia||0);
-                        });
-                    }
-                    if(window.graficoBarrasPlafam) window.graficoBarrasPlafam.destroy();
-                    window.graficoBarrasPlafam = new Chart(document.getElementById('grafico-barras-plafam'), {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                { label: 'Grávidas', data: datasets[0], backgroundColor: corStatusPlafam(0) },
-                                { label: 'Sem Método', data: datasets[1], backgroundColor: corStatusPlafam(1) },
-                                { label: 'Método em Atraso', data: datasets[2], backgroundColor: corStatusPlafam(2) },
-                                { label: 'Método em Dia', data: datasets[3], backgroundColor: corStatusPlafam(3) },
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: { legend: { display: true } },
-                            scales: { x: { stacked: true }, y: { stacked: true } }
-                        }
-                    });
-                });
-        }
-        // Chamar ao carregar a página
-        carregarGraficosPlafam();
-        </script>
     </main>
     
     <!-- Bibliotecas JS -->

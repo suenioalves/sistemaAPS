@@ -30,6 +30,7 @@
       "Bash(npx eslint:*)",
       "Bash(where psql)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

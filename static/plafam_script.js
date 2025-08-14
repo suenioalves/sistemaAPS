@@ -829,18 +829,20 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'N/A';
     }
     
-    // Mapa de status de acompanhamento (atualizado)
+    // Mapa de status de acompanhamento (ações 1-11)
     const statusMap = {
-        '0': { text: '', class: '' }, // Nenhuma ação
         '1': { text: 'Convite com o agente', class: 'status-com-agente' },
         '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
-        '3': { text: 'Deseja iniciar (via consulta)', class: 'status-compareceu' },
-        '4': { text: 'Deseja iniciar (após convite)', class: 'status-domicilio' },
-        '5': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
-        '6': { text: 'Particular', class: 'status-particular' },
-        '7': { text: 'Reavaliar em 6 meses', class: 'status-reavaliar-6m' },
-        '8': { text: 'Reavaliar em 1 ano', class: 'status-reavaliar-1a' },
-        '9': { text: 'Fora de área', class: 'status-fora-area' }
+        '3': { text: 'Deseja iniciar (após convite)', class: 'status-deseja-iniciar' },
+        '4': { text: 'Deseja iniciar (após consulta)', class: 'status-deseja-iniciar' },
+        '5': { text: 'Já em uso de um método', class: 'status-ja-usa-metodo' },
+        '6': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
+        '7': { text: 'Método particular', class: 'status-outra-area' },
+        '8': { text: 'Reavaliar em 6 meses', class: 'status-nao-deseja-6m' },
+        '9': { text: 'Reavaliar em 1 ano', class: 'status-nao-deseja-1a' },
+        '10': { text: 'Outra área ou não reside', class: 'status-outra-area' },
+        '11': { text: 'Resetar ações', class: 'status-nenhuma-acao' },
+        '0': { text: '', class: '' } // Resetar ação
     };
 
     // Função para obter conteúdo da célula de acompanhamento (igual ao arquivo antigo)
@@ -871,19 +873,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         Ações
                         <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
                     </button>
-                    <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-30" role="menu">
+                    <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
                         <div class="py-1" role="none">
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="1">Convite com o agente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="2">Convite entregue ao cliente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="3">Deseja iniciar (via consulta)</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="4">Deseja iniciar (após convite)</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="5">Cliente não encontrado</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="6">Particular</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="7">Reavaliar em 6 meses</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="8">Reavaliar em 1 ano</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="9">Fora de área</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="1">Convite com o agente</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="2">Convite entregue ao cliente</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="3">Deseja iniciar (após convite)</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="4">Deseja iniciar (após consulta)</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="5">Já em uso de um método</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="6">Cliente não encontrado</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="7">Método particular</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="8">Reavaliar em 6 meses</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="9">Reavaliar em 1 ano</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="10">Outra área ou não reside</a>
                             <div class="border-t my-1"></div>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" data-action="0">Nenhuma ação</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="0">Resetar ações</a>
                         </div>
                     </div>
                     <div class="acompanhamento-status-container mt-1">${statusBadge}</div>
@@ -1359,21 +1362,84 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!row) return;
 
             if (event.target.closest('.acompanhamento-btn')) {
+                const button = event.target.closest('.acompanhamento-btn');
                 const menu = event.target.closest('.relative').querySelector('.acompanhamento-dropdown');
-
-                const rect = menu.getBoundingClientRect();
-                if (window.innerHeight < rect.bottom) {
-                    menu.classList.add('bottom-full', 'mb-2');
-                    menu.classList.remove('top-full', 'mt-2');
-                } else {
-                    menu.classList.add('top-full', 'mt-2');
-                    menu.classList.remove('bottom-full', 'mb-2');
-                }
-
+                
+                // Primeiro fechar outros menus e resetar seus estilos
                 document.querySelectorAll('.acompanhamento-dropdown').forEach(m => {
-                    if (m !== menu) m.classList.add('hidden');
+                    if (m !== menu) {
+                        m.classList.add('hidden');
+                        // Reset positioning styles
+                        m.style.position = '';
+                        m.style.top = '';
+                        m.style.left = '';
+                        m.style.right = '';
+                        m.style.bottom = '';
+                        m.style.zIndex = '';
+                        m.classList.remove('mb-2', 'bottom-full');
+                        m.classList.add('mt-2');
+                    }
                 });
+                
+                // Abrir/fechar o menu atual
                 menu.classList.toggle('hidden');
+                
+                // Se o menu foi aberto, usar posicionamento fixo para evitar cortes
+                if (!menu.classList.contains('hidden')) {
+                    requestAnimationFrame(() => {
+                        const buttonRect = button.getBoundingClientRect();
+                        const menuHeight = 350; // Altura estimada do menu completo (aumentei para ser mais conservador)
+                        const viewportHeight = window.innerHeight;
+                        const spaceBelow = viewportHeight - buttonRect.bottom - 20; // margem maior
+                        const spaceAbove = buttonRect.top - 20; // margem maior
+                        
+                        // Usar position fixed para sair completamente do contexto da tabela
+                        menu.style.position = 'fixed';
+                        menu.style.zIndex = '99999';
+                        
+                        // Manter alinhamento à direita baseado na posição do botão
+                        menu.style.right = (window.innerWidth - buttonRect.right) + 'px';
+                        menu.style.left = 'auto';
+                        
+                        // Detectar se estamos numa situação de "tabela com poucos dados" 
+                        // (botão muito próximo à parte inferior da viewport)
+                        const isNearBottom = buttonRect.bottom > (viewportHeight * 0.6); // Se botão está nos 40% inferiores da tela
+                        
+                        // Lógica ultra-agressiva: posicionar acima em várias condições
+                        if ((spaceBelow < menuHeight || isNearBottom) && spaceAbove > 50) {
+                            // Posicionar acima do botão
+                            menu.style.bottom = (viewportHeight - buttonRect.top + 8) + 'px';
+                            menu.style.top = 'auto';
+                            menu.classList.remove('mt-2');
+                            menu.classList.add('mb-2', 'bottom-full');
+                            console.log('Menu posicionado ACIMA - espaço abaixo:', spaceBelow, 'espaço acima:', spaceAbove, 'isNearBottom:', isNearBottom);
+                        } else if (spaceBelow >= menuHeight && !isNearBottom) {
+                            // Posicionar abaixo do botão somente se há muito espaço E não está perto do fundo
+                            menu.style.top = (buttonRect.bottom + 8) + 'px';
+                            menu.style.bottom = 'auto';
+                            menu.classList.remove('mb-2', 'bottom-full');
+                            menu.classList.add('mt-2');
+                            console.log('Menu posicionado ABAIXO - espaço disponível:', spaceBelow);
+                        } else {
+                            // Fallback: posicionar no terço superior da tela
+                            menu.style.top = Math.max(20, viewportHeight * 0.15) + 'px';
+                            menu.style.bottom = 'auto';
+                            menu.classList.remove('mb-2', 'bottom-full');
+                            menu.classList.add('mt-2');
+                            console.log('Menu posicionado no TERÇO SUPERIOR - fallback');
+                        }
+                    });
+                } else {
+                    // Menu fechado - resetar estilos
+                    menu.style.position = '';
+                    menu.style.top = '';
+                    menu.style.left = '';
+                    menu.style.right = '';
+                    menu.style.bottom = '';
+                    menu.style.zIndex = '';
+                    menu.classList.remove('mb-2', 'bottom-full');
+                    menu.classList.add('mt-2');
+                }
                 return;
             }
 
@@ -1693,7 +1759,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         // Fechar menus de acompanhamento ao clicar fora
         if (!e.target.closest('.acompanhamento-btn')) {
-            document.querySelectorAll('.acompanhamento-dropdown').forEach(m => m.classList.add('hidden'));
+            document.querySelectorAll('.acompanhamento-dropdown').forEach(m => {
+                m.classList.add('hidden');
+                // Reset positioning styles when closing
+                m.style.position = '';
+                m.style.top = '';
+                m.style.left = '';
+                m.style.right = '';
+                m.style.bottom = '';
+                m.style.zIndex = '';
+                m.classList.remove('mb-2', 'bottom-full');
+                m.classList.add('mt-2');
+            });
         }
     });
     

@@ -119,14 +119,8 @@
     <section class="grid grid-cols-1 gap-6">
       <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-base font-semibold">Ações de acompanhamento ao longo do tempo</h2>
+          <h2 class="text-base font-semibold">Distribuição das ações de acompanhamento</h2>
           <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-600 dark:text-gray-300">Granularidade</label>
-            <select id="granularidade" class="border rounded-lg px-2 py-1 text-sm bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700">
-              <option value="month">Mensal</option>
-              <option value="week">Semanal</option>
-              <option value="day">Diária</option>
-            </select>
             <button id="export-acoes" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
           </div>
         </div>
@@ -143,6 +137,20 @@
         </div>
         <div id="chart-acoes-bar" class="h-80"></div>
         <div id="skel-acoes-bar" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
+      </div>
+    </section>
+
+    <!-- Gráfico de Distribuição por Microárea -->
+    <section class="grid grid-cols-1 gap-6 mb-6">
+      <div class="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 p-4 relative">
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="chart-microarea-titulo" class="text-base font-semibold">Distribuição por Microárea</h2>
+          <div class="flex items-center gap-2">
+            <button id="export-distribuicao-microarea" class="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"><i class="ri-download-2-line mr-1"></i>PNG</button>
+          </div>
+        </div>
+        <div id="chart-distribuicao-microarea" class="h-80"></div>
+        <div id="skel-distribuicao-microarea" class="hidden absolute inset-0 rounded-xl bg-gray-100/60 dark:bg-gray-800/60 animate-pulse"></div>
       </div>
     </section>
   </main>
