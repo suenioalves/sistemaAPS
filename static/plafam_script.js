@@ -829,19 +829,31 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'N/A';
     }
     
-    // Mapa de status de acompanhamento (ações 1-11)
+    // Mapa de status de acompanhamento - NOVO SISTEMA COM SUBMENUS
     const statusMap = {
+        // Convite
         '1': { text: 'Convite com o agente', class: 'status-com-agente' },
         '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
+        // Deseja iniciar
         '3': { text: 'Deseja iniciar (após convite)', class: 'status-deseja-iniciar' },
-        '4': { text: 'Deseja iniciar (após consulta)', class: 'status-deseja-iniciar' },
-        '5': { text: 'Já em uso de um método', class: 'status-ja-usa-metodo' },
-        '6': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
-        '7': { text: 'Método particular', class: 'status-outra-area' },
-        '8': { text: 'Reavaliar em 6 meses', class: 'status-nao-deseja-6m' },
-        '9': { text: 'Reavaliar em 1 ano', class: 'status-nao-deseja-1a' },
-        '10': { text: 'Outra área ou não reside', class: 'status-outra-area' },
-        '11': { text: 'Resetar ações', class: 'status-nenhuma-acao' },
+        '4': { text: 'Deseja iniciar (via consulta)', class: 'status-deseja-iniciar' },
+        // Já em uso - Métodos específicos
+        '5': { text: 'Já em uso - Mensal', class: 'status-ja-usa-metodo' },
+        '6': { text: 'Já em uso - Vasectomia', class: 'status-ja-usa-metodo' },
+        '7': { text: 'Já em uso - Trimestral', class: 'status-ja-usa-metodo' },
+        '8': { text: 'Já em uso - DIU', class: 'status-ja-usa-metodo' },
+        '9': { text: 'Já em uso - Implante', class: 'status-ja-usa-metodo' },
+        '10': { text: 'Já em uso - Laqueadura', class: 'status-ja-usa-metodo' },
+        '11': { text: 'Já em uso - Histerectomia (esposo)', class: 'status-ja-usa-metodo' },
+        '12': { text: 'Já em uso - Outros', class: 'status-ja-usa-metodo' },
+        // Outros status
+        '13': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
+        '14': { text: 'Reavaliar em 6 meses', class: 'status-nao-deseja-6m' },
+        '15': { text: 'Reavaliar em 1 ano', class: 'status-nao-deseja-1a' },
+        // Fora da área
+        '16': { text: 'Fora da área - Outra área', class: 'status-outra-area' },
+        '17': { text: 'Fora da área - Não reside na cidade', class: 'status-outra-area' },
+        // Reset
         '0': { text: '', class: '' } // Resetar ação
     };
 
@@ -875,16 +887,57 @@ document.addEventListener('DOMContentLoaded', function () {
                     </button>
                     <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
                         <div class="py-1" role="none">
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="1">Convite com o agente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="2">Convite entregue ao cliente</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="3">Deseja iniciar (após convite)</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="4">Deseja iniciar (após consulta)</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="5">Já em uso de um método</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="6">Cliente não encontrado</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="7">Método particular</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="8">Reavaliar em 6 meses</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="9">Reavaliar em 1 ano</a>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="10">Outra área ou não reside</a>
+                            <!-- Convite -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="1">com o Agente</a>
+                                    <a href="#" class="submenu-option" data-action="2">entregue ao Cliente</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Deseja iniciar -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Deseja iniciar</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="3">após convite</a>
+                                    <a href="#" class="submenu-option" data-action="4">via consulta</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Já em uso -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="5">Mensal</a>
+                                    <a href="#" class="submenu-option" data-action="6">Vasectomia (esposo)</a>
+                                    <a href="#" class="submenu-option" data-action="7">Trimestral</a>
+                                    <a href="#" class="submenu-option" data-action="8">DIU</a>
+                                    <a href="#" class="submenu-option" data-action="9">Implante</a>
+                                    <a href="#" class="submenu-option" data-action="10">Laqueadura</a>
+                                    <a href="#" class="submenu-option" data-action="11">Histerectomia (esposo)</a>
+                                    <a href="#" class="submenu-option" data-action="12">Outros</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Cliente não encontrado -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="13">Cliente não encontrado</a>
+                            
+                            <!-- Reavaliar em 6 meses -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="14">Reavaliar em 6 meses</a>
+                            
+                            <!-- Reavaliar em 1 ano -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="15">Reavaliar em 1 ano</a>
+                            
+                            <!-- Fora da área -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Fora da área</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="16">Outra área</a>
+                                    <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
+                                </div>
+                            </div>
+                            
                             <div class="border-t my-1"></div>
                             <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="0">Resetar ações</a>
                         </div>
@@ -1354,9 +1407,50 @@ document.addEventListener('DOMContentLoaded', function () {
     // Configurar abas de filtro
     setupStatusFilterTabs();
     
+    // Função para posicionar submenus dinamicamente
+    function positionSubmenu(submenuContainer) {
+        const submenu = submenuContainer.querySelector('.submenu');
+        const parentRect = submenuContainer.getBoundingClientRect();
+        
+        // Calcular posição ideal
+        let left = parentRect.right + 5; // 5px de margem
+        let top = parentRect.top;
+        
+        // Verificar se o submenu sairia da tela horizontalmente
+        const submenuWidth = 220; // min-width do submenu
+        if (left + submenuWidth > window.innerWidth) {
+            // Posicionar à esquerda do item pai
+            left = parentRect.left - submenuWidth - 5;
+        }
+        
+        // Verificar se o submenu sairia da tela verticalmente
+        const submenuMaxHeight = Math.min(300, window.innerHeight - 100);
+        if (top + submenuMaxHeight > window.innerHeight) {
+            // Ajustar para cima
+            top = window.innerHeight - submenuMaxHeight - 20;
+        }
+        
+        // Garantir que não saia da tela pela esquerda
+        if (left < 10) {
+            left = 10;
+        }
+        
+        // Aplicar posicionamento
+        submenu.style.left = `${left}px`;
+        submenu.style.top = `${top}px`;
+    }
+
     // Event listeners para menus de acompanhamento (igual ao arquivo antigo)
     const tabelaBody = document.getElementById('tabela-pacientes-body');
     if (tabelaBody) {
+        // Event listener para posicionar submenus ao passar o mouse
+        tabelaBody.addEventListener('mouseenter', function (event) {
+            if (event.target.closest('.submenu-container')) {
+                const submenuContainer = event.target.closest('.submenu-container');
+                positionSubmenu(submenuContainer);
+            }
+        }, true);
+        
         tabelaBody.addEventListener('click', function (event) {
             const row = event.target.closest('tr');
             if (!row) return;
@@ -1383,6 +1477,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 // Abrir/fechar o menu atual
                 menu.classList.toggle('hidden');
+                
+                // Se o menu foi aberto, configurar os submenus
+                if (!menu.classList.contains('hidden')) {
+                    // Aguardar um pequeno delay para garantir que o menu foi renderizado
+                    setTimeout(() => {
+                        const submenuContainers = menu.querySelectorAll('.submenu-container');
+                        submenuContainers.forEach(container => {
+                            const submenuTrigger = container.querySelector('.menu-item-with-arrow');
+                            if (submenuTrigger) {
+                                submenuTrigger.addEventListener('mouseenter', () => {
+                                    positionSubmenu(container);
+                                });
+                            }
+                        });
+                    }, 50);
+                }
                 
                 // Se o menu foi aberto, usar posicionamento fixo para evitar cortes
                 if (!menu.classList.contains('hidden')) {
@@ -1443,9 +1553,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            if (event.target.classList.contains('acompanhamento-option')) {
+            if (event.target.classList.contains('acompanhamento-option') || event.target.classList.contains('submenu-option')) {
                 event.preventDefault();
                 const actionStatus = event.target.dataset.action;
+                
+                // Se não há data-action, significa que clicou no item pai do submenu, ignorar
+                if (!actionStatus) return;
+                
                 const codCidadao = event.target.closest('[data-cod-paciente]').dataset.codPaciente;
                 const statusContainer = event.target.closest('.relative').querySelector('.acompanhamento-status-container');
 

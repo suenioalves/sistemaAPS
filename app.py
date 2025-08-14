@@ -437,20 +437,32 @@ def update_acompanhamento():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Mapear os códigos de status para ações 1-11 do Plafam
+        # Mapear os códigos de status para ações do Plafam - NOVO SISTEMA COM SUBMENUS
         status_mapping = {
+            # Convite
             '1': 1,      # Convite com o agente
             '2': 2,      # Convite entregue ao cliente
+            # Deseja iniciar  
             '3': 3,      # Deseja iniciar (após convite)
-            '4': 4,      # Deseja iniciar (após consulta)
-            '5': 5,      # Já em uso de um método
-            '6': 6,      # Cliente não encontrado
-            '7': 7,      # Método particular
-            '8': 8,      # Reavaliar em 6 meses
-            '9': 9,      # Reavaliar em 1 ano
-            '10': 10,    # Outra área ou não reside
-            '11': 11,    # Resetar ações
-            '0': None    # Nenhuma ação (resetar)
+            '4': 4,      # Deseja iniciar (via consulta)
+            # Já em uso - Métodos específicos
+            '5': 5,      # Já em uso - Mensal
+            '6': 6,      # Já em uso - Vasectomia (esposo)
+            '7': 7,      # Já em uso - Trimestral
+            '8': 8,      # Já em uso - DIU
+            '9': 9,      # Já em uso - Implante
+            '10': 10,    # Já em uso - Laqueadura
+            '11': 11,    # Já em uso - Histerectomia (esposo)
+            '12': 12,    # Já em uso - Outros
+            # Outros status
+            '13': 13,    # Cliente não encontrado
+            '14': 14,    # Reavaliar em 6 meses
+            '15': 15,    # Reavaliar em 1 ano
+            # Fora da área
+            '16': 16,    # Fora da área - Outra área
+            '17': 17,    # Fora da área - Não reside na cidade
+            # Reset
+            '0': None    # Resetar ações
         }
         
         status_code = status_mapping.get(status_str)
