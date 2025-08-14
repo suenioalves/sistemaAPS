@@ -853,6 +853,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Fora da área
         '16': { text: 'Fora da área - Outra área', class: 'status-outra-area' },
         '17': { text: 'Fora da área - Não reside na cidade', class: 'status-outra-area' },
+        '18': { text: 'Fora da área - Sem informação', class: 'status-outra-area' },
         // Reset
         '0': { text: '', class: '' } // Resetar ação
     };
@@ -935,6 +936,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="submenu">
                                     <a href="#" class="submenu-option" data-action="16">Outra área</a>
                                     <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
+                                    <a href="#" class="submenu-option" data-action="18">Sem informação</a>
                                 </div>
                             </div>
                             

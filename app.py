@@ -461,6 +461,7 @@ def update_acompanhamento():
             # Fora da área
             '16': 16,    # Fora da área - Outra área
             '17': 17,    # Fora da área - Não reside na cidade
+            '18': 18,    # Fora da área - Sem informação
             # Reset
             '0': None    # Resetar ações
         }
