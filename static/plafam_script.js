@@ -893,7 +893,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
                                 <div class="submenu">
                                     <a href="#" class="submenu-option" data-action="1">com o Agente</a>
-                                    <a href="#" class="submenu-option" data-action="2">entregue ao Cliente</a>
+                                    <a href="#" class="submenu-option" data-action="2">com o Cliente</a>
                                 </div>
                             </div>
                             
@@ -911,12 +911,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
                                 <div class="submenu">
                                     <a href="#" class="submenu-option" data-action="5">Mensal</a>
-                                    <a href="#" class="submenu-option" data-action="6">Vasectomia (esposo)</a>
-                                    <a href="#" class="submenu-option" data-action="7">Trimestral</a>
+                                    <a href="#" class="submenu-option" data-action="6">Trimestral</a>
+                                    <a href="#" class="submenu-option" data-action="7">Pílula</a>
                                     <a href="#" class="submenu-option" data-action="8">DIU</a>
                                     <a href="#" class="submenu-option" data-action="9">Implante</a>
-                                    <a href="#" class="submenu-option" data-action="10">Laqueadura</a>
-                                    <a href="#" class="submenu-option" data-action="11">Histerectomia (esposo)</a>
+                                    <a href="#" class="submenu-option" data-action="10">Laqueadura/Histerectomia</a>
+                                    <a href="#" class="submenu-option" data-action="11">Vasectomia</a>
                                     <a href="#" class="submenu-option" data-action="12">Outros</a>
                                 </div>
                             </div>
@@ -936,12 +936,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="submenu">
                                     <a href="#" class="submenu-option" data-action="16">Outra área</a>
                                     <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
-                                    <a href="#" class="submenu-option" data-action="18">Sem informação</a>
+                                    <a href="#" class="submenu-option" data-action="18">Sem informações</a>
                                 </div>
                             </div>
                             
                             <div class="border-t my-1"></div>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="0">Resetar ações</a>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="null">Resetar ações</a>
                         </div>
                     </div>
                     <div class="acompanhamento-status-container mt-1">${statusBadge}</div>

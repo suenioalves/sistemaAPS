@@ -30,16 +30,24 @@ TIPO_ACAO_MAP_PY = {
 
 # Global map for Plafam action types
 TIPO_ACAO_PLAFAM_MAP_PY = {
-    1: "Convite com o agente",
-    2: "Convite entregue ao cliente", 
-    3: "Deseja iniciar (via consulta)",
-    4: "Deseja iniciar (após convite)",
-    5: "Cliente não encontrado",
-    6: "Particular",
-    7: "Reavaliar em 6 meses",
-    8: "Reavaliar em 1 ano",
-    9: "Fora de área",
-    10: "Sem ação definida"
+    1: "Convite com o Agente",
+    2: "Convite com o Cliente", 
+    3: "Deseja iniciar após convite",
+    4: "Deseja iniciar via consulta",
+    5: "Já em uso - Mensal",
+    6: "Já em uso - Trimestral",
+    7: "Já em uso - Pílula",
+    8: "Já em uso - DIU",
+    9: "Já em uso - Implante",
+    10: "Já em uso - Laqueadura/Histerectomia",
+    11: "Já em uso - Vasectomia",
+    12: "Já em uso - Outros",
+    13: "Cliente não encontrado",
+    14: "Reavaliar em 6 meses",
+    15: "Reavaliar em 1 ano",
+    16: "Fora da área - Outra área",
+    17: "Fora da área - Não reside na cidade",
+    18: "Fora da área - Sem informações"
 }
 # Função auxiliar para conversão segura para float
 def safe_float_conversion(value):
