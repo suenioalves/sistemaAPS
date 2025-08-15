@@ -53,6 +53,14 @@ export const hiperdiaDom = {
         _elements.closeRegisterModal = document.getElementById('hiperdia-closeRegisterModal');
         _elements.cancelRegisterBtn = document.getElementById('hiperdia-cancelRegisterBtn');
         _elements.saveRegisterModalBtn = document.getElementById('hiperdia-saveRegisterModalBtn');
+        
+        // Export elements
+        _elements.exportMenuBtn = document.getElementById('hiperdia-export-menu-btn');
+        _elements.exportDropdown = document.getElementById('hiperdia-export-dropdown');
+        _elements.exportExcelBtn = document.getElementById('hiperdia-export-excel-btn');
+        _elements.exportCsvBtn = document.getElementById('hiperdia-export-csv-btn');
+        _elements.exportPdfBtn = document.getElementById('hiperdia-export-pdf-btn');
+        
         _elements.registerModalTitle = document.getElementById('hiperdia-registerModalTitle');
         _elements.actionTypeTabs = document.querySelectorAll('.action-type-tab');
         _elements.mrpaSection = document.getElementById('hiperdia-mrpaSection');
@@ -335,6 +343,25 @@ export const hiperdiaDom = {
                     if (d !== dropdown) d.classList.add('hidden');
                 });
                 dropdown.classList.toggle('hidden');
+            });
+        }
+    },
+
+    /**
+     * Setup do menu de exportação
+     */
+    setupExportMenu: () => {
+        if (_elements.exportMenuBtn && _elements.exportDropdown) {
+            _elements.exportMenuBtn.addEventListener('click', function (event) {
+                event.stopPropagation();
+                _elements.exportDropdown.classList.toggle('hidden');
+            });
+
+            // Fechar o dropdown quando clicar fora
+            document.addEventListener('click', function (event) {
+                if (!_elements.exportMenuBtn.contains(event.target)) {
+                    _elements.exportDropdown.classList.add('hidden');
+                }
             });
         }
     },

@@ -2,7 +2,7 @@ from flask import Flask, render_template, jsonify, request, Response
 import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
 from datetime import date, datetime, timedelta
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -13,6 +13,7 @@ import io
 import tempfile
 from docxtpl import DocxTemplate
 import os
+import re
 # Importação do docx2pdf será feita condicionalmente dentro da função
 
 # Global map for action types (Hiperdia)
@@ -5997,6 +5998,183 @@ def api_adolescentes_timeline_acoes():
     finally:
         if cur: cur.close()
         if conn: conn.close()
+
+@app.route('/api/hiperdia/export_pdf', methods=['POST'])
+def api_hiperdia_export_pdf():
+    """Exporta lista de pacientes hipertensos para PDF"""
+    try:
+        data = request.get_json()
+        pacientes = data.get('pacientes', [])
+        filtros = data.get('filtros', {})
+        
+        if not pacientes:
+            return jsonify({"erro": "Nenhum paciente fornecido para exportação"}), 400
+        
+        # Criar buffer para o PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))  # Layout paisagem
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Título
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph("HIPERDIA - Lista de Pacientes Hipertensos", title_style))
+        
+        # Informações dos filtros
+        filter_info = []
+        if filtros.get('equipe') and filtros['equipe'] != 'Todas as equipes':
+            filter_info.append(f"Equipe: {filtros['equipe']}")
+        if filtros.get('microarea') and filtros['microarea'] != 'Todas as áreas':
+            filter_info.append(f"Microárea: {filtros['microarea']}")
+        if filtros.get('status') and filtros['status'] != 'Todos':
+            filter_info.append(f"Status: {filtros['status']}")
+        
+        if filter_info:
+            story.append(Paragraph(f"Filtros aplicados: {' | '.join(filter_info)}", styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Data de geração
+        story.append(Paragraph(f"Data de geração: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Tabela de pacientes - apenas 4 colunas
+        table_data = [
+            ['Paciente', 'Tratamento Atual', 'Próxima Ação', 'Status']
+        ]
+        
+        for paciente in pacientes:
+            # Criar parágrafo para as informações do paciente na primeira coluna
+            nome = paciente.get('Nome', '')
+            idade = paciente.get('Idade', '')
+            cns = paciente.get('CNS', '')
+            area_agente = paciente.get('Area - Agente', '')
+            
+            # Montar texto da primeira coluna com quebras de linha
+            paciente_info = f"<b>{nome}</b>"
+            if idade:
+                paciente_info += f", {idade} anos"
+            if cns:
+                paciente_info += f"<br/>CNS: {cns}"
+            if area_agente:
+                paciente_info += f"<br/>{area_agente}"
+                
+            paciente_paragraph = Paragraph(paciente_info, ParagraphStyle(
+                'PatientStyle',
+                fontName='Helvetica',
+                fontSize=9,
+                leading=11,
+                leftIndent=2,
+                rightIndent=2
+            ))
+            
+            # Para a coluna tratamento atual, processar medicamentos individualmente
+            tratamento_text = paciente.get('Tratamento Atual', '')
+            if tratamento_text and tratamento_text != 'Nenhum tratamento cadastrado':
+                # Separar medicamentos usando múltiplos padrões
+                medicamentos = []
+                
+                # Primeiro tenta separar por quebras de linha existentes
+                if '<br>' in tratamento_text:
+                    medicamentos = tratamento_text.split('<br>')
+                elif '\n' in tratamento_text:
+                    medicamentos = tratamento_text.split('\n')
+                else:
+                    # Para o padrão específico: "mg (Xx/dia)" seguido de letra minúscula
+                    # Exemplo: "10 mg (1x/dia)losartana 50 mg"
+                    medicamentos = re.split(r'(?<=\))\s*(?=[a-z])', tratamento_text)
+                    
+                    # Se ainda não separou bem, usar padrão mais amplo
+                    if len(medicamentos) <= 1:
+                        # Separar após parênteses fechado seguido de qualquer palavra
+                        medicamentos = re.split(r'(?<=\))\s*(?=\w)', tratamento_text)
+                
+                # Formatar cada medicamento com símbolo de check verde
+                medicamentos_formatados = []
+                for med in medicamentos:
+                    med = med.strip()
+                    if med:
+                        # Usar símbolo de check verde (✓) - funciona em ReportLab
+                        medicamentos_formatados.append(f"<font color='green'>✓</font> {med}")
+                
+                tratamento_formatado = '<br/>'.join(medicamentos_formatados)
+                
+                tratamento_paragraph = Paragraph(tratamento_formatado, ParagraphStyle(
+                    'TreatmentStyle',
+                    fontName='Helvetica',
+                    fontSize=7,
+                    leading=9,
+                    leftIndent=2,
+                    rightIndent=2,
+                    spaceAfter=2
+                ))
+            else:
+                tratamento_paragraph = Paragraph(tratamento_text, ParagraphStyle(
+                    'TreatmentStyle',
+                    fontName='Helvetica',
+                    fontSize=8,
+                    leading=9
+                ))
+                
+            table_data.append([
+                paciente_paragraph,  # Todas as informações do paciente
+                tratamento_paragraph,  # Usar parágrafo para quebra de linha
+                paciente.get('Próxima Ação', ''),  # Próxima ação
+                paciente.get('Status', '')  # Status
+            ])
+        
+        # Ajustar larguras das colunas para 4 colunas no layout paisagem
+        # Paciente maior, Tratamento reduzido
+        table = Table(table_data, colWidths=[110*mm, 70*mm, 60*mm, 25*mm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Alinhamento vertical superior
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            # Alinhamento específico para a coluna do paciente (índice 0)
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),  # Alinhar texto à esquerda na coluna paciente
+            ('LEFTPADDING', (0, 1), (0, -1), 6),
+            ('RIGHTPADDING', (0, 1), (0, -1), 6),
+            # Alinhamento específico para a coluna de tratamento (índice 1)
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),  # Alinhar texto à esquerda na coluna tratamento
+            ('LEFTPADDING', (1, 1), (1, -1), 4),
+            ('RIGHTPADDING', (1, 1), (1, -1), 4),
+            # Padding geral
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6)
+        ]))
+        
+        story.append(table)
+        story.append(Spacer(1, 20))
+        
+        # Rodapé
+        story.append(Paragraph(f"Total de pacientes: {len(pacientes)}", styles['Normal']))
+        
+        doc.build(story)
+        buffer.seek(0)
+        
+        return Response(
+            buffer.getvalue(),
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename=hiperdia_pacientes_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+            }
+        )
+        
+    except Exception as e:
+        print(f"Erro ao gerar PDF de exportação: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')

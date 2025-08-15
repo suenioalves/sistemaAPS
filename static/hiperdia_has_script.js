@@ -2,6 +2,7 @@ import { hiperdiaApi } from './hiperdiaApi.js';
 import { hiperdiaDom } from './hiperdiaDom.js';
 
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('Hiperdia script loading...');
     hiperdiaDom.initDomElements();
      // Access elements via hiperdiaDom.elements and functions via hiperdiaDom
     const elements = hiperdiaDom.elements;
@@ -1038,8 +1039,307 @@ document.addEventListener('DOMContentLoaded', function () {
         return originalFetchPacientes().then(() => {
             // Carregar tratamentos atuais para todos os pacientes
             setTimeout(carregarTratamentosNaTabela, 100);
+            // Restaurar seleções da página
+            setTimeout(restorePageSelections, 200);
         });
     };
+
+    // Variável global para armazenar todos os pacientes selecionados (multi-página)
+    let selectedPatientsGlobal = new Set();
+
+    // Função para gerenciar seleção multi-página
+    function updateGlobalSelection() {
+        // Adicionar pacientes selecionados da página atual
+        document.querySelectorAll('.hiperdia-print-checkbox:checked').forEach(checkbox => {
+            selectedPatientsGlobal.add(checkbox.getAttribute('data-cod-paciente'));
+        });
+
+        // Remover pacientes desmarcados da página atual
+        document.querySelectorAll('.hiperdia-print-checkbox:not(:checked)').forEach(checkbox => {
+            selectedPatientsGlobal.delete(checkbox.getAttribute('data-cod-paciente'));
+        });
+    }
+
+    // Função para restaurar seleções da página atual com base na seleção global
+    function restorePageSelections() {
+        document.querySelectorAll('.hiperdia-print-checkbox').forEach(checkbox => {
+            const codPaciente = checkbox.getAttribute('data-cod-paciente');
+            if (selectedPatientsGlobal.has(codPaciente)) {
+                checkbox.checked = true;
+            }
+        });
+    }
+
+    // Função para buscar medicamentos de um paciente via API
+    async function fetchMedicamentosForExport(codPaciente) {
+        try {
+            // Tentar primeiro com fetchMedicamentosAtuais
+            let medicamentos = await hiperdiaApi.fetchMedicamentosAtuais(codPaciente);
+            
+            // Se não funcionou, tentar com fetchMedicamentos
+            if (!medicamentos || medicamentos.length === 0) {
+                medicamentos = await hiperdiaApi.fetchMedicamentos(codPaciente);
+            }
+            
+            return medicamentos || [];
+        } catch (error) {
+            console.error(`Erro ao buscar medicamentos do paciente ${codPaciente}:`, error);
+            // Tentar método alternativo em caso de erro
+            try {
+                const medicamentos = await hiperdiaApi.fetchMedicamentos(codPaciente);
+                return medicamentos || [];
+            } catch (error2) {
+                console.error(`Erro no método alternativo para paciente ${codPaciente}:`, error2);
+                return [];
+            }
+        }
+    }
+
+    // Função para coletar dados dos pacientes para exportação
+    async function getSelectedPatientsData() {
+        const selectedData = [];
+        
+        if (selectedPatientsGlobal.size === 0) {
+            // Se nenhum paciente selecionado, buscar TODOS os pacientes da tabulação atual (todas as páginas)
+            try {
+                console.log('Buscando todos os pacientes para exportação...');
+                const params = new URLSearchParams({
+                    equipe: equipeSelecionadaAtual,
+                    microarea: microareaSelecionadaAtual,
+                    page: 1,
+                    limit: 1000, // Buscar muitos pacientes de uma vez
+                    search: currentSearchTerm,
+                    sort_by: currentSort,
+                    status: currentStatusFilter
+                });
+                
+                const allPatientsData = await hiperdiaApi.fetchPacientesHiperdia(params);
+                const allPatients = allPatientsData.pacientes || [];
+                
+                console.log(`Buscando medicamentos para ${allPatients.length} pacientes...`);
+                
+                // Para cada paciente, buscar medicamentos via API
+                for (let i = 0; i < allPatients.length; i++) {
+                    const paciente = allPatients[i];
+                    console.log(`Processando paciente ${i + 1}/${allPatients.length}: ${paciente.nome_paciente}`);
+                    
+                    const medicamentos = await fetchMedicamentosForExport(paciente.cod_paciente);
+                    selectedData.push(formatPatientForExport(paciente, medicamentos));
+                }
+            } catch (error) {
+                console.error('Erro ao buscar todos os pacientes:', error);
+                // Fallback para os pacientes da página atual (sem medicamentos via API)
+                currentFetchedPacientes.forEach(paciente => {
+                    selectedData.push(formatPatientForExport(paciente));
+                });
+            }
+        } else {
+            // Usar apenas os pacientes selecionados - buscar todos os dados para garantir que temos todos os selecionados
+            try {
+                console.log(`Buscando ${selectedPatientsGlobal.size} pacientes selecionados para exportação...`);
+                const params = new URLSearchParams({
+                    equipe: equipeSelecionadaAtual,
+                    microarea: microareaSelecionadaAtual,
+                    page: 1,
+                    limit: 1000, // Buscar todos os pacientes para pegar os selecionados
+                    search: currentSearchTerm,
+                    sort_by: currentSort,
+                    status: currentStatusFilter
+                });
+                
+                const allPatientsData = await hiperdiaApi.fetchPacientesHiperdia(params);
+                const allPatients = allPatientsData.pacientes || [];
+                
+                // Filtrar apenas os pacientes que estão selecionados globalmente e buscar medicamentos
+                const selectedPatients = allPatients.filter(paciente => 
+                    selectedPatientsGlobal.has(String(paciente.cod_paciente))
+                );
+                
+                console.log(`Buscando medicamentos para ${selectedPatients.length} pacientes selecionados...`);
+                
+                for (let i = 0; i < selectedPatients.length; i++) {
+                    const paciente = selectedPatients[i];
+                    console.log(`Processando paciente selecionado ${i + 1}/${selectedPatients.length}: ${paciente.nome_paciente}`);
+                    
+                    const medicamentos = await fetchMedicamentosForExport(paciente.cod_paciente);
+                    selectedData.push(formatPatientForExport(paciente, medicamentos));
+                }
+            } catch (error) {
+                console.error('Erro ao buscar pacientes selecionados:', error);
+                // Fallback: usar apenas os da página atual (sem medicamentos via API)
+                currentFetchedPacientes.forEach(paciente => {
+                    if (selectedPatientsGlobal.has(String(paciente.cod_paciente))) {
+                        selectedData.push(formatPatientForExport(paciente));
+                    }
+                });
+            }
+        }
+        
+        console.log(`Exportação concluída: ${selectedData.length} pacientes processados`);
+        return selectedData;
+    }
+
+    // Função para formatar dados do paciente para exportação (sem buscar medicamentos - será feito separadamente)
+    function formatPatientForExport(paciente, tratamentoAtual = null) {
+        let tratamento = 'Nenhum tratamento cadastrado';
+        
+        if (tratamentoAtual) {
+            // Se os medicamentos foram fornecidos via API
+            if (tratamentoAtual.length > 0) {
+                const medicamentosFormatados = tratamentoAtual.map(med => 
+                    `${med.nome_medicamento || ''} ${med.dose_texto || ''} (${med.frequencia_texto || ''})`
+                ).join('\n');
+                tratamento = medicamentosFormatados || 'Nenhum tratamento cadastrado';
+            }
+        } else {
+            // Tentar buscar do DOM (apenas para pacientes da página atual)
+            const tratamentoContainer = document.getElementById(`tratamento-atual-${paciente.cod_paciente}`);
+            if (tratamentoContainer && tratamentoContainer.innerHTML) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = tratamentoContainer.innerHTML;
+                tratamento = tempDiv.textContent || tempDiv.innerText || 'Nenhum tratamento cadastrado';
+            }
+        }
+        
+        return {
+            'Nome': paciente.nome_paciente || '',
+            'CNS': paciente.cartao_sus || '',
+            'Idade': paciente.idade_calculada || '',
+            'Equipe': paciente.nome_equipe || '',
+            'Area - Agente': `${paciente.microarea || ''} - ${paciente.nome_agente || ''}`,
+            'Tratamento Atual': tratamento,
+            'Próxima Ação': paciente.proxima_acao_descricao || '',
+            'Status': getSituacaoText(paciente.situacao_problema)
+        };
+    }
+
+    // Função auxiliar para converter situação para texto
+    function getSituacaoText(situacao) {
+        switch(situacao) {
+            case 0: return 'Ativo';
+            case 1: return 'Compensado';
+            default: return 'N/A';
+        }
+    }
+
+    // Funções de exportação
+    function exportToExcel(data) {
+        const headers = Object.keys(data[0]);
+        const csvContent = [
+            headers.join('\t'),
+            ...data.map(row => headers.map(header => row[header] || '').join('\t'))
+        ].join('\n');
+        
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `hiperdia_pacientes_${new Date().toISOString().split('T')[0]}.xls`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportToCSV(data) {
+        const headers = Object.keys(data[0]);
+        const csvContent = [
+            headers.join(','),
+            ...data.map(row => headers.map(header => `"${(row[header] || '').toString().replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+        
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `hiperdia_pacientes_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    async function exportToPDF(data) {
+        try {
+            const response = await fetch('/api/hiperdia/export_pdf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    pacientes: data,
+                    filtros: {
+                        equipe: equipeSelecionadaAtual,
+                        microarea: microareaSelecionadaAtual,
+                        status: currentStatusFilter
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Erro na resposta do servidor');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            link.href = url;
+            link.download = `hiperdia_pacientes_${new Date().toISOString().split('T')[0]}.pdf`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Erro ao gerar PDF:', error);
+            alert('Erro ao gerar arquivo PDF. Tente novamente.');
+        }
+    }
+
+    // Setup dos botões de exportação
+    function setupExportButtons() {
+        if (elements.exportExcelBtn) {
+            elements.exportExcelBtn.addEventListener('click', async () => {
+                const data = await getSelectedPatientsData();
+                if (data.length === 0) {
+                    alert('Nenhum paciente disponível para exportação.');
+                    return;
+                }
+                exportToExcel(data);
+                elements.exportDropdown.classList.add('hidden');
+            });
+        }
+
+        if (elements.exportCsvBtn) {
+            elements.exportCsvBtn.addEventListener('click', async () => {
+                const data = await getSelectedPatientsData();
+                if (data.length === 0) {
+                    alert('Nenhum paciente disponível para exportação.');
+                    return;
+                }
+                exportToCSV(data);
+                elements.exportDropdown.classList.add('hidden');
+            });
+        }
+
+        if (elements.exportPdfBtn) {
+            elements.exportPdfBtn.addEventListener('click', async () => {
+                const data = await getSelectedPatientsData();
+                if (data.length === 0) {
+                    alert('Nenhum paciente disponível para exportação.');
+                    return;
+                }
+                await exportToPDF(data);
+                elements.exportDropdown.classList.add('hidden');
+            });
+        }
+    }
 
     // Função para gerenciar checkboxes de impressão
     function setupPrintCheckboxes() {
@@ -1053,8 +1353,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 checkboxes.forEach(checkbox => {
                     checkbox.checked = this.checked;
                 });
+                updateGlobalSelection();
             });
         }
+
+        // Listener para checkboxes individuais
+        document.addEventListener('change', function(event) {
+            if (event.target.classList.contains('hiperdia-print-checkbox')) {
+                updateGlobalSelection();
+            }
+        });
 
         // Botão de imprimir receituários
         if (printButton) {
@@ -1152,10 +1460,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);
+    hiperdiaDom.setupExportMenu();
 
     fetchEquipesMicroareasHiperdia();
     fetchPacientesHiperdia();
     updateSummaryCards();
     hiperdiaDom.updateStatusFilterButtons(document.querySelector('.hiperdia-status-tab-btn[data-status-filter="Todos"]'));
     setupPrintCheckboxes();
+    setupExportButtons();
 });

@@ -162,6 +162,35 @@
                                 class="border-none focus:outline-none text-sm w-48">
                         </div>
                     </div>
+                    <!-- Menu de Exportação -->
+                    <div class="relative">
+                        <button id="hiperdia-export-menu-btn" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors">
+                            <i class="ri-download-line"></i>
+                            <span>Exportar</span>
+                            <i class="ri-arrow-down-s-line"></i>
+                        </button>
+                        <div id="hiperdia-export-dropdown" 
+                            class="hidden absolute right-0 mt-1 w-48 bg-white shadow-lg rounded-md border border-gray-200 z-50">
+                            <div class="p-2">
+                                <button id="hiperdia-export-excel-btn" 
+                                    class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md flex items-center space-x-2 text-sm">
+                                    <i class="ri-file-excel-line text-green-600"></i>
+                                    <span>Excel (.xlsx)</span>
+                                </button>
+                                <button id="hiperdia-export-csv-btn" 
+                                    class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md flex items-center space-x-2 text-sm">
+                                    <i class="ri-file-text-line text-gray-600"></i>
+                                    <span>CSV (.csv)</span>
+                                </button>
+                                <button id="hiperdia-export-pdf-btn" 
+                                    class="w-full text-left px-3 py-2 hover:bg-gray-100 rounded-md flex items-center space-x-2 text-sm">
+                                    <i class="ri-file-pdf-line text-red-600"></i>
+                                    <span>PDF (.pdf)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <button id="hiperdia-print-prescriptions-btn" 
                         class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors">
                         <i class="ri-printer-line"></i>
@@ -234,7 +263,7 @@
                                     <div class="flex items-center justify-center space-x-2">
                                         <input type="checkbox" id="hiperdia-select-all-print" 
                                             class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded">
-                                        <span>Imprimir</span>
+                                        <span>TODOS</span>
                                     </div>
                                 </th>
                             </tr>
