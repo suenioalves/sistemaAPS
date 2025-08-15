@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     proximaAcaoDisplay = `<span class="text-green-800 font-medium">Vencimento próximo - Avisar equipe</span><br><span class="text-xs text-green-600">(${dataAcao})</span>`;
                 } else if (ado.ultimo_resultado_abordagem === 14) {
                     // "Atualizar no PEC"
-                    proximaAcaoDisplay = `<span class="text-blue-800 font-medium">Atualizar no PEC - Avisar equipe</span><br><span class="text-xs text-blue-600">(${dataAcao})</span>`;
+                    proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${dataAcao})</span>`;
                 } else if (ado.ultimo_resultado_abordagem === 15) {
                     // "Método em uso"
                     proximaAcaoDisplay = `<span class="text-gray-700 font-medium">Método em uso</span><br><span class="text-xs text-gray-600">(${dataAcao})</span>`;
@@ -699,14 +699,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     proximaAcaoDisplay = `<span class="text-purple-700 font-medium">Nova ação</span><br><span class="text-xs text-purple-600">(${dataAcao})</span>`;
                 }
             } else if (ado.ultimo_resultado_abordagem === 4) {
-                // Caso especial: "Já usa um método" - mostrar em verde
-                proximaAcaoDisplay = `<span class="text-green-600 font-medium">(Paciente em uso)</span><br><span class="text-xs text-green-500">(Atualizar no PEC)</span>`;
+                // Caso especial: "Já usa um método" - mostrar em azul para consistência
+                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
             } else if (ado.proxima_acao_tipo === 5 || ado.proxima_acao_tipo === 7 || 
                       (ado.proxima_acao_descricao && 
                        (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
                         ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')))) {
-                // Caso especial: "Fora de área" ou "Remover do acompanhamento" - mostrar em vermelho
-                proximaAcaoDisplay = `<span class="text-red-700 font-medium text-sm">Fora de área. Atualizar PEC.</span>`;
+                // Caso especial: "Fora de área" ou "Remover do acompanhamento" - mostrar "Atualizar no PEC" em azul
+                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
             } else if (ado.proxima_acao_tipo === 3 || (ado.proxima_acao_descricao && (ado.proxima_acao_descricao.toLowerCase().includes('consulta na ubs') || ado.proxima_acao_descricao.toLowerCase().includes('iniciar método na ubs')))) {
                 // Caso especial: "Iniciar método na UBS" - mostrar em verde escuro
                 proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método na UBS</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da consulta'})</span>`;
@@ -715,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método em domicílio</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da visita'})</span>`;
             } else if (ado.proxima_acao_tipo === 8 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('atualizar no pec'))) {
                 // Caso especial: "Atualizar PEC" - mostrar em azul
-                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar PEC</span><br><span class="text-xs text-blue-600">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
             } else if (ado.proxima_acao_descricao) {
                 // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
                 if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {

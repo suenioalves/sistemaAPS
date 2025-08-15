@@ -1084,12 +1084,18 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
                     1: "Abordagem com pais",
                     2: "Abordagem direta com adolescente",
                     3: "Consulta na UBS",
-                    4: "Entrega de convite"
+                    4: "Entrega de convite",
+                    5: "Fora de área",
+                    6: "Iniciar método em domicílio",
+                    7: "Remover do acompanhamento",
+                    8: "Atualizar no PEC"
                 }
                 row_dict['proxima_acao_descricao'] = tipo_abordagem_map_py.get(tipo_prox_acao_ord, 'Ação futura')
+                row_dict['proxima_acao_tipo'] = tipo_prox_acao_ord
             else:
                 row_dict['proxima_acao_data_formatada'] = None
                 row_dict['proxima_acao_descricao'] = None
+                row_dict['proxima_acao_tipo'] = None
 
             # Processar dados da última ação realizada
             ultima_data_acao = row_dict.get('ultima_data_acao')
