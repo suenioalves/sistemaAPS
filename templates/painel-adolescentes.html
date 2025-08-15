@@ -958,6 +958,16 @@
                         `;
                         window.setupNextActionDropdownListeners();
                     }
+                } else if (selectedValue === '9' || selectedValue === '10' || selectedValue === '11') { // Outra área, Não reside na cidade, Sem informação
+                    methodSection.classList.add('hidden');
+                    
+                    // Para opções de fora de área, mostrar apenas "Atualizar PEC"
+                    if (nextActionOptionsContainer) {
+                        nextActionOptionsContainer.innerHTML = `
+                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="8">Atualizar PEC</div>
+                        `;
+                        window.setupNextActionDropdownListeners();
+                    }
                 } else {
                     methodSection.classList.add('hidden');
                     
@@ -984,9 +994,8 @@
                     const selectedValue = e.target.value;
                     
                     if (selectedValue === '5') { // Fora de área
-                        // Filtrar resultado para mostrar apenas "Fora de área"
+                        // Filtrar resultado para mostrar apenas as opções de fora de área (sem "Fora de área")
                         resultDropdownOptionsContainer.innerHTML = `
-                            <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="5">Fora de área</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="9">Outra área</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="10">Não reside na cidade</div>
                             <div class="cursor-pointer hover:bg-gray-100 p-2 rounded" data-value="11">Sem informação</div>
