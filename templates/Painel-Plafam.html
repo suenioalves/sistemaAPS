@@ -347,54 +347,6 @@
         <!-- Remover as abas por equipe -->
         <!-- <div id="team-tabs-container" ...> ... </div> -->
 
-        <!-- Inserir as abas de status igual ao painel de adolescentes -->
-        <div class="flex space-x-2 border-b border-gray-200 mb-6">
-            <button id="timeline-filter-todos" 
-                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
-                    data-status-filter="Todos"
-                    data-active-bg="bg-primary"
-                    data-active-text="text-white"
-                    data-active-border="border-primary"
-                    data-inactive-bg="bg-transparent"
-                    data-inactive-text="text-gray-500 hover:text-gray-700"
-                    data-inactive-border="border-transparent hover:border-gray-300">Todos</button>
-            <button id="timeline-filter-metodo-em-dia" 
-                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
-                    data-status-filter="MetodoEmDia"
-                    data-active-bg="bg-green-500"
-                    data-active-text="text-white"
-                    data-active-border="border-green-500"
-                    data-inactive-bg="bg-transparent"
-                    data-inactive-text="text-gray-500 hover:text-green-700"
-                    data-inactive-border="border-transparent hover:border-green-300">Método em dia</button>
-            <button id="timeline-filter-metodo-vencido" 
-                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
-                    data-status-filter="MetodoVencido"
-                    data-active-bg="bg-red-500"
-                    data-active-text="text-white"
-                    data-active-border="border-red-500"
-                    data-inactive-bg="bg-transparent"
-                    data-inactive-text="text-gray-500 hover:text-red-700"
-                    data-inactive-border="border-transparent hover:border-red-300">Método Vencido</button>
-            <button id="timeline-filter-sem-metodo" 
-                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
-                    data-status-filter="SemMetodo"
-                    data-active-bg="bg-yellow-400"
-                    data-active-text="text-yellow-800"
-                    data-active-border="border-yellow-400"
-                    data-inactive-bg="bg-transparent"
-                    data-inactive-text="text-gray-500 hover:text-yellow-600"
-                    data-inactive-border="border-transparent hover:border-yellow-300">Sem método</button>
-            <button id="timeline-filter-gestante" 
-                    class="timeline-status-tab-btn py-2 px-4 text-sm font-medium" 
-                    data-status-filter="Gestante"
-                    data-active-bg="bg-pink-500"
-                    data-active-text="text-white"
-                    data-active-border="border-pink-500"
-                    data-inactive-bg="bg-transparent"
-                    data-inactive-text="text-gray-500 hover:text-pink-700"
-                    data-inactive-border="border-transparent hover:border-pink-300">Gestantes</button>
-        </div>
 
         <!-- Barra de Ferramentas - movida para baixo das abas -->
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -481,6 +433,81 @@
                             </div>
                         </div>
                     </div>
+                    <div class="relative" id="action-filter-menu-container">
+                        <button id="action-filter-btn" class="px-4 py-2 border border-gray-300 rounded-lg flex items-center text-gray-700 hover:bg-gray-100 text-sm whitespace-nowrap">
+                            <i class="ri-user-settings-line mr-2"></i>
+                            Filtrar Ações
+                        </button>
+                        <div id="action-filter-dropdown" class="absolute top-full mt-2 w-[500px] bg-white rounded-lg shadow-xl p-6 z-20 hidden">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Filtrar por Ações</h3>
+                            
+                            <!-- Layout em 2 colunas para Convite e Deseja iniciar -->
+                            <div class="grid grid-cols-2 gap-6 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Convite</label>
+                                    <div class="space-y-2 text-sm">
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="1" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">com o Agente</label>
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="2" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">com o Cliente</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Deseja iniciar</label>
+                                    <div class="space-y-2 text-sm">
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="3" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">após convite</label>
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="4" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">via consulta</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Já em uso com nota -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Já em uso <span class="text-xs text-gray-500">(falta atualizar no PEC)</span></label>
+                                <div class="grid grid-cols-2 gap-1 text-sm">
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="5" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Mensal</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="6" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Trimestral</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="7" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Pílula</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="8" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">DIU</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="9" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Implante</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="10" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Laqueadura/Histerectomia</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="11" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Vasectomia</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="12" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Outros</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Não deseja usar nenhum método no momento -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Não deseja usar nenhum método no momento</label>
+                                <div class="space-y-2 text-sm">
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="14" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Reavaliar em 6 meses</label>
+                                    <label class="flex items-center"><input type="checkbox" name="acao" value="15" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Reavaliar em 1 ano</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Layout em 2 colunas para Fora da área e Outras situações -->
+                            <div class="grid grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Fora da área</label>
+                                    <div class="space-y-2 text-sm">
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="16" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Outra área</label>
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="17" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Não reside na cidade</label>
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="18" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Sem informações</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Outras situações</label>
+                                    <div class="space-y-2 text-sm">
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="13" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Cliente não encontrado</label>
+                                        <label class="flex items-center"><input type="checkbox" name="acao" value="0" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mr-2">Sem Ações</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end gap-3 border-t pt-4">
+                                <button id="clear-action-filters-btn" class="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100">Limpar</button>
+                                <button id="apply-action-filters-btn" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90">Aplicar filtros</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -540,10 +567,6 @@
                         <i class="ri-close-circle-line mr-2"></i>
                         <span>Limpar Seleções</span>
                     </button>
-                    <a href="{{ url_for('painel_adolescentes') }}" target="_blank" class="px-4 py-2 bg-primary text-white rounded-lg flex items-center hover:bg-primary/90 text-sm whitespace-nowrap">
-                        <i class="ri-group-line mr-2"></i>
-                        <span>Planejamento Familiar Especial - Adolescentes</span>
-                    </a>
                 </div>
             </div>
         </div>

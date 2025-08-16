@@ -216,6 +216,26 @@ def build_filtered_query(args):
         query_params['aplicacao_data_final'] = aplicacao_data_final
         print(f"DEBUG: Adicionado filtro de aplicações - Data inicial: {aplicacao_data_inicial}, Data final: {aplicacao_data_final}")
 
+    # Filtro de Ações (status_acompanhamento)
+    acao_filters = args.getlist('acao_filter')
+    if acao_filters:
+        print(f"DEBUG: Filtros de ações recebidos: {acao_filters}")
+        # Converter filtros para inteiros, tratando "0" como None (Sem Ações)
+        acao_conditions = []
+        for acao in acao_filters:
+            if acao == '0':  # Sem Ações
+                acao_conditions.append("(pa.status_acompanhamento IS NULL)")
+            else:
+                try:
+                    acao_int = int(acao)
+                    acao_conditions.append(f"pa.status_acompanhamento = {acao_int}")
+                except ValueError:
+                    print(f"WARNING: Valor de ação inválido: {acao}")
+        
+        if acao_conditions:
+            where_clauses.append(f"({ ' OR '.join(acao_conditions) })")
+            print(f"DEBUG: Adicionado filtro de ações: {' OR '.join(acao_conditions)}")
+
     # Lógica de Ordenação
     sort_mapping = {
         'nome_asc': 'm.nome_paciente ASC',
@@ -299,7 +319,15 @@ def build_filtered_query(args):
             m.nome_paciente ASC
         """
     }
-    order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC')
+    # Verificar se há filtros de ações aplicados para ordenação especial
+    acao_filters = args.getlist('acao_filter')
+    if acao_filters:
+        # Quando filtros de ações são aplicados, ordenar por data_acompanhamento ascendente (mais antiga para mais recente)
+        order_by_clause = " ORDER BY pa.data_acompanhamento ASC NULLS LAST, m.nome_paciente ASC"
+        print(f"DEBUG: Aplicando ordenação por data_acompanhamento ASC devido aos filtros de ações")
+    else:
+        # Usar ordenação padrão quando não há filtros de ações
+        order_by_clause = " ORDER BY " + sort_mapping.get(sort_by, 'm.nome_paciente ASC')
 
     where_clause_str = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     
@@ -360,7 +388,9 @@ def api_pacientes_plafam():
         """
         
         final_query = base_query + where_clause
-        count_query = "SELECT COUNT(*) FROM sistemaaps.mv_plafam m" + where_clause
+        count_query = """SELECT COUNT(*) FROM sistemaaps.mv_plafam m
+        LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+        LEFT JOIN sistemaaps.tb_agentes ag ON m.nome_equipe = ag.nome_equipe AND m.microarea = ag.micro_area""" + where_clause
 
         count_params = query_params.copy()
         

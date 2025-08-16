@@ -10,6 +10,7 @@ let currentSearchTerm = '';
 let currentSortValue = '';
 let activeFilters = {};
 let activeAplicacoesFilter = {};
+let activeActionFilters = {};
 
 // Função para obter status do acompanhamento (movida para escopo global)
 function getAcompanhamentoStatus(paciente) {
@@ -81,6 +82,15 @@ function imprimirConvitesSelecionados() {
         Object.entries(activeFilters).forEach(([filterName, filterValues]) => {
             filterValues.forEach(value => {
                 params.append(filterName, value);
+            });
+        });
+    }
+    
+    // Aplicar filtros de ações se ativos
+    if (activeActionFilters && Object.keys(activeActionFilters).length > 0) {
+        Object.entries(activeActionFilters).forEach(([filterName, filterValues]) => {
+            filterValues.forEach(value => {
+                params.append('acao_filter', value);
             });
         });
     }
@@ -309,6 +319,15 @@ function exportData(format) {
         Object.entries(activeFilters).forEach(([filterName, filterValues]) => {
             filterValues.forEach(value => {
                 params.append(filterName, value);
+            });
+        });
+    }
+    
+    // Aplicar filtros de ações se ativos
+    if (activeActionFilters && Object.keys(activeActionFilters).length > 0) {
+        Object.entries(activeActionFilters).forEach(([filterName, filterValues]) => {
+            filterValues.forEach(value => {
+                params.append('acao_filter', value);
             });
         });
     }
@@ -1037,7 +1056,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     searchTerm: currentSearchTerm, 
                     sortValue: currentSortValue, 
                     includeFilters: Object.keys(activeFilters).length > 0,
-                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                    includeActionFilters: Object.keys(activeActionFilters).length > 0
                 });
             });
         });
@@ -1078,112 +1098,6 @@ document.addEventListener('DOMContentLoaded', function () {
         fetchPacientes();
     }
     
-    // Configurar abas de filtro de status
-    function setupStatusFilterTabs() {
-        console.log('setupStatusFilterTabs chamada');
-        const statusFilterButtons = document.querySelectorAll('.timeline-status-tab-btn');
-        console.log('Botões de filtro encontrados:', statusFilterButtons.length);
-        
-        statusFilterButtons.forEach((btn, index) => {
-            console.log(`Configurando botão ${index}:`, btn.textContent, btn.getAttribute('data-status-filter'));
-            btn.addEventListener('click', function() {
-                console.log('Clique no botão:', this.textContent, 'status:', this.getAttribute('data-status-filter'));
-                
-                // Remove active state from all buttons
-                statusFilterButtons.forEach(b => {
-                    b.classList.remove('border-b-2', 'font-bold');
-                    const activeBg = b.getAttribute('data-active-bg');
-                    const activeText = b.getAttribute('data-active-text');
-                    const activeBorder = b.getAttribute('data-active-border');
-                    const inactiveBg = b.getAttribute('data-inactive-bg');
-                    const inactiveText = b.getAttribute('data-inactive-text');
-                    const inactiveBorder = b.getAttribute('data-inactive-border');
-                    
-                    // Remover classes ativas (separar por espaços se necessário)
-                    if (activeBg) activeBg.split(' ').forEach(cls => cls.trim() && b.classList.remove(cls.trim()));
-                    if (activeText) activeText.split(' ').forEach(cls => cls.trim() && b.classList.remove(cls.trim()));
-                    if (activeBorder) activeBorder.split(' ').forEach(cls => cls.trim() && b.classList.remove(cls.trim()));
-                    
-                    // Adicionar classes inativas (separar por espaços se necessário)
-                    if (inactiveBg) inactiveBg.split(' ').forEach(cls => cls.trim() && b.classList.add(cls.trim()));
-                    if (inactiveText) inactiveText.split(' ').forEach(cls => cls.trim() && b.classList.add(cls.trim()));
-                    if (inactiveBorder) inactiveBorder.split(' ').forEach(cls => cls.trim() && b.classList.add(cls.trim()));
-                });
-                
-                // Add active state to clicked button
-                this.classList.add('border-b-2', 'font-bold');
-                const activeBg = this.getAttribute('data-active-bg');
-                const activeText = this.getAttribute('data-active-text');
-                const activeBorder = this.getAttribute('data-active-border');
-                
-                // Remover classes inativas do botão clicado (separar por espaços)
-                const inactiveBgThis = this.getAttribute('data-inactive-bg');
-                const inactiveTextThis = this.getAttribute('data-inactive-text');
-                const inactiveBorderThis = this.getAttribute('data-inactive-border');
-                
-                if (inactiveBgThis) inactiveBgThis.split(' ').forEach(cls => cls.trim() && this.classList.remove(cls.trim()));
-                if (inactiveTextThis) inactiveTextThis.split(' ').forEach(cls => cls.trim() && this.classList.remove(cls.trim()));
-                if (inactiveBorderThis) inactiveBorderThis.split(' ').forEach(cls => cls.trim() && this.classList.remove(cls.trim()));
-                
-                // Adicionar classes ativas (separar por espaços)
-                if (activeBg) activeBg.split(' ').forEach(cls => cls.trim() && this.classList.add(cls.trim()));
-                if (activeText) activeText.split(' ').forEach(cls => cls.trim() && this.classList.add(cls.trim()));
-                if (activeBorder) activeBorder.split(' ').forEach(cls => cls.trim() && this.classList.add(cls.trim()));
-                
-                // Update current filter and refresh data
-                currentStatusFilter = this.getAttribute('data-status-filter');
-                console.log('Filtro atualizado para:', currentStatusFilter);
-                currentPage = 1;
-                
-                // Aplicar ordenação automática baseada no filtro selecionado
-                let autoSortValue = currentSortValue; // Manter ordenação atual como padrão
-                
-                if (currentStatusFilter === 'MetodoEmDia') {
-                    // Para métodos em dia: mostrar datas mais próximas de hoje primeiro (ex: 5/8/25, 8/8/25, 10/10/25...)
-                    autoSortValue = 'metodo_asc'; // Usar a ordenação condicional já implementada
-                    console.log('Aplicando ordenação automática para métodos em dia');
-                } else if (currentStatusFilter === 'MetodoVencido') {
-                    // Para métodos em atraso: mostrar datas mais próximas de hoje primeiro (ex: 30/7/25, 15/7/25, 1/5/25...)
-                    autoSortValue = 'metodo_asc'; // Usar a ordenação condicional já implementada
-                    console.log('Aplicando ordenação automática para métodos vencidos');
-                }
-                
-                // Atualizar ordenação atual se foi alterada automaticamente
-                if (autoSortValue !== currentSortValue) {
-                    currentSortValue = autoSortValue;
-                    // Atualizar texto do botão de ordenação se existir
-                    const sortBtnText = document.getElementById('sort-btn-text');
-                    if (sortBtnText && autoSortValue === 'metodo_asc') {
-                        sortBtnText.textContent = 'Método';
-                    }
-                }
-                
-                // Usar função unificada que preserva filtros e ordenação
-                fetchPacientesUnificado({ 
-                    searchTerm: currentSearchTerm, 
-                    sortValue: autoSortValue, 
-                    includeFilters: Object.keys(activeFilters).length > 0,
-                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
-                });
-            });
-        });
-        
-        // Set initial active state
-        const todosButton = document.getElementById('timeline-filter-todos');
-        if (todosButton) {
-            console.log('Configurando estado inicial do botão Todos');
-            todosButton.classList.add('border-b-2', 'font-bold');
-            const activeBg = todosButton.getAttribute('data-active-bg');
-            const activeText = todosButton.getAttribute('data-active-text');
-            const activeBorder = todosButton.getAttribute('data-active-border');
-            // Adicionar classes ativas ao estado inicial (separar por espaços)
-            if (activeBg) activeBg.split(' ').forEach(cls => cls.trim() && todosButton.classList.add(cls.trim()));
-            if (activeText) activeText.split(' ').forEach(cls => cls.trim() && todosButton.classList.add(cls.trim()));
-            if (activeBorder) activeBorder.split(' ').forEach(cls => cls.trim() && todosButton.classList.add(cls.trim()));
-        } else {
-            console.error('Botão "Todos" não encontrado');
-        }
-    }
     
     // Função para popular dropdown de agentes
     function popularDropdownAgentes(agentes) {
@@ -1340,7 +1254,8 @@ document.addEventListener('DOMContentLoaded', function () {
             searchTerm = '', 
             sortValue = '', 
             includeFilters = false,
-            includeAplicacoes = false 
+            includeAplicacoes = false,
+            includeActionFilters = false 
         } = options;
         
         console.log('fetchPacientesUnificado chamada com:', { searchTerm, sortValue, includeFilters });
@@ -1379,6 +1294,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
         
+        // Aplicar filtros de ações se solicitado
+        if (includeActionFilters && activeActionFilters.acao) {
+            activeActionFilters.acao.forEach(acao => {
+                params.append('acao_filter', acao);
+            });
+        }
+        
         // Adicionar filtros de aplicações se solicitado
         if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
             params.append('aplicacao_data_inicial', activeAplicacoesFilter.dataInicial);
@@ -1406,8 +1328,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Erro ao buscar pacientes:', error));
     }
     
-    // Configurar abas de filtro
-    setupStatusFilterTabs();
     
     // Função para posicionar submenus dinamicamente
     function positionSubmenu(submenuContainer) {
@@ -1663,7 +1583,8 @@ document.addEventListener('DOMContentLoaded', function () {
             fetchPacientesUnificado({ 
                 searchTerm,
                 includeFilters: Object.keys(activeFilters).length > 0,
-                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
             });
         });
     } else {
@@ -1710,7 +1631,11 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             
             currentPage = 1;
-            fetchPacientesUnificado({ includeAplicacoes: true });
+            fetchPacientesUnificado({ 
+                includeAplicacoes: true,
+                includeFilters: Object.keys(activeFilters).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
+            });
             if (controleAplicacoesDropdown) controleAplicacoesDropdown.classList.add('hidden');
         });
     }
@@ -1724,7 +1649,11 @@ document.addEventListener('DOMContentLoaded', function () {
             // Limpar filtro ativo
             activeAplicacoesFilter = {};
             currentPage = 1;
-            fetchPacientesUnificado({ includeAplicacoes: false });
+            fetchPacientesUnificado({ 
+                includeAplicacoes: false,
+                includeFilters: Object.keys(activeFilters).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
+            });
         });
     }
     
@@ -1756,7 +1685,8 @@ document.addEventListener('DOMContentLoaded', function () {
             currentPage = 1;
             fetchPacientesUnificado({ 
                 includeFilters: true,
-                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
             });
             if (filterDropdown) filterDropdown.classList.add('hidden');
         });
@@ -1770,7 +1700,62 @@ document.addEventListener('DOMContentLoaded', function () {
             // Limpar filtros ativos
             activeFilters = {};
             currentPage = 1;
-            fetchPacientesUnificado({ includeFilters: false });
+            fetchPacientesUnificado({ 
+                includeFilters: false,
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
+            });
+        });
+    }
+    
+    // Configurar dropdown de filtros de ações
+    const actionFilterBtn = document.getElementById('action-filter-btn');
+    const actionFilterDropdown = document.getElementById('action-filter-dropdown');
+    const applyActionFiltersBtn = document.getElementById('apply-action-filters-btn');
+    const clearActionFiltersBtn = document.getElementById('clear-action-filters-btn');
+    
+    if (actionFilterBtn && actionFilterDropdown) {
+        actionFilterBtn.addEventListener('click', function() {
+            actionFilterDropdown.classList.toggle('hidden');
+            // Fechar outros dropdowns
+            if (filterDropdown) filterDropdown.classList.add('hidden');
+            if (controleAplicacoesDropdown) controleAplicacoesDropdown.classList.add('hidden');
+        });
+    }
+    
+    if (applyActionFiltersBtn) {
+        applyActionFiltersBtn.addEventListener('click', function() {
+            // Armazenar filtros de ações ativos globalmente
+            activeActionFilters = {};
+            const acoes = Array.from(actionFilterDropdown.querySelectorAll('input[name="acao"]:checked')).map(cb => cb.value);
+            
+            if (acoes.length > 0) {
+                activeActionFilters['acao'] = acoes;
+            }
+            
+            currentPage = 1;
+            fetchPacientesUnificado({ 
+                includeFilters: Object.keys(activeFilters).length > 0,
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                includeActionFilters: Object.keys(activeActionFilters).length > 0
+            });
+            if (actionFilterDropdown) actionFilterDropdown.classList.add('hidden');
+        });
+    }
+    
+    if (clearActionFiltersBtn) {
+        clearActionFiltersBtn.addEventListener('click', function() {
+            // Limpar todos os checkboxes
+            const checkboxes = actionFilterDropdown.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            // Limpar filtros de ações ativos
+            activeActionFilters = {};
+            currentPage = 1;
+            fetchPacientesUnificado({ 
+                includeFilters: Object.keys(activeFilters).length > 0,
+                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                includeActionFilters: false 
+            });
         });
     }
     
@@ -1801,7 +1786,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 fetchPacientesUnificado({ 
                     sortValue,
                     includeFilters: Object.keys(activeFilters).length > 0,
-                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                    includeActionFilters: Object.keys(activeActionFilters).length > 0
                 });
             });
         });
@@ -1872,6 +1858,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (exportBtn && exportDropdown && !exportBtn.contains(e.target) && !exportDropdown.contains(e.target)) {
             exportDropdown.classList.add('hidden');
+        }
+        if (actionFilterBtn && actionFilterDropdown && !actionFilterBtn.contains(e.target) && !actionFilterDropdown.contains(e.target)) {
+            actionFilterDropdown.classList.add('hidden');
         }
         // Fechar menus de acompanhamento ao clicar fora
         if (!e.target.closest('.acompanhamento-btn')) {
@@ -1999,7 +1988,8 @@ function gerarPlanoSemanal() {
                 if (typeof fetchPacientesUnificado === 'function') {
                     fetchPacientesUnificado({
                         includeFilters: Object.keys(activeFilters).length > 0,
-                        includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0
+                        includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                        includeActionFilters: Object.keys(activeActionFilters).length > 0
                     });
                 }
             }, 1000);
