@@ -331,24 +331,6 @@ console.log('plafam_analise.js carregado');
     hideSkel(['skel-acoes']);
   }
 
-  async function atualizarAcoesBar(){
-    showSkel(['skel-acoes-bar']);
-    const data = await fetchJSON('/api/plafam/analytics/actions_overview?' + buildParams());
-    const el = qs('chart-acoes-bar');
-    charts.acoesBar = charts.acoesBar || echarts.init(el);
-    const entries = Object.entries(data.counts || {}).sort(([a],[b]) => Number(a)-Number(b));
-    const labels = entries.map(([k]) => statusActionMap[k] || `Ação ${k}`);
-    const values = entries.map(([,v]) => v);
-    charts.acoesBar.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      grid: { left: 40, right: 16, bottom: 40, top: 16 },
-      xAxis: { type: 'category', data: labels, axisLabel: { color: getLegendColor() } },
-      yAxis: { type: 'value', axisLabel: { color: getLegendColor() }, splitLine: { lineStyle: { color: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb' } } },
-      series: [{ type: 'bar', data: values }]
-    });
-    hideSkel(['skel-acoes-bar']);
-  }
 
   async function atualizarDistribuicaoEquipe(){
     showSkel(['skel-distribuicao-equipe']);
@@ -445,7 +427,6 @@ console.log('plafam_analise.js carregado');
     await atualizarDonut();
     await atualizarMethodMix();
     await atualizarAcoesTimeseries();
-    await atualizarAcoesBar();
     await atualizarDistribuicaoMicroarea();
   }
 
@@ -468,7 +449,6 @@ console.log('plafam_analise.js carregado');
     qs('export-status')?.addEventListener('click', () => exportChartPNG(charts.status, 'plafam-status.png'));
     qs('export-mix')?.addEventListener('click', () => exportChartPNG(charts.mix, 'plafam-mix.png'));
     qs('export-acoes')?.addEventListener('click', () => exportChartPNG(charts.acoes, 'plafam-acoes-tempo.png'));
-    qs('export-acoes-bar')?.addEventListener('click', () => exportChartPNG(charts.acoesBar, 'plafam-acoes-overview.png'));
     qs('export-distribuicao-microarea')?.addEventListener('click', () => exportChartPNG(charts.distribuicaoMicroarea, 'plafam-distribuicao-microarea.png'));
 
     // Filtros
