@@ -2363,6 +2363,9 @@ function exibirResultadosPlanoSemanal(pacientes) {
     
     console.log('Exibindo resultados do plano semanal:', pacientes);
     
+    // Selecionar TODOS os pacientes do plano semanal para impressão (globalmente)
+    selectAllPlanoSemanalPatientsGlobally();
+    
     // Display first page of weekly plan
     renderPlanoSemanalPage(1);
 }
@@ -2451,27 +2454,50 @@ function navigatePlanoSemanalPage(page) {
     renderPlanoSemanalPage(page);
 }
 
-// Select all patients on current page of weekly plan
+// Select ALL patients from weekly plan globally (not just current page)
+function selectAllPlanoSemanalPatientsGlobally() {
+    if (!window.planoSemanalData || !window.planoSemanalData.pacientes) {
+        console.log('Dados do plano semanal não encontrados');
+        return;
+    }
+    
+    console.log(`Selecionando TODOS os ${window.planoSemanalData.pacientes.length} pacientes do plano semanal para impressão`);
+    
+    // Adicionar todos os pacientes do plano semanal ao conjunto de selecionados
+    window.planoSemanalData.pacientes.forEach(paciente => {
+        const pacienteId = paciente.cod_paciente.toString();
+        const cnsValue = paciente.cartao_sus || pacienteId;
+        
+        // Adicionar ao conjunto global de selecionados
+        selectedPacientesForPrint.add(cnsValue);
+        console.log(`Paciente ${paciente.nome_paciente} (${pacienteId}) adicionado à seleção global`);
+    });
+    
+    console.log(`Total de pacientes selecionados globalmente: ${selectedPacientesForPrint.size}`);
+    updatePrintButtonText();
+}
+
+// Select all patients on current page of weekly plan (updated to sync with global selection)
 function selectPlanoSemanalPatientsOnCurrentPage() {
     const checkboxes = document.querySelectorAll('.print-checkbox');
     let selectedCount = 0;
     
-    console.log(`Selecionando pacientes na página atual: ${checkboxes.length} checkboxes encontrados`);
+    console.log(`Sincronizando checkboxes da página atual com seleção global: ${checkboxes.length} checkboxes encontrados`);
     
     checkboxes.forEach(checkbox => {
         const pacienteId = checkbox.value;
-        const cnsValue = checkbox.getAttribute('data-cns');
+        const cnsValue = checkbox.getAttribute('data-cns') || pacienteId;
         
-        if (planoSemanalPacientes.has(pacienteId)) {
+        // Se o paciente está no plano semanal E na seleção global, marcar checkbox
+        if (planoSemanalPacientes.has(pacienteId) && selectedPacientesForPrint.has(cnsValue)) {
             checkbox.checked = true;
-            selectedPacientesForPrint.add(cnsValue || pacienteId);
             toggleRowSelectionStyle(checkbox);
             selectedCount++;
-            console.log(`Paciente ${pacienteId} selecionado automaticamente`);
+            console.log(`Checkbox do paciente ${pacienteId} marcado na página atual`);
         }
     });
     
-    console.log(`Selecionados ${selectedCount} pacientes na página atual`);
+    console.log(`Sincronizados ${selectedCount} checkboxes na página atual`);
     updatePrintButtonText();
 }
 
@@ -2480,7 +2506,12 @@ function resetPlanoSemanalMode() {
     isPlanoSemanalActive = false;
     planoSemanalPacientes.clear();
     window.planoSemanalData = null;
-    console.log('Modo plano semanal resetado');
+    
+    // Limpar seleções globais do plano semanal
+    selectedPacientesForPrint.clear();
+    updatePrintButtonText();
+    
+    console.log('Modo plano semanal resetado e seleções limpas');
 }
 
 // Global function for pagination logic (moved from local scope)
