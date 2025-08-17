@@ -11,6 +11,8 @@ let currentSortValue = '';
 let activeFilters = {};
 let activeAplicacoesFilter = {};
 let activeActionFilters = {};
+let isPlanoSemanalActive = false;
+let planoSemanalPacientes = new Set();
 
 // Função para obter status do acompanhamento (movida para escopo global)
 function getAcompanhamentoStatus(paciente) {
@@ -45,7 +47,7 @@ function getAcompanhamentoStatus(paciente) {
 }
 
 // Função global para imprimir convites selecionados
-function imprimirConvitesSelecionados() {
+async function imprimirConvitesSelecionados() {
     if (selectedPacientesForPrint.size === 0) {
         alert('Selecione pelo menos um paciente para imprimir os convites.');
         return;
@@ -57,8 +59,42 @@ function imprimirConvitesSelecionados() {
     // Mostrar loading
     const loadingMsg = document.createElement('div');
     loadingMsg.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Buscando dados dos pacientes selecionados...</div></div>';
+    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Processando plano semanal...</div></div>';
     document.body.appendChild(loadingMsg);
+    
+    // Se é plano semanal ativo, atualizar acompanhamento dos pacientes selecionados
+    if (isPlanoSemanalActive) {
+        try {
+            const planoSemanalSelectedIds = selectedIds.filter(id => planoSemanalPacientes.has(id));
+            
+            if (planoSemanalSelectedIds.length > 0) {
+                loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Atualizando acompanhamentos...</div></div>';
+                
+                // Atualizar cada paciente do plano semanal para status "1" (Convite com o agente)
+                const updatePromises = planoSemanalSelectedIds.map(codCidadao => {
+                    return fetch('/api/update_acompanhamento', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            co_cidadao: codCidadao,
+                            status: '1' // Convite com o agente
+                        }),
+                    });
+                });
+                
+                await Promise.all(updatePromises);
+                console.log('Acompanhamentos atualizados para pacientes do plano semanal');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar acompanhamentos:', error);
+            alert('Erro ao atualizar acompanhamentos. O PDF será gerado mesmo assim.');
+        }
+    }
+    
+    // Continue with PDF generation
+    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Buscando dados dos pacientes selecionados...</div></div>';
     
     // Buscar todos os dados dos pacientes via API de exportação
     const params = new URLSearchParams();
@@ -132,6 +168,24 @@ function imprimirConvitesSelecionados() {
             
             if (pacientesParaImprimir.length > 0) {
                 generateInvitePDF(pacientesParaImprimir);
+                
+                // Reset weekly plan flags after successful PDF generation
+                if (isPlanoSemanalActive) {
+                    isPlanoSemanalActive = false;
+                    planoSemanalPacientes.clear();
+                    console.log('Plano semanal concluído e flags resetadas');
+                    
+                    // Refresh the table to show updated status
+                    setTimeout(() => {
+                        if (typeof fetchPacientesUnificado === 'function') {
+                            fetchPacientesUnificado({
+                                includeFilters: Object.keys(activeFilters).length > 0,
+                                includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                                includeActionFilters: Object.keys(activeActionFilters).length > 0
+                            });
+                        }
+                    }, 1000);
+                }
             } else {
                 console.error("Nenhum objeto paciente encontrado para os IDs selecionados.");
                 alert("Não foi possível encontrar os dados dos pacientes selecionados. Tente novamente.");
@@ -573,6 +627,448 @@ function exportPDF(dataToExport) {
     doc.save(`Plafam_Relatorio_Completo.pdf`);
 }
 
+// Funções globais auxiliares para renderização
+function getPlafamMetodoStatusContent(paciente) {
+    let metodoTexto = paciente.metodo || 'Sem método';
+    let statusTexto = '';
+    let statusClass = 'text-gray-600';
+    let metodoClass = 'text-gray-900';
+    let containerClass = '';
+
+    if (paciente.gestante) {
+        metodoTexto = 'GESTANTE';
+        statusTexto = paciente.data_provavel_parto ? `DPP: ${paciente.data_provavel_parto}` : 'DPP não informada';
+        statusClass = 'text-pink-600 font-semibold';
+        metodoClass = 'text-pink-700 font-bold';
+        containerClass = 'border-2 border-pink-500 rounded-full px-3 py-1 inline-block bg-pink-50';
+    } else if (!paciente.metodo) {
+        metodoTexto = 'SEM MÉTODO';
+        statusTexto = 'Não utiliza método contraceptivo.';
+        statusClass = 'text-yellow-700';
+        metodoClass = 'text-yellow-700 font-bold';
+        containerClass = 'border-2 border-yellow-500 rounded-full px-3 py-1 inline-block bg-yellow-50';
+    } else if (paciente.data_aplicacao) {
+        const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+        
+        if (isNaN(dataAplicacao.getTime())) {
+            statusTexto = 'Data de aplicação inválida.';
+            statusClass = 'text-red-500 font-semibold';
+        } else {
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+
+            let limiteDias = Infinity;
+            const metodoLower = paciente.metodo.toLowerCase();
+            
+            // Determinar nome do método para exibição
+            let nomeMetodoDisplay = '';
+            if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+                limiteDias = 30;
+                nomeMetodoDisplay = metodoLower.includes('mensal') ? 'MENSAL' : 'PÍLULA';
+            } else if (metodoLower.includes('trimestral')) {
+                limiteDias = 90;
+                nomeMetodoDisplay = 'TRIMESTRAL';
+            } else if (metodoLower.includes('diu')) {
+                limiteDias = 3650; // 10 anos
+                nomeMetodoDisplay = 'DIU';
+            } else if (metodoLower.includes('implante')) {
+                limiteDias = 1095; // 3 anos
+                nomeMetodoDisplay = 'IMPLANTE SUBDÉRMICO';
+            } else if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
+                nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
+            } else {
+                nomeMetodoDisplay = paciente.metodo.toUpperCase();
+            }
+
+            const dataVencimento = new Date(dataAplicacao);
+            dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
+
+            const dataAplicacaoFormatada = dataAplicacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+            if (limiteDias !== Infinity) { // Métodos com data de vencimento clara
+                if (hoje >= dataVencimento) {
+                    // Método vencido
+                    metodoTexto = nomeMetodoDisplay;
+                    statusTexto = `Vencido desde: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                    statusClass = 'text-red-600 font-semibold';
+                    metodoClass = 'text-red-700 font-bold';
+                    containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
+                } else {
+                    // Método em dia
+                    metodoTexto = nomeMetodoDisplay;
+                    statusTexto = `Em dia - Próx. dose/venc: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
+                    statusClass = 'text-green-600';
+                    metodoClass = 'text-green-700 font-bold';
+                    containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+                }
+            } else { // Métodos de longa duração sem data de vencimento clara (DIU, Implante, Laqueadura)
+                metodoTexto = nomeMetodoDisplay;
+                statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
+                statusClass = 'text-green-600';
+                metodoClass = 'text-green-700 font-bold';
+                containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+            }
+        }
+    } else { // Tem método mas não tem data de aplicação
+        const metodoLower = paciente.metodo.toLowerCase();
+        if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
+            // Métodos definitivos sem data são considerados válidos
+            const nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
+            metodoTexto = nomeMetodoDisplay;
+            statusTexto = 'Método definitivo em uso.';
+            statusClass = 'text-green-600';
+            metodoClass = 'text-green-700 font-bold';
+            containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
+        } else {
+            statusTexto = 'Data de aplicação não informada.';
+            statusClass = 'text-gray-500';
+        }
+    }
+
+    if (containerClass) {
+        return `
+            <div class="${containerClass}">
+                <div class="text-sm font-bold ${metodoClass}">${metodoTexto}</div>
+            </div>
+            ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
+        `;
+    } else {
+        return `
+            <div class="text-sm font-medium ${metodoClass}">${metodoTexto}</div>
+            ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
+        `;
+    }
+}
+
+function getMetodoContent(paciente) {
+    return getPlafamMetodoStatusContent(paciente);
+}
+
+function getProximaAcaoContent(paciente) {
+    // Não exibir próxima ação para adolescentes (14-18 anos) - Planejamento Familiar Especial
+    const idade = paciente.idade_calculada;
+    if (idade >= 14 && idade <= 18) {
+        return '';
+    }
+    // Implementar lógica de próxima ação se necessário
+    return 'N/A';
+}
+
+// Mapa de status de acompanhamento
+const statusMap = {
+    // Convite
+    '1': { text: 'Convite com o agente', class: 'status-com-agente' },
+    '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
+    // Deseja iniciar
+    '3': { text: 'Deseja iniciar (após convite)', class: 'status-deseja-iniciar' },
+    '4': { text: 'Deseja iniciar (via consulta)', class: 'status-deseja-iniciar' },
+    // Já em uso - Métodos específicos
+    '5': { text: 'Já em uso - Mensal', class: 'status-ja-usa-metodo' },
+    '6': { text: 'Já em uso - Vasectomia', class: 'status-ja-usa-metodo' },
+    '7': { text: 'Já em uso - Trimestral', class: 'status-ja-usa-metodo' },
+    '8': { text: 'Já em uso - DIU', class: 'status-ja-usa-metodo' },
+    '9': { text: 'Já em uso - Implante', class: 'status-ja-usa-metodo' },
+    '10': { text: 'Já em uso - Laqueadura', class: 'status-ja-usa-metodo' },
+    '11': { text: 'Já em uso - Histerectomia (esposo)', class: 'status-ja-usa-metodo' },
+    '12': { text: 'Já em uso - Outros', class: 'status-ja-usa-metodo' },
+    // Outros status
+    '13': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
+    '14': { text: 'Reavaliar em 6 meses', class: 'status-nao-deseja-6m' },
+    '15': { text: 'Reavaliar em 1 ano', class: 'status-nao-deseja-1a' },
+    // Fora da área
+    '16': { text: 'Fora da área - Outra área', class: 'status-outra-area' },
+    '17': { text: 'Fora da área - Não reside na cidade', class: 'status-outra-area' },
+    '18': { text: 'Fora da área - Sem informação', class: 'status-outra-area' },
+    // Reset
+    '0': { text: '', class: '' } // Resetar ação
+};
+
+function getAcompanhamentoCellContent(paciente, status) {
+    // Debug para verificar os dados do paciente
+    console.log('Debug getAcompanhamentoCellContent:', {
+        nome: paciente.nome_paciente,
+        idade: paciente.idade_calculada,
+        status: status,
+        gestante: paciente.gestante,
+        cartao_sus: paciente.cartao_sus
+    });
+    
+    // Não exibir menus de ações para adolescentes (14-18 anos) - Planejamento Familiar Especial
+    const idade = paciente.idade_calculada;
+    if (idade >= 14 && idade <= 18) {
+        console.log('Adolescente detectado, não exibindo menu');
+        return '';
+    }
+    
+    // Se o paciente faz parte do plano semanal, mostrar status especial
+    if (typeof isPlanoSemanalActive !== 'undefined' && isPlanoSemanalActive && typeof planoSemanalPacientes !== 'undefined' && planoSemanalPacientes.has(paciente.cod_paciente.toString())) {
+        const today = new Date().toLocaleDateString('pt-BR');
+        return `<span class="acompanhamento-status-badge status-com-agente">Convite com o agente (${today})</span>`;
+    }
+    
+    const isAtrasado = status === 'atrasado';
+    const isAtrasado6Meses = status === 'atrasado_6_meses';
+    const semMetodo = status === 'sem_metodo';
+    const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
+    
+    console.log('Condições para menu:', {
+        isAtrasado,
+        isAtrasado6Meses, 
+        semMetodo,
+        semCartaoSus,
+        naoGestante: !paciente.gestante
+    });
+    
+    // Forçar exibição do menu para testar (temporário)
+    console.log('Forçando exibição do menu de ações para:', paciente.nome_paciente);
+    if (true) { // Temporariamente forçar para todos
+        const statusAcomp = paciente.status_acompanhamento;
+        let statusBadge = '';
+        if (statusAcomp && statusMap[statusAcomp]) {
+            const { text, class: badgeClass } = statusMap[statusAcomp];
+            const dataAcomp = paciente.data_acompanhamento ? ` (${paciente.data_acompanhamento})` : '';
+            statusBadge = `<span class="acompanhamento-status-badge ${badgeClass}">${text}${dataAcomp}</span>`;
+        }
+        return `
+            <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
+                <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                    Ações
+                    <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
+                </button>
+                <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
+                    <div class="py-1" role="none">
+                        <!-- Convite -->
+                        <div class="submenu-container">
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
+                            <div class="submenu">
+                                <a href="#" class="submenu-option" data-action="1">com o Agente</a>
+                                <a href="#" class="submenu-option" data-action="2">com o Cliente</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Deseja iniciar -->
+                        <div class="submenu-container">
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Deseja iniciar</a>
+                            <div class="submenu">
+                                <a href="#" class="submenu-option" data-action="3">após convite</a>
+                                <a href="#" class="submenu-option" data-action="4">via consulta</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Já em uso -->
+                        <div class="submenu-container">
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
+                            <div class="submenu">
+                                <a href="#" class="submenu-option" data-action="5">Mensal</a>
+                                <a href="#" class="submenu-option" data-action="6">Trimestral</a>
+                                <a href="#" class="submenu-option" data-action="7">Pílula</a>
+                                <a href="#" class="submenu-option" data-action="8">DIU</a>
+                                <a href="#" class="submenu-option" data-action="9">Implante</a>
+                                <a href="#" class="submenu-option" data-action="10">Laqueadura/Histerectomia</a>
+                                <a href="#" class="submenu-option" data-action="11">Vasectomia</a>
+                                <a href="#" class="submenu-option" data-action="12">Outros</a>
+                            </div>
+                        </div>
+                        
+                        <!-- Cliente não encontrado -->
+                        <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="13">Cliente não encontrado</a>
+                        
+                        <!-- Reavaliar em 6 meses -->
+                        <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="14">Reavaliar em 6 meses</a>
+                        
+                        <!-- Reavaliar em 1 ano -->
+                        <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="15">Reavaliar em 1 ano</a>
+                        
+                        <!-- Fora da área -->
+                        <div class="submenu-container">
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Fora da área</a>
+                            <div class="submenu">
+                                <a href="#" class="submenu-option" data-action="16">Outra área</a>
+                                <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
+                                <a href="#" class="submenu-option" data-action="18">Sem informações</a>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t my-1"></div>
+                        <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="null">Resetar ações</a>
+                    </div>
+                </div>
+                <div class="acompanhamento-status-container mt-1">${statusBadge}</div>
+            </div>
+        `;
+    }
+    return '';
+}
+
+function getAcoesContent(paciente) {
+    console.log('getAcoesContent chamada para paciente:', paciente.nome_paciente);
+    const status = getAcompanhamentoStatus(paciente);
+    console.log('Status calculado:', status);
+    const result = getAcompanhamentoCellContent(paciente, status);
+    console.log('Resultado getAcompanhamentoCellContent:', result);
+    return result;
+}
+
+function getImprimirCellContent(paciente, status) {
+    // Não exibir checkbox para adolescentes (14-18 anos) - Planejamento Familiar Especial
+    const idade = paciente.idade_calculada;
+    if (idade >= 14 && idade <= 18) {
+        return '';
+    }
+    
+    const isAtrasado = status === 'atrasado';
+    const isAtrasado6Meses = status === 'atrasado_6_meses';
+    const semMetodo = status === 'sem_metodo';
+    const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
+    
+    // Exibir checkbox para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS
+    if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
+        const cnsValue = paciente.cartao_sus || paciente.cod_paciente || 'sem-cns';
+        const isSelected = typeof selectedPacientesForPrint !== 'undefined' && selectedPacientesForPrint.has(String(cnsValue)) ? 'checked' : '';
+        return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${cnsValue}" value="${paciente.cod_paciente}" ${isSelected}>`;
+    }
+    return '';
+}
+
+function setupActionMenus() {
+    // Event listeners são configurados globalmente no body da tabela
+}
+
+// Função global para renderizar pacientes na tabela
+function renderPacientes(pacientes) {
+    const tabelaBody = document.getElementById('tabela-pacientes-body');
+    if (!tabelaBody) return;
+    
+    tabelaBody.innerHTML = '';
+    
+    if (pacientes.length === 0) {
+        tabelaBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhum paciente encontrado</td></tr>';
+        return;
+    }
+    
+    pacientes.forEach(paciente => {
+        const row = document.createElement('tr');
+        const status = getAcompanhamentoStatus(paciente);
+        
+        // Verificar se o paciente tem checkbox (é elegível para impressão)
+        const idade = paciente.idade_calculada;
+        const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
+        const isAtrasado = status === 'atrasado';
+        const isAtrasado6Meses = status === 'atrasado_6_meses';
+        const semMetodo = status === 'sem_metodo';
+        const hasCheckbox = !paciente.gestante && !(idade >= 14 && idade <= 18) && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus);
+        
+        // Adicionar classes baseadas na elegibilidade
+        if (hasCheckbox) {
+            row.className = 'table-row row-clickable hover:bg-gray-50';
+        } else {
+            row.className = 'table-row hover:bg-gray-50';
+        }
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || ''}</div>
+                        <div class="text-xs text-gray-500">Cartão SUS: ${paciente.cartao_sus || ''}</div>
+                        <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || ''} - Agente: ${paciente.nome_agente || 'A definir'}</div>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">${paciente.idade_calculada || 'N/A'} anos</td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+                ${getMetodoContent(paciente)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${getProximaAcaoContent(paciente)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
+                    <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                        Ações
+                        <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
+                    </button>
+                    <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
+                        <div class="py-1" role="none">
+                            <!-- Convite -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="1">com o Agente</a>
+                                    <a href="#" class="submenu-option" data-action="2">com o Cliente</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Deseja iniciar -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Deseja iniciar</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="3">após convite</a>
+                                    <a href="#" class="submenu-option" data-action="4">via consulta</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Já em uso -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="5">Mensal</a>
+                                    <a href="#" class="submenu-option" data-action="6">Trimestral</a>
+                                    <a href="#" class="submenu-option" data-action="7">Pílula</a>
+                                    <a href="#" class="submenu-option" data-action="8">DIU</a>
+                                    <a href="#" class="submenu-option" data-action="9">Implante</a>
+                                    <a href="#" class="submenu-option" data-action="10">Laqueadura/Histerectomia</a>
+                                    <a href="#" class="submenu-option" data-action="11">Vasectomia</a>
+                                    <a href="#" class="submenu-option" data-action="12">Outros</a>
+                                </div>
+                            </div>
+                            
+                            <!-- Cliente não encontrado -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="13">Cliente não encontrado</a>
+                            
+                            <!-- Reavaliar em 6 meses -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="14">Reavaliar em 6 meses</a>
+                            
+                            <!-- Reavaliar em 1 ano -->
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="15">Reavaliar em 1 ano</a>
+                            
+                            <!-- Fora da área -->
+                            <div class="submenu-container">
+                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Fora da área</a>
+                                <div class="submenu">
+                                    <a href="#" class="submenu-option" data-action="16">Outra área</a>
+                                    <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
+                                    <a href="#" class="submenu-option" data-action="18">Sem informações</a>
+                                </div>
+                            </div>
+                            
+                            <div class="border-t my-1"></div>
+                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="null">Resetar ações</a>
+                        </div>
+                    </div>
+                    <div class="acompanhamento-status-container mt-1"></div>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+                ${getImprimirCellContent(paciente, status)}
+            </td>
+        `;
+        
+        tabelaBody.appendChild(row);
+    });
+    
+    // Aplicar estilo de seleção para checkboxes que já estão marcados
+    document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        if (row) {
+            row.classList.add('row-selected');
+        }
+    });
+    
+    // Configurar event listeners para os menus de ações
+    setupActionMenus();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     console.log('DOMContentLoaded executado');
     
@@ -644,359 +1140,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Erro ao buscar pacientes:', error));
     }
     
-    // Função para renderizar pacientes na tabela
-    function renderPacientes(pacientes) {
-        const tabelaBody = document.getElementById('tabela-pacientes-body');
-        if (!tabelaBody) return;
-        
-        tabelaBody.innerHTML = '';
-        
-        if (pacientes.length === 0) {
-            tabelaBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhum paciente encontrado</td></tr>';
-            return;
-        }
-        
-        pacientes.forEach(paciente => {
-            const row = document.createElement('tr');
-            const status = getAcompanhamentoStatus(paciente);
-            
-            // Verificar se o paciente tem checkbox (é elegível para impressão)
-            const idade = paciente.idade_calculada;
-            const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
-            const isAtrasado = status === 'atrasado';
-            const isAtrasado6Meses = status === 'atrasado_6_meses';
-            const semMetodo = status === 'sem_metodo';
-            const hasCheckbox = !paciente.gestante && !(idade >= 14 && idade <= 18) && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus);
-            
-            // Adicionar classes baseadas na elegibilidade
-            if (hasCheckbox) {
-                row.className = 'table-row row-clickable hover:bg-gray-50';
-            } else {
-                row.className = 'table-row hover:bg-gray-50';
-            }
-            
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="flex items-center">
-                        <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">${paciente.nome_paciente || ''}</div>
-                            <div class="text-xs text-gray-500">Cartão SUS: ${paciente.cartao_sus || ''}</div>
-                            <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || ''} - Agente: ${paciente.nome_agente || 'A definir'}</div>
-                        </div>
-                    </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">${paciente.idade_calculada || 'N/A'} anos</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center">
-                    ${getMetodoContent(paciente)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${getProximaAcaoContent(paciente)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    ${getAcoesContent(paciente)}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center">
-                    ${getImprimirCellContent(paciente, status)}
-                </td>
-            `;
-            
-            tabelaBody.appendChild(row);
-        });
-        
-        // Aplicar estilo de seleção para checkboxes que já estão marcados
-        document.querySelectorAll('.print-checkbox:checked').forEach(checkbox => {
-            const row = checkbox.closest('tr');
-            if (row) {
-                row.classList.add('row-selected');
-            }
-        });
-        
-        // Configurar event listeners para os menus de ações
-        setupActionMenus();
-    }
 
-    // Função para obter conteúdo do método e status (similar ao painel de adolescentes)
-    function getPlafamMetodoStatusContent(paciente) {
-        let metodoTexto = paciente.metodo || 'Sem método';
-        let statusTexto = '';
-        let statusClass = 'text-gray-600';
-        let metodoClass = 'text-gray-900';
-        let containerClass = '';
 
-        if (paciente.gestante) {
-            metodoTexto = 'GESTANTE';
-            statusTexto = paciente.data_provavel_parto ? `DPP: ${paciente.data_provavel_parto}` : 'DPP não informada';
-            statusClass = 'text-pink-600 font-semibold';
-            metodoClass = 'text-pink-700 font-bold';
-            containerClass = 'border-2 border-pink-500 rounded-full px-3 py-1 inline-block bg-pink-50';
-        } else if (!paciente.metodo) {
-            metodoTexto = 'SEM MÉTODO';
-            statusTexto = 'Não utiliza método contraceptivo.';
-            statusClass = 'text-yellow-700';
-            metodoClass = 'text-yellow-700 font-bold';
-            containerClass = 'border-2 border-yellow-500 rounded-full px-3 py-1 inline-block bg-yellow-50';
-        } else if (paciente.data_aplicacao) {
-            const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
-            
-            if (isNaN(dataAplicacao.getTime())) {
-                statusTexto = 'Data de aplicação inválida.';
-                statusClass = 'text-red-500 font-semibold';
-            } else {
-                const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-
-                let limiteDias = Infinity;
-                const metodoLower = paciente.metodo.toLowerCase();
-                
-                // Determinar nome do método para exibição
-                let nomeMetodoDisplay = '';
-                if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
-                    limiteDias = 30;
-                    nomeMetodoDisplay = metodoLower.includes('mensal') ? 'MENSAL' : 'PÍLULA';
-                } else if (metodoLower.includes('trimestral')) {
-                    limiteDias = 90;
-                    nomeMetodoDisplay = 'TRIMESTRAL';
-                } else if (metodoLower.includes('diu')) {
-                    limiteDias = 3650; // 10 anos
-                    nomeMetodoDisplay = 'DIU';
-                } else if (metodoLower.includes('implante')) {
-                    limiteDias = 1095; // 3 anos
-                    nomeMetodoDisplay = 'IMPLANTE SUBDÉRMICO';
-                } else if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
-                    nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
-                } else {
-                    nomeMetodoDisplay = paciente.metodo.toUpperCase();
-                }
-
-                const dataVencimento = new Date(dataAplicacao);
-                dataVencimento.setDate(dataVencimento.getDate() + limiteDias);
-
-                const dataAplicacaoFormatada = dataAplicacao.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-
-                if (limiteDias !== Infinity) { // Métodos com data de vencimento clara
-                    if (hoje >= dataVencimento) {
-                        // Método vencido
-                        metodoTexto = nomeMetodoDisplay;
-                        statusTexto = `Vencido desde: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
-                        statusClass = 'text-red-600 font-semibold';
-                        metodoClass = 'text-red-700 font-bold';
-                        containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
-                    } else {
-                        // Método em dia
-                        metodoTexto = nomeMetodoDisplay;
-                        statusTexto = `Em dia - Próx. dose/venc: ${dataVencimento.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`;
-                        statusClass = 'text-green-600';
-                        metodoClass = 'text-green-700 font-bold';
-                        containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
-                    }
-                } else { // Métodos de longa duração sem data de vencimento clara (DIU, Implante, Laqueadura)
-                    metodoTexto = nomeMetodoDisplay;
-                    statusTexto = `Em uso desde: ${dataAplicacaoFormatada}`;
-                    statusClass = 'text-green-600';
-                    metodoClass = 'text-green-700 font-bold';
-                    containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
-                }
-            }
-        } else { // Tem método mas não tem data de aplicação
-            const metodoLower = paciente.metodo.toLowerCase();
-            if (metodoLower.includes('laqueadura') || metodoLower.includes('histerectomia')) {
-                // Métodos definitivos sem data são considerados válidos
-                const nomeMetodoDisplay = metodoLower.includes('laqueadura') ? 'LAQUEADURA' : 'HISTERECTOMIA';
-                metodoTexto = nomeMetodoDisplay;
-                statusTexto = 'Método definitivo em uso.';
-                statusClass = 'text-green-600';
-                metodoClass = 'text-green-700 font-bold';
-                containerClass = 'border-2 border-green-500 rounded-full px-3 py-1 inline-block bg-green-50';
-            } else {
-                statusTexto = 'Data de aplicação não informada.';
-                statusClass = 'text-gray-500';
-            }
-        }
-
-        if (containerClass) {
-            return `
-                <div class="${containerClass}">
-                    <div class="text-sm font-bold ${metodoClass}">${metodoTexto}</div>
-                </div>
-                ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
-            `;
-        } else {
-            return `
-                <div class="text-sm font-medium ${metodoClass}">${metodoTexto}</div>
-                ${statusTexto ? `<div class="text-xs ${statusClass} mt-1">${statusTexto}</div>` : ''}
-            `;
-        }
-    }
-
-    // Funções mantidas para compatibilidade (agora são wrappers)
-    function getMetodoContent(paciente) {
-        return getPlafamMetodoStatusContent(paciente);
-    }
-    
-    function getStatusContent(paciente, status) {
-        return ''; // Status agora é incluído na função combinada
-    }
-
-    // Função para obter conteúdo da próxima ação
-    function getProximaAcaoContent(paciente) {
-        // Não exibir próxima ação para adolescentes (14-18 anos) - Planejamento Familiar Especial
-        const idade = paciente.idade_calculada;
-        if (idade >= 14 && idade <= 18) {
-            return '';
-        }
-        // Implementar lógica de próxima ação se necessário
-        return 'N/A';
-    }
-    
-    // Mapa de status de acompanhamento - NOVO SISTEMA COM SUBMENUS
-    const statusMap = {
-        // Convite
-        '1': { text: 'Convite com o agente', class: 'status-com-agente' },
-        '2': { text: 'Convite entregue ao cliente', class: 'status-entregue' },
-        // Deseja iniciar
-        '3': { text: 'Deseja iniciar (após convite)', class: 'status-deseja-iniciar' },
-        '4': { text: 'Deseja iniciar (via consulta)', class: 'status-deseja-iniciar' },
-        // Já em uso - Métodos específicos
-        '5': { text: 'Já em uso - Mensal', class: 'status-ja-usa-metodo' },
-        '6': { text: 'Já em uso - Vasectomia', class: 'status-ja-usa-metodo' },
-        '7': { text: 'Já em uso - Trimestral', class: 'status-ja-usa-metodo' },
-        '8': { text: 'Já em uso - DIU', class: 'status-ja-usa-metodo' },
-        '9': { text: 'Já em uso - Implante', class: 'status-ja-usa-metodo' },
-        '10': { text: 'Já em uso - Laqueadura', class: 'status-ja-usa-metodo' },
-        '11': { text: 'Já em uso - Histerectomia (esposo)', class: 'status-ja-usa-metodo' },
-        '12': { text: 'Já em uso - Outros', class: 'status-ja-usa-metodo' },
-        // Outros status
-        '13': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
-        '14': { text: 'Reavaliar em 6 meses', class: 'status-nao-deseja-6m' },
-        '15': { text: 'Reavaliar em 1 ano', class: 'status-nao-deseja-1a' },
-        // Fora da área
-        '16': { text: 'Fora da área - Outra área', class: 'status-outra-area' },
-        '17': { text: 'Fora da área - Não reside na cidade', class: 'status-outra-area' },
-        '18': { text: 'Fora da área - Sem informação', class: 'status-outra-area' },
-        // Reset
-        '0': { text: '', class: '' } // Resetar ação
-    };
-
-    // Função para obter conteúdo da célula de acompanhamento (igual ao arquivo antigo)
-    function getAcompanhamentoCellContent(paciente, status) {
-        // Não exibir menus de ações para adolescentes (14-18 anos) - Planejamento Familiar Especial
-        const idade = paciente.idade_calculada;
-        if (idade >= 14 && idade <= 18) {
-            return '';
-        }
-        
-        const isAtrasado = status === 'atrasado';
-        const isAtrasado6Meses = status === 'atrasado_6_meses';
-        const semMetodo = status === 'sem_metodo';
-        const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
-        
-        // Exibir menu de ações para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS  
-        if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
-            const statusAcomp = paciente.status_acompanhamento;
-            let statusBadge = '';
-            if (statusAcomp && statusMap[statusAcomp]) {
-                const { text, class: badgeClass } = statusMap[statusAcomp];
-                const dataAcomp = paciente.data_acompanhamento ? ` (${paciente.data_acompanhamento})` : '';
-                statusBadge = `<span class="acompanhamento-status-badge ${badgeClass}">${text}${dataAcomp}</span>`;
-            }
-            return `
-                <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
-                    <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-                        Ações
-                        <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
-                    </button>
-                    <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
-                        <div class="py-1" role="none">
-                            <!-- Convite -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="1">com o Agente</a>
-                                    <a href="#" class="submenu-option" data-action="2">com o Cliente</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Deseja iniciar -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Deseja iniciar</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="3">após convite</a>
-                                    <a href="#" class="submenu-option" data-action="4">via consulta</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Já em uso -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="5">Mensal</a>
-                                    <a href="#" class="submenu-option" data-action="6">Trimestral</a>
-                                    <a href="#" class="submenu-option" data-action="7">Pílula</a>
-                                    <a href="#" class="submenu-option" data-action="8">DIU</a>
-                                    <a href="#" class="submenu-option" data-action="9">Implante</a>
-                                    <a href="#" class="submenu-option" data-action="10">Laqueadura/Histerectomia</a>
-                                    <a href="#" class="submenu-option" data-action="11">Vasectomia</a>
-                                    <a href="#" class="submenu-option" data-action="12">Outros</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Cliente não encontrado -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="13">Cliente não encontrado</a>
-                            
-                            <!-- Reavaliar em 6 meses -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="14">Reavaliar em 6 meses</a>
-                            
-                            <!-- Reavaliar em 1 ano -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="15">Reavaliar em 1 ano</a>
-                            
-                            <!-- Fora da área -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Fora da área</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="16">Outra área</a>
-                                    <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
-                                    <a href="#" class="submenu-option" data-action="18">Sem informações</a>
-                                </div>
-                            </div>
-                            
-                            <div class="border-t my-1"></div>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="null">Resetar ações</a>
-                        </div>
-                    </div>
-                    <div class="acompanhamento-status-container mt-1">${statusBadge}</div>
-                </div>
-            `;
-        }
-        return '';
-    }
-    
-    // Função para obter conteúdo da célula de impressão (igual ao arquivo antigo)
-    function getImprimirCellContent(paciente, status) {
-        // Não exibir checkbox para adolescentes (14-18 anos) - Planejamento Familiar Especial
-        const idade = paciente.idade_calculada;
-        if (idade >= 14 && idade <= 18) {
-            return '';
-        }
-        
-        const isAtrasado = status === 'atrasado';
-        const isAtrasado6Meses = status === 'atrasado_6_meses';
-        const semMetodo = status === 'sem_metodo';
-        const semCartaoSus = !paciente.cartao_sus || paciente.cartao_sus.trim() === '';
-        
-        // Exibir checkbox para pacientes elegíveis: sem método, atrasado, atrasado 6+ meses, ou sem cartão SUS
-        if (!paciente.gestante && (semMetodo || isAtrasado || isAtrasado6Meses || semCartaoSus)) {
-            const cnsValue = paciente.cartao_sus || paciente.cod_paciente || 'sem-cns';
-            const isSelected = selectedPacientesForPrint.has(String(cnsValue)) ? 'checked' : '';
-            return `<input type="checkbox" class="print-checkbox h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" data-cns="${cnsValue}" ${isSelected}>`;
-        }
-        return '';
-    }
-
-    // Função para obter conteúdo das ações
-    function getAcoesContent(paciente) {
-        const status = getAcompanhamentoStatus(paciente);
-        return getAcompanhamentoCellContent(paciente, status);
-    }
     
     // Função auxiliar para adicionar ou remover a classe de destaque da linha
     function toggleRowSelectionStyle(checkboxElement) {
@@ -1209,6 +1354,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.log('Nenhuma equipe encontrada');
                 }
                 
+                // Load data normally
+                console.log('Carregando dados normais');
                 atualizarPainelCompleto();
             })
             .catch(error => {
@@ -1479,11 +1626,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 event.preventDefault();
                 const actionStatus = event.target.dataset.action;
                 
+                console.log('Debug - actionStatus clicado:', actionStatus);
+                console.log('Debug - statusMap disponível:', typeof statusMap !== 'undefined');
+                
                 // Se não há data-action, significa que clicou no item pai do submenu, ignorar
                 if (!actionStatus) return;
                 
                 const codCidadao = event.target.closest('[data-cod-paciente]').dataset.codPaciente;
                 const statusContainer = event.target.closest('.relative').querySelector('.acompanhamento-status-container');
+                
+                console.log('Debug - codCidadao:', codCidadao);
+                console.log('Debug - statusContainer:', statusContainer);
+                
+                if (!statusContainer) {
+                    console.error('statusContainer não encontrado!');
+                    alert('Erro: Elemento de status não encontrado');
+                    return;
+                }
 
                 fetch('/api/update_acompanhamento', {
                     method: 'POST',
@@ -1498,12 +1657,20 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.sucesso) {
-                            if (actionStatus === '0') {
+                            if (actionStatus === '0' || actionStatus === 'null') {
                                 statusContainer.innerHTML = '';
                             } else {
-                                const { text, class: badgeClass } = statusMap[actionStatus];
-                                const dataAtual = new Date().toLocaleDateString('pt-BR');
-                                statusContainer.innerHTML = `<span class="acompanhamento-status-badge ${badgeClass}">${text} (${dataAtual})</span>`;
+                                console.log('Debug - actionStatus:', actionStatus);
+                                console.log('Debug - statusMap[actionStatus]:', statusMap[actionStatus]);
+                                
+                                if (statusMap[actionStatus]) {
+                                    const { text, class: badgeClass } = statusMap[actionStatus];
+                                    const dataAtual = new Date().toLocaleDateString('pt-BR');
+                                    statusContainer.innerHTML = `<span class="acompanhamento-status-badge ${badgeClass}">${text} (${dataAtual})</span>`;
+                                } else {
+                                    console.error('Status não encontrado no statusMap:', actionStatus);
+                                    statusContainer.innerHTML = `<span class="acompanhamento-status-badge">Ação selecionada (${new Date().toLocaleDateString('pt-BR')})</span>`;
+                                }
                             }
                         } else {
                             alert('Falha ao atualizar o status: ' + data.erro);
@@ -1884,6 +2051,53 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Chamando fetchEstatisticasPainelControle...');
     fetchEstatisticasPainelControle();
     updatePrintButtonText(); // Inicializar texto do botão
+    
+    // Event listeners para o Plano Semanal
+    const semMetodoInput = document.getElementById('qtd-sem-metodo');
+    const metodoVencidoInput = document.getElementById('qtd-metodo-vencido');
+    const semMetodoCheckbox = document.getElementById('convites-sem-metodo');
+    const metodoVencidoCheckbox = document.getElementById('convites-metodo-vencido');
+    
+    if (semMetodoInput) {
+        semMetodoInput.addEventListener('input', calcularTotalConvites);
+    }
+    if (metodoVencidoInput) {
+        metodoVencidoInput.addEventListener('input', calcularTotalConvites);
+    }
+    if (semMetodoCheckbox) {
+        semMetodoCheckbox.addEventListener('change', calcularTotalConvites);
+    }
+    if (metodoVencidoCheckbox) {
+        metodoVencidoCheckbox.addEventListener('change', calcularTotalConvites);
+    }
+    
+    // Event listener para o botão de gerar plano semanal
+    const gerarPlanoBtn = document.getElementById('gerar-plano-semanal');
+    if (gerarPlanoBtn) {
+        gerarPlanoBtn.addEventListener('click', executarPlanoSemanal);
+        // Initialize button state
+        gerarPlanoBtn.disabled = true;
+        gerarPlanoBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
+    // Event listener para o botão cancelar do modal
+    const cancelarBtn = document.getElementById('cancelar-plano-semanal');
+    if (cancelarBtn) {
+        cancelarBtn.addEventListener('click', fecharPlanoSemanalModal);
+    }
+    
+    // Event listener para fechar modal clicando fora
+    const modal = document.getElementById('plano-semanal-modal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                fecharPlanoSemanalModal();
+            }
+        });
+    }
+    
+    // Initialize total calculation
+    setTimeout(calcularTotalConvites, 100);
 });
 
 // Função global para atualizar texto do botão de impressão
@@ -1927,79 +2141,126 @@ function clearAllSelections() {
     console.log('Todas as seleções foram limpas');
 }
 
-// Função global para gerar Plano Semanal
+// Função para abrir modal do Plano Semanal
 function gerarPlanoSemanal() {
-    console.log('Iniciando geração do Plano Semanal...');
+    console.log('Abrindo modal do Plano Semanal...');
+    abrirPlanoSemanalModal();
+}
+
+// Funções para o Plano Semanal
+function abrirPlanoSemanalModal() {
+    document.getElementById('plano-semanal-modal').classList.remove('hidden');
+}
+
+function fecharPlanoSemanalModal() {
+    document.getElementById('plano-semanal-modal').classList.add('hidden');
+    // Reset form
+    document.getElementById('qtd-sem-metodo').value = '2';
+    document.getElementById('qtd-metodo-vencido').value = '2';
+    document.querySelector('input[name="ordem-idade"][value="asc"]').checked = true;
+    document.getElementById('total-convites-display').textContent = '0 convites';
     
-    // Mostrar loading
-    const loadingMsg = document.createElement('div');
-    loadingMsg.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Gerando Plano Semanal...</div></div>';
-    document.body.appendChild(loadingMsg);
+    // Reset button state
+    const gerarBtn = document.getElementById('gerar-plano-semanal');
+    gerarBtn.disabled = true;
+    gerarBtn.classList.add('opacity-50', 'cursor-not-allowed');
+}
+
+function calcularTotalConvites() {
+    const semMetodoCheckbox = document.getElementById('convites-sem-metodo');
+    const metodoVencidoCheckbox = document.getElementById('convites-metodo-vencido');
     
-    // Construir parâmetros baseados nos filtros atuais
-    const params = new URLSearchParams();
+    const semMetodoQtd = semMetodoCheckbox.checked ? (parseInt(document.getElementById('qtd-sem-metodo').value) || 0) : 0;
+    const metodoVencidoQtd = metodoVencidoCheckbox.checked ? (parseInt(document.getElementById('qtd-metodo-vencido').value) || 0) : 0;
+    const total = semMetodoQtd + metodoVencidoQtd;
     
-    // Se há uma equipe selecionada, aplicar apenas para essa equipe
-    if (equipeSelecionadaAtual && equipeSelecionadaAtual !== 'Todas') {
-        params.append('equipe_selecionada', equipeSelecionadaAtual);
+    document.getElementById('total-convites-display').textContent = `${total} convites`;
+    
+    // Enable/disable generate button based on total
+    const gerarBtn = document.getElementById('gerar-plano-semanal');
+    if (total > 0) {
+        gerarBtn.disabled = false;
+        gerarBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        gerarBtn.disabled = true;
+        gerarBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+async function executarPlanoSemanal() {
+    const semMetodoCheckbox = document.getElementById('convites-sem-metodo');
+    const metodoVencidoCheckbox = document.getElementById('convites-metodo-vencido');
+    
+    const semMetodoQtd = semMetodoCheckbox.checked ? (parseInt(document.getElementById('qtd-sem-metodo').value) || 0) : 0;
+    const metodoVencidoQtd = metodoVencidoCheckbox.checked ? (parseInt(document.getElementById('qtd-metodo-vencido').value) || 0) : 0;
+    
+    const organizacaoIdadeRadio = document.querySelector('input[name="ordem-idade"]:checked');
+    const organizacaoIdade = organizacaoIdadeRadio ? (organizacaoIdadeRadio.value === 'asc' ? 'crescente' : 'decrescente') : 'crescente';
+    
+    if (semMetodoQtd === 0 && metodoVencidoQtd === 0) {
+        alert('Defina pelo menos uma quantidade para gerar o plano semanal.');
+        return;
     }
     
-    console.log('Parâmetros para Plano Semanal:', params.toString());
-    
-    // Fazer requisição para o backend
-    fetch('/api/plano_semanal_plafam?' + params.toString())
-        .then(response => response.json())
-        .then(data => {
-            // Remover loading
-            if (document.body.contains(loadingMsg)) {
-                document.body.removeChild(loadingMsg);
-            }
-            
-            console.log('Resposta do Plano Semanal:', data);
-            
-            if (data.erro) {
-                alert('Erro ao gerar plano semanal: ' + data.erro);
-                return;
-            }
-            
-            if (!data.pacientes || data.pacientes.length === 0) {
-                alert('Nenhuma paciente elegível encontrada para o Plano Semanal.');
-                return;
-            }
-            
-            // Mostrar resumo do plano gerado
-            const resumo = `Plano Semanal gerado com sucesso!\n\n` +
-                          `Total de convites: ${data.pacientes.length}\n` +
-                          `Equipes incluídas: ${data.resumo_equipes || 'Todas'}\n` +
-                          `Microáreas incluídas: ${data.total_microareas || 0}\n\n` +
-                          `Os registros de acompanhamento foram inseridos e os convites serão gerados automaticamente.`;
-            
-            alert(resumo);
-            
-            // Gerar PDFs dos convites automaticamente
-            if (data.pacientes.length > 0) {
-                console.log('Gerando PDFs para', data.pacientes.length, 'pacientes do Plano Semanal');
-                generateInvitePDF(data.pacientes);
-            }
-            
-            // Atualizar o painel para refletir as mudanças
-            setTimeout(() => {
-                if (typeof fetchPacientesUnificado === 'function') {
-                    fetchPacientesUnificado({
-                        includeFilters: Object.keys(activeFilters).length > 0,
-                        includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
-                        includeActionFilters: Object.keys(activeActionFilters).length > 0
-                    });
-                }
-            }, 1000);
-        })
-        .catch(error => {
-            // Remover loading em caso de erro
-            if (document.body.contains(loadingMsg)) {
-                document.body.removeChild(loadingMsg);
-            }
-            console.error('Erro ao gerar Plano Semanal:', error);
-            alert('Erro ao gerar Plano Semanal. Tente novamente.');
+    try {
+        // Get current filters from global variables
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual || 'Todas',
+            microarea: agenteSelecionadoAtual || 'Todas',
+            sem_metodo_qtd: semMetodoQtd,
+            metodo_vencido_qtd: metodoVencidoQtd,
+            organizacao_idade: organizacaoIdade
         });
+        
+        const response = await fetch(`/plano_semanal_novo?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Close modal
+            fecharPlanoSemanalModal();
+            
+            // Display results in table and select them
+            exibirResultadosPlanoSemanal(data.pacientes);
+        } else {
+            alert('Erro ao gerar plano semanal: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao gerar plano semanal:', error);
+        alert('Erro ao gerar plano semanal. Verifique a conexão e tente novamente.');
+    }
 }
+
+function exibirResultadosPlanoSemanal(pacientes) {
+    // Set weekly plan flags
+    isPlanoSemanalActive = true;
+    planoSemanalPacientes.clear();
+    pacientes.forEach(p => planoSemanalPacientes.add(p.cod_paciente.toString()));
+    
+    // Show success message
+    const totalPacientes = pacientes.length;
+    alert(`Plano semanal gerado com ${totalPacientes} paciente(s) encontrados!\n\nOs pacientes do plano serão exibidos na tabela e selecionados automaticamente para impressão.`);
+    
+    console.log('Exibindo resultados do plano semanal:', pacientes);
+    
+    // Filter and display only plan patients directly
+    renderPacientes(pacientes);
+    
+    // Auto-select all plan patients after rendering
+    setTimeout(() => {
+        const checkboxes = document.querySelectorAll('input[name="paciente_checkbox"]');
+        let selectedCount = 0;
+        
+        checkboxes.forEach(checkbox => {
+            if (planoSemanalPacientes.has(checkbox.value)) {
+                checkbox.checked = true;
+                selectedPacientesForPrint.add(checkbox.value);
+                toggleRowSelectionStyle(checkbox);
+                selectedCount++;
+            }
+        });
+        
+        console.log(`Selecionados ${selectedCount} pacientes do plano semanal`);
+        updatePrintButtonText();
+    }, 100);
+}
+

@@ -94,6 +94,9 @@ def build_filtered_query(args):
     aplicacao_data_inicial = args.get('aplicacao_data_inicial')
     aplicacao_data_final = args.get('aplicacao_data_final')
     aplicacao_metodo = args.get('aplicacao_metodo', 'trimestral')
+    
+    # Filtro para pacientes específicos (usado no plano semanal)
+    pacientes_ids = args.get('pacientes_ids', None)
 
     print(f"DEBUG: status_timeline recebido: {status_timeline}")
 
@@ -122,6 +125,22 @@ def build_filtered_query(args):
     if search_term:
         where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)")
         query_params['search'] = f"%{search_term}%"
+
+    # Filtro para pacientes específicos (usado no plano semanal)
+    if pacientes_ids:
+        print(f"DEBUG: Filtro pacientes_ids recebido: {pacientes_ids}")
+        # Convert comma-separated string to list of integers
+        try:
+            ids_list = [int(id.strip()) for id in pacientes_ids.split(',') if id.strip()]
+            if ids_list:
+                print(f"DEBUG: IDs convertidos para lista: {ids_list}")
+                where_clauses.append("m.cod_paciente = ANY(%(pacientes_ids)s)")
+                query_params['pacientes_ids'] = ids_list
+                print(f"DEBUG: Filtro de pacientes_ids adicionado à query")
+        except (ValueError, AttributeError) as e:
+            print(f"DEBUG: Erro ao processar pacientes_ids: {e}")
+            # If invalid format, ignore the filter
+            pass
 
     # Filtro de Métodos Contraceptivos
     if metodos:
@@ -367,6 +386,8 @@ def api_pacientes_plafam():
     conn = None
     cur = None
     try:
+        print(f"DEBUG API: Requisição recebida com args: {dict(request.args)}")
+        
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -375,6 +396,9 @@ def api_pacientes_plafam():
         offset = (page - 1) * limit
 
         where_clause, order_by_clause, query_params = build_filtered_query(request.args)
+        
+        print(f"DEBUG API: where_clause construída: {where_clause}")
+        print(f"DEBUG API: query_params: {query_params}")
         
         base_query = """
         SELECT
@@ -396,13 +420,18 @@ def api_pacientes_plafam():
         
         cur.execute(count_query, count_params)
         total_pacientes = cur.fetchone()[0]
+        print(f"DEBUG API: Total de pacientes encontrados: {total_pacientes}")
         
         query_params['limit'] = limit
         query_params['offset'] = offset
         final_query += order_by_clause + " LIMIT %(limit)s OFFSET %(offset)s"
         
+        print(f"DEBUG API: Query final: {final_query}")
+        print(f"DEBUG API: Parâmetros finais: {query_params}")
+        
         cur.execute(final_query, query_params)
         dados = cur.fetchall()
+        print(f"DEBUG API: Dados retornados: {len(dados)} registros")
 
         colunas_db = [desc[0] for desc in cur.description]
         colunas_frontend = [col.replace('microarea', 'micro_area').replace('status_gravidez', 'gestante') for col in colunas_db]
@@ -6205,6 +6234,166 @@ def api_hiperdia_export_pdf():
     except Exception as e:
         print(f"Erro ao gerar PDF de exportação: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+
+@app.route('/plano_semanal_novo')
+def plano_semanal_personalizado():
+    """API para gerar Plano Semanal personalizado com configurações específicas"""
+    conn = None
+    cur = None
+    try:
+        print("=== NOVA FUNÇÃO PLANO SEMANAL CHAMADA ===")
+        conn = get_db_connection()
+        cur = conn.cursor()  # Usando cursor normal como outros endpoints
+        
+        # Parâmetros da requisição
+        equipe = request.args.get('equipe', 'Todas')
+        microarea = request.args.get('microarea', 'Todas')
+        sem_metodo_qtd = int(request.args.get('sem_metodo_qtd', 0))
+        metodo_vencido_qtd = int(request.args.get('metodo_vencido_qtd', 0))
+        organizacao_idade = request.args.get('organizacao_idade', 'crescente')
+        
+        # Verificar se há pelo menos uma quantidade
+        if sem_metodo_qtd == 0 and metodo_vencido_qtd == 0:
+            return jsonify({"success": False, "error": "Defina pelo menos uma quantidade"})
+        
+        all_patients = []
+        
+        def get_patients_by_microarea(sem_metodo_qtd, metodo_vencido_qtd, equipe_filter, microarea_filter, ordem_idade):
+            """Buscar pacientes por microárea com quantidade específica por microárea"""
+            patients = []
+            
+            # Construir filtros base
+            where_conditions = [
+                "m.microarea NOT IN (0, 7, 8)",
+                "m.status_gravidez != 'Grávida'",
+                "m.idade_calculada >= 19 AND m.idade_calculada <= 45",
+                "(pa.status_acompanhamento IS NULL OR pa.status_acompanhamento = 0)"
+            ]
+            
+            query_params = {}
+            
+            if equipe_filter and equipe_filter != 'Todas':
+                where_conditions.append("m.nome_equipe = %(equipe)s")
+                query_params['equipe'] = equipe_filter
+                
+            if microarea_filter and microarea_filter not in ('Todas', 'Todas as áreas'):
+                # Verificar se é um número válido antes de filtrar
+                try:
+                    microarea_num = int(microarea_filter)
+                    where_conditions.append("m.microarea = %(microarea)s")
+                    query_params['microarea'] = microarea_num
+                except (ValueError, TypeError):
+                    # Se não for um número válido, ignorar o filtro de microárea
+                    pass
+            
+            # Query para buscar pacientes sem método por microárea
+            if sem_metodo_qtd > 0:
+                query_sem_metodo = f"""
+                WITH ranked_patients AS (
+                    SELECT
+                        m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
+                        m.microarea, m.metodo, m.nome_equipe, 
+                        m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
+                        pa.status_acompanhamento, pa.data_acompanhamento,
+                        ag.nome_agente,
+                        ROW_NUMBER() OVER (PARTITION BY m.microarea ORDER BY m.idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}) as rn
+                    FROM sistemaaps.mv_plafam m
+                    LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+                    LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
+                    WHERE {' AND '.join(where_conditions)}
+                    AND (m.metodo = '' OR m.metodo IS NULL)
+                )
+                SELECT * FROM ranked_patients WHERE rn <= {sem_metodo_qtd}
+                ORDER BY microarea, idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}
+                """
+                
+                cur.execute(query_sem_metodo, query_params)
+                results = cur.fetchall()
+                column_names = [desc[0] for desc in cur.description]
+                
+                for row in results:
+                    patient_dict = dict(zip(column_names, row))
+                    patient_dict['categoria_plano'] = 'Sem método'
+                    patients.append(patient_dict)
+            
+            # Query para buscar pacientes com método vencido por microárea
+            if metodo_vencido_qtd > 0:
+                query_metodo_vencido = f"""
+                WITH ranked_patients AS (
+                    SELECT
+                        m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
+                        m.microarea, m.metodo, m.nome_equipe, 
+                        m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
+                        pa.status_acompanhamento, pa.data_acompanhamento,
+                        ag.nome_agente,
+                        ROW_NUMBER() OVER (PARTITION BY m.microarea ORDER BY m.idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}) as rn
+                    FROM sistemaaps.mv_plafam m
+                    LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
+                    LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
+                    WHERE {' AND '.join(where_conditions)}
+                    AND m.metodo IS NOT NULL AND m.metodo != ''
+                )
+                SELECT * FROM ranked_patients WHERE rn <= {metodo_vencido_qtd}
+                ORDER BY microarea, idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}
+                """
+                
+                cur.execute(query_metodo_vencido, query_params)
+                results = cur.fetchall()
+                column_names = [desc[0] for desc in cur.description]
+                
+                for row in results:
+                    patient_dict = dict(zip(column_names, row))
+                    patient_dict['categoria_plano'] = 'Método vencido'
+                    patients.append(patient_dict)
+            
+            return patients
+        
+        # Buscar pacientes usando a nova função
+        all_patients = get_patients_by_microarea(
+            sem_metodo_qtd, 
+            metodo_vencido_qtd, 
+            equipe, 
+            microarea, 
+            organizacao_idade
+        )
+        
+        # Formatar datas se necessário
+        print(f"DEBUG: Iniciando formatação de datas para {len(all_patients)} pacientes...")
+        for i, p in enumerate(all_patients):
+            print(f"DEBUG: Formatando paciente {i}")
+            try:
+                if p.get('data_aplicacao') and isinstance(p['data_aplicacao'], date):
+                    p['data_aplicacao'] = p['data_aplicacao'].strftime('%Y-%m-%d')
+                if p.get('data_acompanhamento') and isinstance(p['data_acompanhamento'], date):
+                    p['data_acompanhamento'] = p['data_acompanhamento'].strftime('%Y-%m-%d')
+                if p.get('data_provavel_parto') and isinstance(p['data_provavel_parto'], date):
+                    p['data_provavel_parto'] = p['data_provavel_parto'].strftime('%Y-%m-%d')
+                print(f"DEBUG: Paciente {i} formatado com sucesso")
+            except Exception as e:
+                print(f"DEBUG: Erro formatando paciente {i}: {e}")
+                raise
+        
+        return jsonify({
+            "success": True,
+            "pacientes": all_patients,
+            "total": len(all_patients),
+            "configuracao": {
+                "sem_metodo_qtd": sem_metodo_qtd,
+                "metodo_vencido_qtd": metodo_vencido_qtd,
+                "organizacao_idade": organizacao_idade,
+                "equipe": equipe,
+                "microarea": microarea
+            }
+        })
+        
+    except Exception as e:
+        print(f"Erro ao gerar plano semanal personalizado: {e}")
+        return jsonify({"success": False, "error": f"Erro no servidor: {e}"})
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')
