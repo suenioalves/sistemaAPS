@@ -6258,104 +6258,93 @@ def plano_semanal_personalizado():
         
         all_patients = []
         
-        def get_patients_by_microarea(sem_metodo_qtd, metodo_vencido_qtd, equipe_filter, microarea_filter, ordem_idade):
-            """Buscar pacientes por microárea com quantidade específica por microárea"""
+        def get_patients_by_microarea_ordered(sem_metodo_qtd, equipe_filter, ordem_idade):
+            """Buscar pacientes sem método com ordenação específica: X por microárea de cada equipe, ordenados intercaladamente"""
             patients = []
             
-            # Construir filtros base
-            where_conditions = [
-                "m.microarea NOT IN (0, 7, 8)",
-                "m.status_gravidez != 'Grávida'",
-                "m.idade_calculada >= 19 AND m.idade_calculada <= 45",
-                "(pa.status_acompanhamento IS NULL OR pa.status_acompanhamento = 0)"
-            ]
+            # Lista de equipes válidas na ordem específica (nomes corretos)
+            equipes_validas = ['PSF-01', 'PSF-02', 'PSF - 03', 'URBANA I', 'URBANA II', 'URBANA III']
+            microareas_validas = [1, 2, 3, 4, 5, 6]
             
-            query_params = {}
+            # Se equipe específica foi selecionada, usar apenas ela
+            if equipe_filter and equipe_filter != 'Todas' and equipe_filter in equipes_validas:
+                equipes_validas = [equipe_filter]
             
-            if equipe_filter and equipe_filter != 'Todas':
-                where_conditions.append("m.nome_equipe = %(equipe)s")
-                query_params['equipe'] = equipe_filter
-                
-            if microarea_filter and microarea_filter not in ('Todas', 'Todas as áreas'):
-                # Verificar se é um número válido antes de filtrar
-                try:
-                    microarea_num = int(microarea_filter)
-                    where_conditions.append("m.microarea = %(microarea)s")
-                    query_params['microarea'] = microarea_num
-                except (ValueError, TypeError):
-                    # Se não for um número válido, ignorar o filtro de microárea
-                    pass
+            print(f"=== BUSCANDO PACIENTES ===")
+            print(f"Quantidade sem método: {sem_metodo_qtd}")
+            print(f"Equipes: {equipes_validas}")
+            print(f"Microáreas: {microareas_validas}")
             
-            # Query para buscar pacientes sem método por microárea
-            if sem_metodo_qtd > 0:
-                query_sem_metodo = f"""
-                WITH ranked_patients AS (
+            # Buscar pacientes por equipe e microárea
+            pacientes_por_equipe_micro = {}
+            
+            for equipe in equipes_validas:
+                pacientes_por_equipe_micro[equipe] = {}
+                for microarea in microareas_validas:
+                    query = """
                     SELECT
                         m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
                         m.microarea, m.metodo, m.nome_equipe, 
                         m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
                         pa.status_acompanhamento, pa.data_acompanhamento,
-                        ag.nome_agente,
-                        ROW_NUMBER() OVER (PARTITION BY m.microarea ORDER BY m.idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}) as rn
+                        ag.nome_agente
                     FROM sistemaaps.mv_plafam m
                     LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
                     LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
-                    WHERE {' AND '.join(where_conditions)}
+                    WHERE m.nome_equipe = %(equipe)s
+                    AND m.microarea = %(microarea)s
+                    AND m.status_gravidez != 'Grávida'
+                    AND m.idade_calculada >= 19 AND m.idade_calculada <= 45
+                    AND (pa.status_acompanhamento IS NULL OR pa.status_acompanhamento = 0)
                     AND (m.metodo = '' OR m.metodo IS NULL)
-                )
-                SELECT * FROM ranked_patients WHERE rn <= {sem_metodo_qtd}
-                ORDER BY microarea, idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}
-                """
-                
-                cur.execute(query_sem_metodo, query_params)
-                results = cur.fetchall()
-                column_names = [desc[0] for desc in cur.description]
-                
-                for row in results:
-                    patient_dict = dict(zip(column_names, row))
-                    patient_dict['categoria_plano'] = 'Sem método'
-                    patients.append(patient_dict)
+                    ORDER BY m.idade_calculada ASC
+                    LIMIT %(limite)s
+                    """
+                    
+                    cur.execute(query, {
+                        'equipe': equipe, 
+                        'microarea': microarea, 
+                        'limite': sem_metodo_qtd
+                    })
+                    results = cur.fetchall()
+                    column_names = [desc[0] for desc in cur.description]
+                    
+                    pacientes_microarea = []
+                    for row in results:
+                        patient_dict = dict(zip(column_names, row))
+                        patient_dict['categoria_plano'] = 'Sem método'
+                        pacientes_microarea.append(patient_dict)
+                    
+                    pacientes_por_equipe_micro[equipe][microarea] = pacientes_microarea
+                    print(f"{equipe} - Microárea {microarea}: {len(pacientes_microarea)} pacientes")
             
-            # Query para buscar pacientes com método vencido por microárea
-            if metodo_vencido_qtd > 0:
-                query_metodo_vencido = f"""
-                WITH ranked_patients AS (
-                    SELECT
-                        m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
-                        m.microarea, m.metodo, m.nome_equipe, 
-                        m.data_aplicacao, m.status_gravidez, m.data_provavel_parto,
-                        pa.status_acompanhamento, pa.data_acompanhamento,
-                        ag.nome_agente,
-                        ROW_NUMBER() OVER (PARTITION BY m.microarea ORDER BY m.idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}) as rn
-                    FROM sistemaaps.mv_plafam m
-                    LEFT JOIN sistemaaps.tb_plafam_acompanhamento pa ON m.cod_paciente = pa.co_cidadao
-                    LEFT JOIN sistemaaps.tb_agentes ag ON m.microarea = ag.micro_area AND m.nome_equipe = ag.nome_equipe
-                    WHERE {' AND '.join(where_conditions)}
-                    AND m.metodo IS NOT NULL AND m.metodo != ''
-                )
-                SELECT * FROM ranked_patients WHERE rn <= {metodo_vencido_qtd}
-                ORDER BY microarea, idade_calculada {'ASC' if ordem_idade == 'crescente' else 'DESC'}
-                """
-                
-                cur.execute(query_metodo_vencido, query_params)
-                results = cur.fetchall()
-                column_names = [desc[0] for desc in cur.description]
-                
-                for row in results:
-                    patient_dict = dict(zip(column_names, row))
-                    patient_dict['categoria_plano'] = 'Método vencido'
-                    patients.append(patient_dict)
+            # Ordenação por equipe, depois por microárea, depois por posição
+            # equipe 1, micro area 1 - 1º paciente
+            # equipe 1, micro area 1 - 2º paciente  
+            # equipe 1, micro area 2 - 1º paciente
+            # equipe 1, micro area 2 - 2º paciente
+            # ... até completar todas as microáreas da equipe 1
+            # equipe 2, micro area 1 - 1º paciente
+            # equipe 2, micro area 1 - 2º paciente
+            # etc.
             
+            for equipe in equipes_validas:  # Para cada equipe na ordem
+                for microarea in microareas_validas:  # Para cada microárea
+                    for pos in range(sem_metodo_qtd):  # Para cada posição (1º, 2º, etc.)
+                        pacientes_micro = pacientes_por_equipe_micro[equipe][microarea]
+                        if pos < len(pacientes_micro):  # Se existe paciente nesta posição
+                            patients.append(pacientes_micro[pos])
+            
+            print(f"Total de pacientes ordenados: {len(patients)}")
             return patients
         
-        # Buscar pacientes usando a nova função
-        all_patients = get_patients_by_microarea(
-            sem_metodo_qtd, 
-            metodo_vencido_qtd, 
-            equipe, 
-            microarea, 
-            organizacao_idade
-        )
+        # Buscar pacientes usando a nova função ordenada (por enquanto apenas sem método)
+        if sem_metodo_qtd > 0:
+            all_patients = get_patients_by_microarea_ordered(
+                sem_metodo_qtd, 
+                equipe, 
+                organizacao_idade
+            )
         
         # Formatar datas se necessário
         print(f"DEBUG: Iniciando formatação de datas para {len(all_patients)} pacientes...")
