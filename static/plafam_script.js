@@ -945,20 +945,52 @@ function toggleRowSelectionStyle(checkboxElement) {
 // Função global para atualizar o estado do checkbox "selecionar todos"
 function updateSelectAllCheckbox() {
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const checkboxes = document.querySelectorAll('.print-checkbox');
     
-    if (selectAllCheckbox && checkboxes.length > 0) {
-        const checkedCount = document.querySelectorAll('.print-checkbox:checked').length;
+    if (!selectAllCheckbox) return;
+    
+    if (isPlanoSemanalActive && window.planoSemanalData) {
+        // Mode: Weekly Plan - check if all weekly plan patients are selected
+        const totalPlanoSemanalPacientes = window.planoSemanalData.pacientes.length;
+        let selectedPlanoSemanalCount = 0;
         
-        if (checkedCount === 0) {
+        window.planoSemanalData.pacientes.forEach(paciente => {
+            const cnsValue = paciente.cns || paciente.cod_paciente.toString();
+            if (selectedPacientesForPrint.has(cnsValue)) {
+                selectedPlanoSemanalCount++;
+            }
+        });
+        
+        if (selectedPlanoSemanalCount === 0) {
             selectAllCheckbox.checked = false;
             selectAllCheckbox.indeterminate = false;
-        } else if (checkedCount === checkboxes.length) {
+        } else if (selectedPlanoSemanalCount === totalPlanoSemanalPacientes) {
             selectAllCheckbox.checked = true;
             selectAllCheckbox.indeterminate = false;
         } else {
             selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = true; // Estado "parcialmente selecionado"
+            selectAllCheckbox.indeterminate = true;
+        }
+        
+        console.log(`UpdateSelectAll - Plano semanal: ${selectedPlanoSemanalCount}/${totalPlanoSemanalPacientes} selecionados`);
+    } else {
+        // Mode: Normal - check current page only
+        const checkboxes = document.querySelectorAll('.print-checkbox');
+        
+        if (checkboxes.length > 0) {
+            const checkedCount = document.querySelectorAll('.print-checkbox:checked').length;
+            
+            if (checkedCount === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (checkedCount === checkboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true; // Estado "parcialmente selecionado"
+            }
+            
+            console.log(`UpdateSelectAll - Modo normal: ${checkedCount}/${checkboxes.length} selecionados`);
         }
     }
 }
@@ -1139,6 +1171,11 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Função para buscar pacientes
     function fetchPacientes() {
+        // Reset weekly plan mode when fetching new data
+        if (isPlanoSemanalActive) {
+            resetPlanoSemanalMode();
+        }
+        
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual,
             microarea: agenteSelecionadoAtual,
@@ -1163,6 +1200,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 const totalPages = Math.ceil((data.total || 0) / 20);
                 
                 console.log('Pacientes recebidos:', allPacientes.length);
+                
+                // Se estamos no modo plano semanal, não sobrescrever a paginação
+                if (isPlanoSemanalActive && window.planoSemanalData) {
+                    console.log('Modo plano semanal ativo - mantendo paginação customizada');
+                    return;
+                }
+                
                 renderPacientes(allPacientes);
                 renderPagination(data.total || 0, currentPage, 20, totalPages);
             })
@@ -1237,34 +1281,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
-    function createPaginationLogic(currentPage, totalPages) {
-        let pages = [];
-        const maxPagesToShow = 5; // Máximo de botões numéricos
-
-        if (totalPages <= maxPagesToShow + 2) { // Se for 7 ou menos, mostra todos os números
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
-        } else {
-            pages.push(1); // Sempre mostra a primeira página
-            if (currentPage > 3) {
-                pages.push('...');
-            }
-
-            let startPage = Math.max(2, currentPage - 1);
-            let endPage = Math.min(totalPages - 1, currentPage + 1);
-
-            for (let i = startPage; i <= endPage; i++) {
-                pages.push(i);
-            }
-
-            if (currentPage < totalPages - 2) {
-                pages.push('...');
-            }
-            pages.push(totalPages); // Sempre mostra a última página
-        }
-        return pages;
-    }
     
     // Função para atualizar o painel completo
     function atualizarPainelCompleto() {
@@ -1426,6 +1442,11 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Função melhorada para buscar pacientes que unifica busca, filtros e ordenação
     function fetchPacientesUnificado(options = {}) {
+        // Reset weekly plan mode when fetching new data
+        if (isPlanoSemanalActive) {
+            resetPlanoSemanalMode();
+        }
+        
         const { 
             searchTerm = '', 
             sortValue = '', 
@@ -1497,6 +1518,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 allPacientes = data.pacientes || [];
                 const totalPages = Math.ceil((data.total || 0) / 20);
+                
+                // Se estamos no modo plano semanal, não sobrescrever a paginação
+                if (isPlanoSemanalActive && window.planoSemanalData) {
+                    console.log('Modo plano semanal ativo - mantendo paginação customizada');
+                    return;
+                }
                 
                 renderPacientes(allPacientes);
                 renderPagination(data.total || 0, currentPage, 20, totalPages);
@@ -2130,31 +2157,65 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.print-checkbox');
             const isChecked = this.checked;
             
-            console.log(`Selecionando todos: ${isChecked}, encontrados ${checkboxes.length} checkboxes`);
-            
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked !== isChecked) {
-                    checkbox.checked = isChecked;
-                    
-                    // Atualizar selectedPacientesForPrint
-                    const cnsValue = checkbox.getAttribute('data-cns') || checkbox.value;
-                    if (isChecked) {
+            if (isPlanoSemanalActive && window.planoSemanalData) {
+                // Mode: Weekly Plan - select/deselect all weekly plan patients across all pages
+                console.log(`Selecionando todos do plano semanal: ${isChecked}`);
+                
+                if (isChecked) {
+                    // Add all weekly plan patients to selection
+                    window.planoSemanalData.pacientes.forEach(paciente => {
+                        const cnsValue = paciente.cns || paciente.cod_paciente.toString();
                         selectedPacientesForPrint.add(cnsValue);
-                    } else {
+                    });
+                } else {
+                    // Remove all weekly plan patients from selection
+                    window.planoSemanalData.pacientes.forEach(paciente => {
+                        const cnsValue = paciente.cns || paciente.cod_paciente.toString();
                         selectedPacientesForPrint.delete(cnsValue);
-                    }
-                    
-                    // Atualizar estilo da linha
-                    toggleRowSelectionStyle(checkbox);
+                    });
                 }
-            });
+                
+                // Update checkboxes on current page
+                const checkboxes = document.querySelectorAll('.print-checkbox');
+                checkboxes.forEach(checkbox => {
+                    const pacienteId = checkbox.value;
+                    if (planoSemanalPacientes.has(pacienteId)) {
+                        checkbox.checked = isChecked;
+                        toggleRowSelectionStyle(checkbox);
+                    }
+                });
+                
+                console.log(`Plano semanal - Total selecionados: ${selectedPacientesForPrint.size}`);
+            } else {
+                // Mode: Normal - select/deselect only current page patients
+                const checkboxes = document.querySelectorAll('.print-checkbox');
+                
+                console.log(`Selecionando todos (modo normal): ${isChecked}, encontrados ${checkboxes.length} checkboxes`);
+                
+                checkboxes.forEach(checkbox => {
+                    if (checkbox.checked !== isChecked) {
+                        checkbox.checked = isChecked;
+                        
+                        // Atualizar selectedPacientesForPrint
+                        const cnsValue = checkbox.getAttribute('data-cns') || checkbox.value;
+                        if (isChecked) {
+                            selectedPacientesForPrint.add(cnsValue);
+                        } else {
+                            selectedPacientesForPrint.delete(cnsValue);
+                        }
+                        
+                        // Atualizar estilo da linha
+                        toggleRowSelectionStyle(checkbox);
+                    }
+                });
+                
+                console.log(`Modo normal - Total selecionados: ${selectedPacientesForPrint.size}`);
+            }
             
             // Atualizar texto do botão de impressão
             updatePrintButtonText();
-            console.log(`Total selecionados: ${selectedPacientesForPrint.size}`);
         });
     }
     
@@ -2298,40 +2359,167 @@ function exibirResultadosPlanoSemanal(pacientes) {
     planoSemanalPacientes.clear();
     pacientes.forEach(p => planoSemanalPacientes.add(p.cod_paciente.toString()));
     
+    // Store weekly plan data globally for pagination
+    window.planoSemanalData = {
+        pacientes: pacientes,
+        currentPage: 1,
+        totalPages: Math.ceil(pacientes.length / 20),
+        totalPacientes: pacientes.length
+    };
+    
     // Show success message
     const totalPacientes = pacientes.length;
     alert(`Plano semanal gerado com ${totalPacientes} paciente(s) encontrados!\n\nOs pacientes do plano serão exibidos na tabela e selecionados automaticamente para impressão.`);
     
     console.log('Exibindo resultados do plano semanal:', pacientes);
     
-    // Filter and display only plan patients directly
-    renderPacientes(pacientes);
+    // Display first page of weekly plan
+    renderPlanoSemanalPage(1);
+}
+
+// Render specific page of weekly plan
+function renderPlanoSemanalPage(page) {
+    if (!window.planoSemanalData) return;
     
-    // Auto-select all plan patients after rendering
+    const { pacientes, totalPacientes } = window.planoSemanalData;
+    const limit = 20;
+    const startIndex = (page - 1) * limit;
+    const endIndex = Math.min(startIndex + limit, totalPacientes);
+    const pageData = pacientes.slice(startIndex, endIndex);
+    
+    // Update current page
+    window.planoSemanalData.currentPage = page;
+    
+    console.log(`Renderizando página ${page} do plano semanal: ${pageData.length} pacientes`);
+    
+    // Render patients for this page
+    renderPacientes(pageData);
+    
+    // Update pagination display
+    renderPlanoSemanalPagination();
+    
+    // Auto-select all plan patients on this page after rendering
     setTimeout(() => {
-        const checkboxes = document.querySelectorAll('.print-checkbox');
-        let selectedCount = 0;
-        
-        console.log(`Tentando selecionar ${checkboxes.length} checkboxes encontrados`);
-        
-        checkboxes.forEach(checkbox => {
-            const pacienteId = checkbox.value;
-            const cnsValue = checkbox.getAttribute('data-cns');
-            
-            console.log(`Verificando paciente ${pacienteId}, CNS: ${cnsValue}`);
-            
-            if (planoSemanalPacientes.has(pacienteId)) {
-                checkbox.checked = true;
-                selectedPacientesForPrint.add(cnsValue || pacienteId);
-                toggleRowSelectionStyle(checkbox);
-                selectedCount++;
-                console.log(`Paciente ${pacienteId} selecionado automaticamente`);
-            }
-        });
-        
-        console.log(`Selecionados ${selectedCount} pacientes do plano semanal`);
-        updatePrintButtonText();
+        selectPlanoSemanalPatientsOnCurrentPage();
         updateSelectAllCheckbox();
     }, 100);
+}
+
+// Render pagination specifically for weekly plan
+function renderPlanoSemanalPagination() {
+    if (!window.planoSemanalData) return;
+    
+    const { currentPage, totalPages, totalPacientes } = window.planoSemanalData;
+    const limit = 20;
+    const start = (currentPage - 1) * limit + 1;
+    const end = Math.min(currentPage * limit, totalPacientes);
+    
+    const paginationContainer = document.getElementById('pagination-container');
+    const paginationInfo = document.getElementById('pagination-info');
+    
+    if (!paginationContainer || !paginationInfo) return;
+    
+    // Update pagination info
+    paginationInfo.innerHTML = `Mostrando <span class="font-medium">${start}</span> a <span class="font-medium">${end}</span> de <span class="font-medium">${totalPacientes}</span> pacientes`;
+    
+    // Clear and rebuild pagination controls
+    paginationContainer.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    let paginationHtml = '';
+    
+    // Previous button
+    paginationHtml += `<button onclick="navigatePlanoSemanalPage(${currentPage - 1})" class="page-btn px-3 py-1 border border-gray-300 text-sm rounded-md ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" ${currentPage === 1 ? 'disabled' : ''}>Anterior</button>`;
+    
+    // Page numbers
+    const pagesToShow = createPaginationLogic(currentPage, totalPages);
+    pagesToShow.forEach(p => {
+        if (p === '...') {
+            paginationHtml += `<span class="page-btn px-3 py-1 border-none text-sm rounded-md opacity-50 cursor-default">...</span>`;
+        } else if (p === currentPage) {
+            paginationHtml += `<button onclick="navigatePlanoSemanalPage(${p})" class="page-btn px-3 py-1 border border-primary bg-primary text-white text-sm rounded-md">${p}</button>`;
+        } else {
+            paginationHtml += `<button onclick="navigatePlanoSemanalPage(${p})" class="page-btn px-3 py-1 border border-gray-300 text-sm rounded-md hover:bg-gray-100">${p}</button>`;
+        }
+    });
+    
+    // Next button
+    paginationHtml += `<button onclick="navigatePlanoSemanalPage(${currentPage + 1})" class="page-btn px-3 py-1 border border-gray-300 text-sm rounded-md ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" ${currentPage === totalPages ? 'disabled' : ''}>Próximo</button>`;
+    
+    paginationContainer.innerHTML = paginationHtml;
+}
+
+// Navigate to specific page in weekly plan
+function navigatePlanoSemanalPage(page) {
+    if (!window.planoSemanalData) return;
+    
+    const { totalPages } = window.planoSemanalData;
+    
+    if (page < 1 || page > totalPages) return;
+    
+    renderPlanoSemanalPage(page);
+}
+
+// Select all patients on current page of weekly plan
+function selectPlanoSemanalPatientsOnCurrentPage() {
+    const checkboxes = document.querySelectorAll('.print-checkbox');
+    let selectedCount = 0;
+    
+    console.log(`Selecionando pacientes na página atual: ${checkboxes.length} checkboxes encontrados`);
+    
+    checkboxes.forEach(checkbox => {
+        const pacienteId = checkbox.value;
+        const cnsValue = checkbox.getAttribute('data-cns');
+        
+        if (planoSemanalPacientes.has(pacienteId)) {
+            checkbox.checked = true;
+            selectedPacientesForPrint.add(cnsValue || pacienteId);
+            toggleRowSelectionStyle(checkbox);
+            selectedCount++;
+            console.log(`Paciente ${pacienteId} selecionado automaticamente`);
+        }
+    });
+    
+    console.log(`Selecionados ${selectedCount} pacientes na página atual`);
+    updatePrintButtonText();
+}
+
+// Reset weekly plan mode and return to normal mode
+function resetPlanoSemanalMode() {
+    isPlanoSemanalActive = false;
+    planoSemanalPacientes.clear();
+    window.planoSemanalData = null;
+    console.log('Modo plano semanal resetado');
+}
+
+// Global function for pagination logic (moved from local scope)
+function createPaginationLogic(currentPage, totalPages) {
+    let pages = [];
+    const maxPagesToShow = 5; // Máximo de botões numéricos
+
+    if (totalPages <= maxPagesToShow + 2) { // Se for 7 ou menos, mostra todos os números
+        for (let i = 1; i <= totalPages; i++) {
+            pages.push(i);
+        }
+    } else {
+        pages.push(1); // Sempre mostra a primeira página
+        if (currentPage > 3) {
+            pages.push('...');
+        }
+
+        let startPage = Math.max(2, currentPage - 1);
+        let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        if (currentPage < totalPages - 2) {
+            pages.push('...');
+        }
+        pages.push(totalPages); // Sempre mostra a última página
+    }
+    return pages;
 }
 
