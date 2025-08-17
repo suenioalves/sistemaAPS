@@ -790,7 +790,9 @@ function getAcompanhamentoCellContent(paciente, status) {
         idade: paciente.idade_calculada,
         status: status,
         gestante: paciente.gestante,
-        cartao_sus: paciente.cartao_sus
+        cartao_sus: paciente.cartao_sus,
+        status_acompanhamento_raw: paciente.status_acompanhamento,
+        data_acompanhamento_raw: paciente.data_acompanhamento
     });
     
     // Não exibir menus de ações para adolescentes (14-18 anos) - Planejamento Familiar Especial
@@ -800,11 +802,8 @@ function getAcompanhamentoCellContent(paciente, status) {
         return '';
     }
     
-    // Se o paciente faz parte do plano semanal, mostrar status especial
-    if (typeof isPlanoSemanalActive !== 'undefined' && isPlanoSemanalActive && typeof planoSemanalPacientes !== 'undefined' && planoSemanalPacientes.has(paciente.cod_paciente.toString())) {
-        const today = new Date().toLocaleDateString('pt-BR');
-        return `<span class="acompanhamento-status-badge status-com-agente">Convite com o agente (${today})</span>`;
-    }
+    // Verificar se o paciente faz parte do plano semanal (mas ainda mostrar menu completo)
+    const isPlanoSemanalPatient = typeof isPlanoSemanalActive !== 'undefined' && isPlanoSemanalActive && typeof planoSemanalPacientes !== 'undefined' && planoSemanalPacientes.has(paciente.cod_paciente.toString());
     
     const isAtrasado = status === 'atrasado';
     const isAtrasado6Meses = status === 'atrasado_6_meses';
@@ -819,17 +818,69 @@ function getAcompanhamentoCellContent(paciente, status) {
         naoGestante: !paciente.gestante
     });
     
-    // Forçar exibição do menu para testar (temporário)
-    console.log('Forçando exibição do menu de ações para:', paciente.nome_paciente);
-    if (true) { // Temporariamente forçar para todos
+    // Exibir menu de ações para TODOS os pacientes (exceto adolescentes que já foram filtrados acima)
+    console.log('Exibindo menu de ações para:', paciente.nome_paciente);
+    
+    // Sempre mostrar o menu de ações (adolescentes já foram filtrados no início da função)
+    if (true) {
         const statusAcomp = paciente.status_acompanhamento;
         let statusBadge = '';
-        if (statusAcomp && statusMap[statusAcomp]) {
-            const { text, class: badgeClass } = statusMap[statusAcomp];
+        
+        console.log('Debug status acompanhamento:', {
+            paciente: paciente.nome_paciente,
+            statusAcomp: statusAcomp,
+            statusAcompType: typeof statusAcomp,
+            statusMapKey: String(statusAcomp),
+            statusMapExists: statusMap[String(statusAcomp)],
+            dataAcompanhamento: paciente.data_acompanhamento,
+            allStatusMap: Object.keys(statusMap)
+        });
+        
+        // Verificar se existe status no mapa (incluindo 0)
+        // Converter para string pois as chaves do statusMap são strings
+        const statusKey = String(statusAcomp);
+        
+        console.log('Tentando encontrar status:', {
+            statusAcomp: statusAcomp,
+            statusKey: statusKey,
+            statusMapHasKey: statusMap.hasOwnProperty(statusKey),
+            statusMapValue: statusMap[statusKey]
+        });
+        
+        if (statusAcomp !== null && statusAcomp !== undefined && statusMap.hasOwnProperty(statusKey)) {
+            const statusInfo = statusMap[statusKey];
+            console.log('Status encontrado no mapa:', statusInfo);
+            
+            const { text, class: badgeClass } = statusInfo;
             const dataAcomp = paciente.data_acompanhamento ? ` (${paciente.data_acompanhamento})` : '';
-            statusBadge = `<span class="acompanhamento-status-badge ${badgeClass}">${text}${dataAcomp}</span>`;
+            
+            // Só criar badge se o texto não estiver vazio (status 0 tem texto vazio)
+            if (text && text.trim() !== '') {
+                statusBadge = `<span class="acompanhamento-status-badge ${badgeClass}">${text}${dataAcomp}</span>`;
+                console.log('Status badge criado:', statusBadge);
+            } else {
+                console.log('Status encontrado mas texto vazio - não criando badge');
+            }
+        } else {
+            console.log('Status não encontrado no mapa ou é null/undefined');
         }
-        return `
+        
+        // Se o paciente faz parte do plano semanal, adicionar badge especial
+        if (isPlanoSemanalPatient) {
+            const today = new Date().toLocaleDateString('pt-BR');
+            const planoSemanalBadge = `<span class="acompanhamento-status-badge status-com-agente" style="background-color: #10b981; color: white; margin-top: 4px; display: block;">🗓️ Plano Semanal (${today})</span>`;
+            
+            // Se já tem status do banco, mostrar ambos; senão só o do plano semanal
+            if (statusBadge && statusBadge.trim() !== '') {
+                statusBadge = statusBadge + planoSemanalBadge;
+            } else {
+                statusBadge = planoSemanalBadge;
+            }
+        }
+        
+        console.log('statusBadge final (com plano semanal):', statusBadge);
+        
+        const htmlFinal = `
             <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
                 <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
                     Ações
@@ -896,6 +947,9 @@ function getAcompanhamentoCellContent(paciente, status) {
                 <div class="acompanhamento-status-container mt-1">${statusBadge}</div>
             </div>
         `;
+        
+        console.log('HTML final gerado:', htmlFinal);
+        return htmlFinal;
     }
     return '';
 }
@@ -1044,71 +1098,7 @@ function renderPacientes(pacientes) {
                 ${getProximaAcaoContent(paciente)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                <div class="relative" data-cod-paciente="${paciente.cod_paciente}">
-                    <button class="acompanhamento-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-                        Ações
-                        <i class="ri-arrow-down-s-line -mr-1 ml-2 h-5 w-5"></i>
-                    </button>
-                    <div class="acompanhamento-dropdown origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-50" role="menu">
-                        <div class="py-1" role="none">
-                            <!-- Convite -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Convite</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="1">com o Agente</a>
-                                    <a href="#" class="submenu-option" data-action="2">com o Cliente</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Deseja iniciar -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Deseja iniciar</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="3">após convite</a>
-                                    <a href="#" class="submenu-option" data-action="4">via consulta</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Já em uso -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Já em uso</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="5">Mensal</a>
-                                    <a href="#" class="submenu-option" data-action="6">Trimestral</a>
-                                    <a href="#" class="submenu-option" data-action="7">Pílula</a>
-                                    <a href="#" class="submenu-option" data-action="8">DIU</a>
-                                    <a href="#" class="submenu-option" data-action="9">Implante</a>
-                                    <a href="#" class="submenu-option" data-action="10">Laqueadura/Histerectomia</a>
-                                    <a href="#" class="submenu-option" data-action="11">Vasectomia</a>
-                                    <a href="#" class="submenu-option" data-action="12">Outros</a>
-                                </div>
-                            </div>
-                            
-                            <!-- Cliente não encontrado -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="13">Cliente não encontrado</a>
-                            
-                            <!-- Reavaliar em 6 meses -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="14">Reavaliar em 6 meses</a>
-                            
-                            <!-- Reavaliar em 1 ano -->
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="15">Reavaliar em 1 ano</a>
-                            
-                            <!-- Fora da área -->
-                            <div class="submenu-container">
-                                <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm menu-item-with-arrow">Fora da área</a>
-                                <div class="submenu">
-                                    <a href="#" class="submenu-option" data-action="16">Outra área</a>
-                                    <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
-                                    <a href="#" class="submenu-option" data-action="18">Sem informações</a>
-                                </div>
-                            </div>
-                            
-                            <div class="border-t my-1"></div>
-                            <a href="#" class="acompanhamento-option text-gray-700 block px-4 py-2 text-sm" data-action="null">Resetar ações</a>
-                        </div>
-                    </div>
-                    <div class="acompanhamento-status-container mt-1"></div>
-                </div>
+                ${getAcoesContent(paciente)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center">
                 ${getImprimirCellContent(paciente, status)}
