@@ -934,6 +934,35 @@ function setupActionMenus() {
     // Event listeners são configurados globalmente no body da tabela
 }
 
+// Função global para alternar estilo de seleção da linha
+function toggleRowSelectionStyle(checkboxElement) {
+    const row = checkboxElement.closest('tr');
+    if (row) {
+        row.classList.toggle('row-selected', checkboxElement.checked);
+    }
+}
+
+// Função global para atualizar o estado do checkbox "selecionar todos"
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const checkboxes = document.querySelectorAll('.print-checkbox');
+    
+    if (selectAllCheckbox && checkboxes.length > 0) {
+        const checkedCount = document.querySelectorAll('.print-checkbox:checked').length;
+        
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === checkboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true; // Estado "parcialmente selecionado"
+        }
+    }
+}
+
 // Função global para renderizar pacientes na tabela
 function renderPacientes(pacientes) {
     const tabelaBody = document.getElementById('tabela-pacientes-body');
@@ -1727,6 +1756,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 console.log('Seleções atuais:', Array.from(selectedPacientesForPrint));
                 updatePrintButtonText();
+                updateSelectAllCheckbox();
                 // Aplicar estilo de linha selecionada
                 const row = event.target.closest('tr');
                 if (row) {
@@ -2096,6 +2126,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
+    // Event listener para o checkbox "Selecionar todos"
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.print-checkbox');
+            const isChecked = this.checked;
+            
+            console.log(`Selecionando todos: ${isChecked}, encontrados ${checkboxes.length} checkboxes`);
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked !== isChecked) {
+                    checkbox.checked = isChecked;
+                    
+                    // Atualizar selectedPacientesForPrint
+                    const cnsValue = checkbox.getAttribute('data-cns') || checkbox.value;
+                    if (isChecked) {
+                        selectedPacientesForPrint.add(cnsValue);
+                    } else {
+                        selectedPacientesForPrint.delete(cnsValue);
+                    }
+                    
+                    // Atualizar estilo da linha
+                    toggleRowSelectionStyle(checkbox);
+                }
+            });
+            
+            // Atualizar texto do botão de impressão
+            updatePrintButtonText();
+            console.log(`Total selecionados: ${selectedPacientesForPrint.size}`);
+        });
+    }
+    
     // Initialize total calculation
     setTimeout(calcularTotalConvites, 100);
 });
@@ -2247,20 +2309,29 @@ function exibirResultadosPlanoSemanal(pacientes) {
     
     // Auto-select all plan patients after rendering
     setTimeout(() => {
-        const checkboxes = document.querySelectorAll('input[name="paciente_checkbox"]');
+        const checkboxes = document.querySelectorAll('.print-checkbox');
         let selectedCount = 0;
         
+        console.log(`Tentando selecionar ${checkboxes.length} checkboxes encontrados`);
+        
         checkboxes.forEach(checkbox => {
-            if (planoSemanalPacientes.has(checkbox.value)) {
+            const pacienteId = checkbox.value;
+            const cnsValue = checkbox.getAttribute('data-cns');
+            
+            console.log(`Verificando paciente ${pacienteId}, CNS: ${cnsValue}`);
+            
+            if (planoSemanalPacientes.has(pacienteId)) {
                 checkbox.checked = true;
-                selectedPacientesForPrint.add(checkbox.value);
+                selectedPacientesForPrint.add(cnsValue || pacienteId);
                 toggleRowSelectionStyle(checkbox);
                 selectedCount++;
+                console.log(`Paciente ${pacienteId} selecionado automaticamente`);
             }
         });
         
         console.log(`Selecionados ${selectedCount} pacientes do plano semanal`);
         updatePrintButtonText();
+        updateSelectAllCheckbox();
     }, 100);
 }
 
