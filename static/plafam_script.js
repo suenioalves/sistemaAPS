@@ -2342,7 +2342,10 @@ async function executarPlanoSemanal() {
     const metodoVencidoQtd = metodoVencidoCheckbox.checked ? (parseInt(document.getElementById('qtd-metodo-vencido').value) || 0) : 0;
     
     const organizacaoIdadeRadio = document.querySelector('input[name="ordem-idade"]:checked');
-    const organizacaoIdade = organizacaoIdadeRadio ? (organizacaoIdadeRadio.value === 'asc' ? 'crescente' : 'decrescente') : 'crescente';
+    const organizacaoIdade = organizacaoIdadeRadio ? 
+        (organizacaoIdadeRadio.value === 'asc' ? 'crescente' : 'decrescente') : 'crescente';
+    
+    console.log('Organização por idade selecionada:', organizacaoIdadeRadio?.value, '→', organizacaoIdade);
     
     if (semMetodoQtd === 0 && metodoVencidoQtd === 0) {
         alert('Defina pelo menos uma quantidade para gerar o plano semanal.');

@@ -6278,10 +6278,14 @@ def plano_semanal_personalizado():
             # Buscar pacientes por equipe e microárea
             pacientes_por_equipe_micro = {}
             
+            # Definir direção da ordenação baseada no parâmetro
+            ordem_direction = "ASC" if ordem_idade == "crescente" else "DESC"
+            print(f"Ordenação por idade: {ordem_idade} ({ordem_direction})")
+            
             for equipe in equipes_validas:
                 pacientes_por_equipe_micro[equipe] = {}
                 for microarea in microareas_validas:
-                    query = """
+                    query = f"""
                     SELECT
                         m.cod_paciente, m.nome_paciente, m.cartao_sus, m.idade_calculada, 
                         m.microarea, m.metodo, m.nome_equipe, 
@@ -6297,7 +6301,7 @@ def plano_semanal_personalizado():
                     AND m.idade_calculada >= 19 AND m.idade_calculada <= 45
                     AND (pa.status_acompanhamento IS NULL OR pa.status_acompanhamento = 0)
                     AND (m.metodo = '' OR m.metodo IS NULL)
-                    ORDER BY m.idade_calculada ASC
+                    ORDER BY m.idade_calculada {ordem_direction}
                     LIMIT %(limite)s
                     """
                     
