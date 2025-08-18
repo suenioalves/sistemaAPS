@@ -62,35 +62,69 @@ async function imprimirConvitesSelecionados() {
     loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Processando plano semanal...</div></div>';
     document.body.appendChild(loadingMsg);
     
-    // Se é plano semanal ativo, atualizar acompanhamento dos pacientes selecionados
-    if (isPlanoSemanalActive) {
-        try {
-            const planoSemanalSelectedIds = selectedIds.filter(id => planoSemanalPacientes.has(id));
+    // Atualizar acompanhamento de TODOS os pacientes selecionados para impressão
+    try {
+        if (selectedIds.length > 0) {
+            loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Atualizando acompanhamentos...</div></div>';
             
-            if (planoSemanalSelectedIds.length > 0) {
-                loadingMsg.innerHTML = '<div class="bg-white p-4 rounded-lg"><div class="flex items-center"><i class="ri-loader-4-line animate-spin mr-2"></i>Atualizando acompanhamentos...</div></div>';
-                
-                // Atualizar cada paciente do plano semanal para status "1" (Convite com o agente)
-                const updatePromises = planoSemanalSelectedIds.map(codCidadao => {
-                    return fetch('/api/update_acompanhamento', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            co_cidadao: codCidadao,
-                            status: '1' // Convite com o agente
-                        }),
-                    });
+            console.log(`Atualizando status de acompanhamento para ${selectedIds.length} pacientes selecionados`);
+            
+            // Obter cod_paciente dos pacientes selecionados
+            let pacientesParaAtualizar = [];
+            
+            if (isPlanoSemanalActive && window.planoSemanalData) {
+                // Modo plano semanal: usar dados globais
+                pacientesParaAtualizar = window.planoSemanalData.pacientes
+                    .filter(paciente => {
+                        const cnsValue = paciente.cartao_sus || paciente.cod_paciente.toString();
+                        return selectedPacientesForPrint.has(cnsValue);
+                    })
+                    .map(paciente => paciente.cod_paciente.toString());
+            } else {
+                // Modo normal: usar checkboxes visíveis
+                const selectedCheckboxes = document.querySelectorAll('.print-checkbox:checked');
+                selectedCheckboxes.forEach(checkbox => {
+                    const codPaciente = checkbox.value; // cod_paciente está no value
+                    const cnsValue = checkbox.getAttribute('data-cns');
+                    
+                    // Verificar se este paciente está na lista de selecionados
+                    if (selectedPacientesForPrint.has(cnsValue)) {
+                        pacientesParaAtualizar.push(codPaciente);
+                    }
                 });
-                
-                await Promise.all(updatePromises);
-                console.log('Acompanhamentos atualizados para pacientes do plano semanal');
             }
-        } catch (error) {
-            console.error('Erro ao atualizar acompanhamentos:', error);
-            alert('Erro ao atualizar acompanhamentos. O PDF será gerado mesmo assim.');
+            
+            console.log(`Códigos de pacientes para atualizar: ${pacientesParaAtualizar.join(', ')}`);
+            
+            // Atualizar TODOS os pacientes selecionados para status "1" (Convite com o agente)
+            const updatePromises = pacientesParaAtualizar.map(codPaciente => {
+                console.log(`Atualizando paciente ${codPaciente} para status 'Convite com o agente'`);
+                return fetch('/api/update_acompanhamento', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        co_cidadao: codPaciente, // Usar cod_paciente
+                        status: '1' // Convite com o agente
+                    }),
+                }).then(response => {
+                    if (response.ok) {
+                        console.log(`Status atualizado com sucesso para paciente ${codPaciente}`);
+                        return response.json();
+                    } else {
+                        console.error(`Erro ao atualizar paciente ${codPaciente}:`, response.status);
+                        throw new Error(`Erro HTTP ${response.status} para paciente ${codPaciente}`);
+                    }
+                });
+            });
+            
+            await Promise.all(updatePromises);
+            console.log(`Acompanhamentos atualizados com sucesso para todos os ${pacientesParaAtualizar.length} pacientes selecionados`);
         }
+    } catch (error) {
+        console.error('Erro ao atualizar acompanhamentos:', error);
+        alert('Erro ao atualizar acompanhamentos. O PDF será gerado mesmo assim.');
     }
     
     // Continue with PDF generation
