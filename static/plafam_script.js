@@ -235,6 +235,115 @@ async function imprimirConvitesSelecionados() {
         });
 }
 
+// Função para gerar folhas de controle por equipe
+function generateControlSheetsByTeam(doc, pacientesSelecionados) {
+    // Agrupar pacientes por equipe
+    const pacientesPorEquipe = {};
+    
+    pacientesSelecionados.forEach(paciente => {
+        const equipe = paciente.nome_equipe || 'Equipe não informada';
+        if (!pacientesPorEquipe[equipe]) {
+            pacientesPorEquipe[equipe] = [];
+        }
+        pacientesPorEquipe[equipe].push(paciente);
+    });
+    
+    console.log('Gerando folhas de controle para equipes:', Object.keys(pacientesPorEquipe));
+    
+    // Gerar uma folha para cada equipe
+    const equipes = Object.keys(pacientesPorEquipe).sort();
+    let isFirstPage = true;
+    
+    equipes.forEach(equipe => {
+        const pacientesEquipe = pacientesPorEquipe[equipe];
+        
+        if (!isFirstPage) {
+            doc.addPage();
+        }
+        isFirstPage = false;
+        
+        // Título da folha
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(40);
+        doc.text(`Planejamento Familiar - Equipe ${equipe} - ${pacientesEquipe.length} convites`, 15, 20);
+        
+        // Preparar dados da tabela
+        const tableData = pacientesEquipe.map(paciente => {
+            // Determinar motivo baseado no status do paciente
+            let motivo = 'Sem método';
+            if (paciente.metodo && paciente.metodo.trim() !== '') {
+                const status = getAcompanhamentoStatus(paciente);
+                if (status === 'atrasado') {
+                    motivo = 'Método em atraso';
+                } else if (status === 'atrasado_6_meses') {
+                    motivo = 'Método vencido';
+                }
+            }
+            
+            return [
+                paciente.nome_paciente || 'Nome não informado',
+                (paciente.idade_calculada || 'N/A').toString(),
+                paciente.cartao_sus || 'Não informado',
+                motivo,
+                paciente.nome_agente || 'A definir',
+                '' // Observação (vazia para preenchimento manual)
+            ];
+        });
+        
+        // Configuração da tabela
+        const tableConfig = {
+            startY: 35,
+            head: [['Nome do Paciente', 'Idade', 'CNS', 'Motivo do Convite', 'Agente', 'Observação']],
+            body: tableData,
+            margin: { left: 15, right: 15 },
+            styles: {
+                fontSize: 9,
+                cellPadding: 3,
+                overflow: 'linebreak',
+                valign: 'top'
+            },
+            headStyles: {
+                fillColor: [29, 112, 184], // Cor primária
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 10
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245] // Cinza claro para linhas alternadas
+            },
+            columnStyles: {
+                0: { cellWidth: 70 }, // Nome do Paciente (mais espaço)
+                1: { cellWidth: 20, halign: 'center' }, // Idade
+                2: { cellWidth: 40 }, // CNS (mais espaço)
+                3: { cellWidth: 40 }, // Motivo do Convite (mais espaço)
+                4: { cellWidth: 40 }, // Agente (mais espaço)
+                5: { cellWidth: 55 } // Observação (mais espaço para preenchimento manual)
+            },
+            didDrawPage: function(data) {
+                // Adicionar número da página no rodapé
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.setTextColor(128);
+                doc.text(`Página ${doc.getCurrentPageInfo().pageNumber}`, 
+                    doc.internal.pageSize.width - 30, 
+                    doc.internal.pageSize.height - 10
+                );
+            }
+        };
+        
+        // Gerar a tabela usando autoTable
+        doc.autoTable(tableConfig);
+        
+        console.log(`Folha de controle gerada para equipe ${equipe} com ${pacientesEquipe.length} pacientes`);
+    });
+    
+    // Adicionar nova página para separar as folhas de controle dos convites
+    if (equipes.length > 0) {
+        doc.addPage();
+    }
+}
+
 // Função para gerar PDF dos convites (igual ao arquivo antigo)
 function generateInvitePDF(pacientesSelecionados) {
     const { jsPDF } = window.jspdf;
@@ -244,6 +353,9 @@ function generateInvitePDF(pacientesSelecionados) {
     const pageWidth = 297;
     const margin = 10;
     const conviteWidth = (pageWidth - (margin * 2) - (margin * (convitesPorPagina - 1))) / convitesPorPagina;
+
+    // Gerar folhas de controle por equipe no início do PDF
+    generateControlSheetsByTeam(doc, pacientesSelecionados);
 
     const metodos = [
         { title: 'DIU de Cobre', text: 'Um método SEM HORMÔNIO de longa duração (10 anos) - inserido na UBS em poucos minutos.' },
