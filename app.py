@@ -1737,7 +1737,6 @@ def api_pacientes_hiperdia_has():
             FROM sistemaaps.tb_hiperdia_has_acompanhamento 
             WHERE cod_cidadao = m.cod_paciente 
               AND status_acao = 'PENDENTE'
-              AND data_agendamento >= CURRENT_DATE 
             ORDER BY data_agendamento ASC  
             LIMIT 1
         ) pa_futura ON TRUE

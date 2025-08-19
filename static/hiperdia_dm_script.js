@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
             elements.medicamentoFields.classList.add('hidden');
             
             // Mostrar campos baseado na ação
-            if (codAcao === 11) { // Avaliar MRG
+            if (codAcao === 11) { // Avaliar Mapeamento Residencial de Glicemias
                 elements.mrgFields.classList.remove('hidden');
             } else if (codAcao === 3) { // Modificar tratamento
                 elements.medicamentoFields.classList.remove('hidden');
@@ -626,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         // Adicionar dados específicos baseado na ação
-        if (codAcao === 11) { // Avaliar MRG
+        if (codAcao === 11) { // Avaliar Mapeamento Residencial de Glicemias
             const mrgData = {
                 g_jejum: document.getElementById('g-jejum-diabetes').value || null,
                 g_apos_cafe: document.getElementById('g-apos-cafe-diabetes').value || null,
