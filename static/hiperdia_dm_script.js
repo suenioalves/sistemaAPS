@@ -561,24 +561,183 @@ document.addEventListener('DOMContentLoaded', function () {
             let timelineHTML = '';
             timeline.forEach(item => {
                 const dataDisplay = item.data_realizacao || item.data_agendamento;
+                const dataFormatada = dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida';
                 const statusClass = item.status_acao === 'REALIZADA' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                
+                // Processar dados MRG se existirem
+                let mrgDetailsHtml = '';
+                if (item.mrg_details) {
+                    const details = item.mrg_details;
+                    const mrgId = `mrg-details-${item.cod_acompanhamento}`;
+                    
+                    // Função para determinar cor e símbolo baseado nas metas SBD 2023-2024
+                    const getGlicemiaStatus = (value, tipo) => {
+                        if (value === null || value === undefined) return { color: 'text-gray-500', symbol: '⚪', status: 'N/A' };
+                        
+                        const val = parseFloat(value);
+                        
+                        // Metas SBD 2023-2024:
+                        // Jejum/Pré-prandial: 80-130 mg/dL
+                        // Pós-prandial: < 180 mg/dL
+                        
+                        if (tipo === 'pre-prandial') {
+                            // Jejum e antes das refeições
+                            if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+                            if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        } else {
+                            // Pós-prandial (após refeições e ao deitar)
+                            if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+                            if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        }
+                    };
+
+                    // Construir dados das glicemias com cores baseadas nas metas SBD
+                    const glicemiaItems = [
+                        { label: 'Jejum', value: details.g_jejum, tipo: 'pre-prandial' },
+                        { label: 'Após Café', value: details.g_apos_cafe, tipo: 'pos-prandial' },
+                        { label: 'Antes Almoço', value: details.g_antes_almoco, tipo: 'pre-prandial' },
+                        { label: 'Após Almoço', value: details.g_apos_almoco, tipo: 'pos-prandial' },
+                        { label: 'Antes Jantar', value: details.g_antes_jantar, tipo: 'pre-prandial' },
+                        { label: 'Ao Deitar', value: details.g_ao_deitar, tipo: 'pos-prandial' }
+                    ].filter(item => item.value !== null && item.value !== undefined)
+                    .map(item => {
+                        const status = getGlicemiaStatus(item.value, item.tipo);
+                        return { ...item, ...status };
+                    });
+
+                    mrgDetailsHtml = `
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-amber-600 mr-2">
+                                        <i class="ri-pulse-line"></i>
+                                    </div>
+                                    <p class="font-medium text-gray-700 text-sm">Dados da Monitorização Residencial da Glicemia</p>
+                                </div>
+                                <button 
+                                    class="mrg-toggle-btn flex items-center text-xs text-gray-500 hover:text-amber-600 transition-colors duration-200"
+                                    data-target="${mrgId}"
+                                    title="Expandir/Recolher detalhes da MRG"
+                                >
+                                    <span class="toggle-text mr-1">Expandir</span>
+                                    <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+                            
+                            <div id="${mrgId}" class="mrg-details-content hidden">
+                                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                                    <p class="text-xs text-gray-600 mb-3">Data do mapeamento: <span class="font-medium text-gray-800">${details.data_mrg ? new Date(details.data_mrg).toLocaleDateString('pt-BR') : 'N/A'}</span></p>
+                                    
+                                    <!-- Tabela de Glicemias -->
+                                    <div class="overflow-x-auto mb-3">
+                                        <table class="w-full text-xs border-collapse border border-amber-300">
+                                            <thead>
+                                                <tr class="bg-amber-100">
+                                                    ${glicemiaItems.map(item => `
+                                                        <th class="border border-amber-300 px-2 py-1 text-center font-medium text-gray-700">
+                                                            ${item.label}
+                                                        </th>
+                                                    `).join('')}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr class="bg-white">
+                                                    ${glicemiaItems.map(item => `
+                                                        <td class="border border-amber-300 px-2 py-2 text-center">
+                                                            <div class="flex flex-col items-center">
+                                                                <span class="text-sm font-bold ${item.color}">
+                                                                    ${item.value}
+                                                                </span>
+                                                                <span class="text-lg" title="${item.status}">${item.symbol}</span>
+                                                            </div>
+                                                        </td>
+                                                    `).join('')}
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded border">
+                                        <strong>Metas SBD 2023-2024:</strong><br>
+                                        🟢 Jejum/Pré-prandial: 80-130 mg/dL<br>
+                                        🟢 Pós-prandial: &lt; 180 mg/dL<br>
+                                        🔴 Fora da meta ou hipoglicemia (&lt; 80 mg/dL)
+                                    </div>
+                                    
+                                    ${details.analise_mrg ? `
+                                        <div class="pt-2 border-t border-amber-300">
+                                            <p class="text-xs text-gray-600 mb-1">Análise do Mapeamento Residencial de Glicemias:</p>
+                                            <div class="bg-white rounded p-2 border border-amber-200">
+                                                <p class="text-xs font-medium text-gray-800 whitespace-pre-wrap">${details.analise_mrg}</p>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
                 
                 timelineHTML += `
                     <div class="border-l-4 border-amber-500 pl-4 pb-4 mb-4">
                         <div class="flex justify-between items-start">
-                            <div>
+                            <div class="w-full">
                                 <h4 class="font-medium text-gray-900">${item.dsc_acao}</h4>
-                                <p class="text-sm text-gray-600">${dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida'}</p>
+                                <p class="text-sm text-gray-600">${dataFormatada}</p>
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
+                                ${mrgDetailsHtml}
                             </div>
-                            <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${item.status_acao}</span>
+                            <span class="px-2 py-1 text-xs rounded-full ${statusClass} ml-2">${item.status_acao}</span>
                         </div>
                     </div>
                 `;
             });
             
             elements.timelineContent.innerHTML = timelineHTML;
+            
+            // Adicionar event listeners para os botões de expandir/recolher MRG
+            document.querySelectorAll('.mrg-toggle-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const content = document.getElementById(targetId);
+                    const toggleText = this.querySelector('.toggle-text');
+                    const toggleIcon = this.querySelector('.toggle-icon i');
+                    
+                    if (content && content.classList.contains('hidden')) {
+                        // Expandir
+                        content.classList.remove('hidden');
+                        content.style.maxHeight = 'none';
+                        toggleText.textContent = 'Recolher';
+                        toggleIcon.className = 'ri-arrow-up-s-line';
+                        
+                        // Animação suave
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+                        requestAnimationFrame(() => {
+                            content.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            content.style.opacity = '1';
+                            content.style.transform = 'translateY(0)';
+                        });
+                    } else if (content) {
+                        // Recolher
+                        content.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+                        
+                        setTimeout(() => {
+                            content.classList.add('hidden');
+                            content.style.maxHeight = '0';
+                            toggleText.textContent = 'Expandir';
+                            toggleIcon.className = 'ri-arrow-down-s-line';
+                        }, 200);
+                    }
+                });
+            });
         } catch (error) {
             console.error('Erro ao carregar timeline:', error);
             elements.timelineContent.innerHTML = '<div class="p-4 text-center text-red-500">Erro ao carregar timeline</div>';

@@ -1917,6 +1917,8 @@ def api_hiperdia_timeline(cod_cidadao):
                 rcv.idade, rcv.sexo, rcv.tabagismo, rcv.diabetes, rcv.colesterol_total as rcv_colesterol, rcv.pressao_sistolica,
                 mrpa.media_pa_sistolica, mrpa.media_pa_diastolica, mrpa.analise_mrpa,
                 nu.peso, nu.imc, nu.circunferencia_abdominal, nu.orientacoes_nutricionais,
+                mrg.data_mrg, mrg.g_jejum, mrg.g_apos_cafe, mrg.g_antes_almoco, mrg.g_apos_almoco, 
+                mrg.g_antes_jantar, mrg.g_ao_deitar, mrg.analise_mrg,
                 next_ac.cod_acao AS next_action_cod,
                 next_ac.data_agendamento AS next_action_date
             FROM 
@@ -1933,6 +1935,8 @@ def api_hiperdia_timeline(cod_cidadao):
                 sistemaaps.tb_hiperdia_nutricao nu ON ac.cod_acompanhamento = nu.cod_acompanhamento
             LEFT JOIN
                 sistemaaps.tb_hiperdia_mrpa mrpa ON ac.cod_acompanhamento = mrpa.cod_acompanhamento
+            LEFT JOIN
+                sistemaaps.tb_hiperdia_mrg mrg ON ac.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN LATERAL (
                 SELECT ha_next.cod_acao, ha_next.data_agendamento
                 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha_next
@@ -2031,6 +2035,26 @@ def api_hiperdia_timeline(cod_cidadao):
                     'media_pa_sistolica': row['media_pa_sistolica'],
                     'media_pa_diastolica': row['media_pa_diastolica'],
                     'analise_mrpa': row['analise_mrpa'],
+                }
+            
+            # Se for uma avaliação de MRG e houver dados, agrupa-os
+            if row['cod_acao'] == 11 and any([
+                row['g_jejum'] is not None,
+                row['g_apos_cafe'] is not None,
+                row['g_antes_almoco'] is not None,
+                row['g_apos_almoco'] is not None,
+                row['g_antes_jantar'] is not None,
+                row['g_ao_deitar'] is not None
+            ]):
+                evento['mrg_details'] = {
+                    'data_mrg': row['data_mrg'].strftime('%Y-%m-%d') if row['data_mrg'] else None,
+                    'g_jejum': safe_float_conversion(row['g_jejum']),
+                    'g_apos_cafe': safe_float_conversion(row['g_apos_cafe']),
+                    'g_antes_almoco': safe_float_conversion(row['g_antes_almoco']),
+                    'g_apos_almoco': safe_float_conversion(row['g_apos_almoco']),
+                    'g_antes_jantar': safe_float_conversion(row['g_antes_jantar']),
+                    'g_ao_deitar': safe_float_conversion(row['g_ao_deitar']),
+                    'analise_mrg': row['analise_mrg']
                 }
 
             eventos.append(evento)
@@ -5340,7 +5364,7 @@ def api_diabetes_timeline(cod_paciente):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Buscar histórico de acompanhamento
+        # Buscar histórico de acompanhamento incluindo dados MRG
         query = """
         SELECT
                 a.cod_acompanhamento,
@@ -5352,18 +5376,60 @@ def api_diabetes_timeline(cod_paciente):
                 a.data_realizacao,
                 a.observacoes,
                 a.responsavel_pela_acao,
-                a.created_at
+                a.created_at,
+                mrg.data_mrg, 
+                mrg.g_jejum, 
+                mrg.g_apos_cafe, 
+                mrg.g_antes_almoco, 
+                mrg.g_apos_almoco,
+                mrg.g_antes_jantar, 
+                mrg.g_ao_deitar, 
+                mrg.analise_mrg
             FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+            LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             WHERE a.cod_cidadao = %(cod_paciente)s
             ORDER BY COALESCE(a.data_realizacao, a.data_agendamento) DESC
         """
         
         cur.execute(query, {'cod_paciente': cod_paciente})
-        timeline = cur.fetchall()
+        results = cur.fetchall()
+        
+        # Processar timeline incluindo dados MRG
+        timeline = []
+        for row in results:
+            evento = dict(row)
+            
+            # Se for uma avaliação de MRG e houver dados, agrupa-os
+            if evento['cod_acao'] == 11 and any([
+                evento['g_jejum'] is not None,
+                evento['g_apos_cafe'] is not None,
+                evento['g_antes_almoco'] is not None,
+                evento['g_apos_almoco'] is not None,
+                evento['g_antes_jantar'] is not None,
+                evento['g_ao_deitar'] is not None
+            ]):
+                evento['mrg_details'] = {
+                    'data_mrg': evento['data_mrg'].strftime('%Y-%m-%d') if evento['data_mrg'] else None,
+                    'g_jejum': evento['g_jejum'],
+                    'g_apos_cafe': evento['g_apos_cafe'],
+                    'g_antes_almoco': evento['g_antes_almoco'],
+                    'g_apos_almoco': evento['g_apos_almoco'],
+                    'g_antes_jantar': evento['g_antes_jantar'],
+                    'g_ao_deitar': evento['g_ao_deitar'],
+                    'analise_mrg': evento['analise_mrg']
+                }
+            
+            # Remover campos MRG do objeto principal
+            for field in ['data_mrg', 'g_jejum', 'g_apos_cafe', 'g_antes_almoco', 
+                         'g_apos_almoco', 'g_antes_jantar', 'g_ao_deitar', 'analise_mrg']:
+                if field in evento:
+                    del evento[field]
+            
+            timeline.append(evento)
         
         return jsonify({
-            "timeline": [dict(t) for t in timeline]
+            "timeline": timeline
         })
         
     except Exception as e:

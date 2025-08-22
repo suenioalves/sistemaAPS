@@ -794,6 +794,74 @@ export const hiperdiaDom = {
                 `;
             }
 
+            let mrgDetailsHtml = '';
+            if (evento.mrg_details) {
+                const details = evento.mrg_details;
+                const mrgId = `mrg-details-${evento.cod_acompanhamento}`;
+                
+                // Construir dados das glicemias
+                const glicemiaItems = [
+                    { label: 'Jejum', value: details.g_jejum, color: 'text-blue-600' },
+                    { label: 'Após Café', value: details.g_apos_cafe, color: 'text-green-600' },
+                    { label: 'Antes Almoço', value: details.g_antes_almoco, color: 'text-yellow-600' },
+                    { label: 'Após Almoço', value: details.g_apos_almoco, color: 'text-orange-600' },
+                    { label: 'Antes Jantar', value: details.g_antes_jantar, color: 'text-purple-600' },
+                    { label: 'Ao Deitar', value: details.g_ao_deitar, color: 'text-indigo-600' }
+                ].filter(item => item.value !== null && item.value !== undefined);
+
+                mrgDetailsHtml = `
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center">
+                                <div class="w-5 h-5 flex items-center justify-center text-amber-600 mr-2">
+                                    <i class="ri-pulse-line"></i>
+                                </div>
+                                <p class="font-medium text-gray-700 text-sm">Dados da Monitorização Residencial da Glicemia</p>
+                            </div>
+                            <button 
+                                class="mrg-toggle-btn flex items-center text-xs text-gray-500 hover:text-amber-600 transition-colors duration-200"
+                                data-target="${mrgId}"
+                                title="Expandir/Recolher detalhes da MRG"
+                            >
+                                <span class="toggle-text mr-1">Expandir</span>
+                                <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                                    <i class="ri-arrow-down-s-line"></i>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <div id="${mrgId}" class="mrg-details-content hidden">
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                                <p class="text-xs text-gray-600 mb-2">Data da MRG: <span class="font-medium text-gray-800">${details.data_mrg || 'N/A'}</span></p>
+                                
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                                    ${glicemiaItems.map(item => `
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-xs text-gray-600">${item.label}:</span>
+                                            <span class="text-xs font-medium ${item.color}">
+                                                ${item.value} mg/dL
+                                                ${item.value > 180 ? '<span class="ml-1 text-red-500">🔴</span>' : 
+                                                  item.value < 70 ? '<span class="ml-1 text-blue-500">🔵</span>' : 
+                                                  '<span class="ml-1 text-green-500">🟢</span>'}
+                                            </span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                ${details.analise_mrg ? `
+                                    <div class="pt-2 border-t border-amber-300">
+                                        <p class="text-xs text-gray-600 mb-1">Análise do Mapeamento Residencial de Glicemias:</p>
+                                        <div class="bg-white rounded p-2 border border-amber-200">
+                                            <p class="text-xs font-medium text-gray-800 whitespace-pre-wrap">${details.analise_mrg}</p>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             let nutritionDetailsHtml = '';
             if (evento.nutrition_details) {
                 const details = evento.nutrition_details;
@@ -930,6 +998,7 @@ export const hiperdiaDom = {
                             <div class="text-sm text-gray-500 mt-2">Profissional: <span class="font-medium text-gray-800">${evento.responsavel_pela_acao}</span></div>
                         ` : ''}
                         ${mrpaDetailsHtml}
+                        ${mrgDetailsHtml}
                         ${treatmentDetailsHtml}
                         ${nextAccompanimentHtml}
                         ${nutritionDetailsHtml}
@@ -960,6 +1029,45 @@ export const hiperdiaDom = {
                 `;
                 _elements.timelineModalContentArea.insertAdjacentHTML('beforeend', hiperdiaConcluidoHtml);
             }
+        });
+
+        // Adicionar event listeners para os botões de expandir/recolher MRG
+        document.querySelectorAll('.mrg-toggle-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const content = document.getElementById(targetId);
+                const toggleText = this.querySelector('.toggle-text');
+                const toggleIcon = this.querySelector('.toggle-icon i');
+                
+                if (content.classList.contains('hidden')) {
+                    // Expandir
+                    content.classList.remove('hidden');
+                    content.style.maxHeight = 'none';
+                    toggleText.textContent = 'Recolher';
+                    toggleIcon.className = 'ri-arrow-up-s-line';
+                    
+                    // Animação suave
+                    content.style.opacity = '0';
+                    content.style.transform = 'translateY(-10px)';
+                    requestAnimationFrame(() => {
+                        content.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        content.style.opacity = '1';
+                        content.style.transform = 'translateY(0)';
+                    });
+                } else {
+                    // Recolher
+                    content.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    content.style.opacity = '0';
+                    content.style.transform = 'translateY(-10px)';
+                    
+                    setTimeout(() => {
+                        content.classList.add('hidden');
+                        content.style.maxHeight = '0';
+                        toggleText.textContent = 'Expandir';
+                        toggleIcon.className = 'ri-arrow-down-s-line';
+                    }, 200);
+                }
+            });
         });
     },
 
