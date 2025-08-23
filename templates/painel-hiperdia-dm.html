@@ -443,5 +443,268 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Gerenciamento de Tratamento para Diabetes -->
+    <div id="diabetes-treatmentModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b flex-shrink-0">
+                <h3 id="diabetes-treatmentModalTitle" class="text-xl font-semibold text-gray-900">Gerenciar Tratamento</h3>
+                <button id="diabetes-closeTreatmentModal" type="button" class="text-gray-400 hover:text-gray-500">
+                    <div class="w-6 h-6 flex items-center justify-center">
+                        <i class="ri-close-line"></i>
+                    </div>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Coluna da Esquerda: Informações do Paciente -->
+                    <div>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                            <div class="flex items-center mb-4">
+                                <div id="diabetes-treatmentModalAvatarIniciais"
+                                    class="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-lg font-medium mr-4">
+                                    <span>AM</span>
+                                </div>
+                                <div>
+                                    <h4 id="diabetes-treatmentModalPacienteNome" class="text-lg font-medium">Nome do Paciente</h4>
+                                    <p id="diabetes-treatmentModalPacienteIdade" class="text-sm text-gray-500">Idade</p>
+                                    <p id="diabetes-treatmentModalPacienteInfo" class="text-sm text-gray-500">Equipe - Área</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medicamentos Atuais -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h5 class="text-lg font-medium text-gray-900">Medicamentos Atuais</h5>
+                                <div id="diabetes-medicamentosAtivosCount" class="text-sm text-gray-500">0 medicamentos</div>
+                            </div>
+                            <div id="diabetes-medicamentosAtuaisContainer" class="space-y-3">
+                                <!-- Medicamentos atuais serão populados via JS -->
+                                <div id="diabetes-noMedicamentosMessage" class="text-center py-8 text-gray-500 hidden">
+                                    <div class="w-16 h-16 mx-auto mb-4 text-gray-300">
+                                        <i class="ri-medicine-bottle-line text-4xl"></i>
+                                    </div>
+                                    <p>Nenhum medicamento cadastrado</p>
+                                    <p class="text-sm mt-1">Use o formulário ao lado para adicionar medicamentos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coluna da Direita: Gestão de Medicamentos -->
+                    <div>
+                        <form id="diabetes-treatmentForm" class="space-y-6">
+                            <!-- Tipo de Ação -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Ação</label>
+                                <div class="grid grid-cols-1 gap-3">
+                                    <button type="button" class="diabetes-treatment-action-tab active flex items-center p-3 border rounded-lg text-left transition-colors duration-200 border-amber-500 bg-amber-50 text-amber-600" data-action="add">
+                                        <i class="ri-add-line text-xl mr-3 text-green-500"></i>
+                                        <div>
+                                            <div class="font-medium">Adicionar Medicamento</div>
+                                            <div class="text-xs text-gray-500">Prescrever novo medicamento oral</div>
+                                        </div>
+                                    </button>
+                                    <button type="button" class="diabetes-treatment-action-tab flex items-center p-3 border rounded-lg text-left transition-colors duration-200 border-gray-200 bg-white hover:bg-gray-50 text-gray-600" data-action="add-insulin">
+                                        <i class="ri-medicine-bottle-fill text-xl mr-3 text-orange-500"></i>
+                                        <div>
+                                            <div class="font-medium">Adicionar Insulina</div>
+                                            <div class="text-xs text-gray-500">Prescrever insulina com dosagem específica</div>
+                                        </div>
+                                    </button>
+                                    <button type="button" class="diabetes-treatment-action-tab flex items-center p-3 border rounded-lg text-left transition-colors duration-200 border-gray-200 bg-white hover:bg-gray-50 text-gray-600" data-action="modify">
+                                        <i class="ri-edit-line text-xl mr-3 text-blue-500"></i>
+                                        <div>
+                                            <div class="font-medium">Modificar Tratamento</div>
+                                            <div class="text-xs text-gray-500">Ajustar dose ou frequência</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Seção: Adicionar Medicamento -->
+                            <div id="diabetes-addMedicationSection" class="space-y-4">
+                                <h6 class="font-medium text-gray-900">Novo Medicamento</h6>
+                                <div class="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <label for="diabetes-novoMedicamentoNome" class="block text-sm font-medium text-gray-700 mb-1">Nome do Medicamento</label>
+                                        <select id="diabetes-novoMedicamentoNome"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                            <option value="">Selecione o medicamento</option>
+                                            <!-- Opções serão carregadas dinamicamente via JavaScript -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="diabetes-novoMedicamentoDose" class="block text-sm font-medium text-gray-700 mb-1">Dose (comprimidos por vez)</label>
+                                        <select id="diabetes-novoMedicamentoDose"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                            <option value="">Selecione a dose</option>
+                                            <option value="1">1 comprimido</option>
+                                            <option value="2">2 comprimidos</option>
+                                            <option value="3">3 comprimidos</option>
+                                            <option value="4">4 comprimidos</option>
+                                            <option value="5">5 comprimidos</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="diabetes-novoMedicamentoFrequencia" class="block text-sm font-medium text-gray-700 mb-1">Frequência (vezes por dia)</label>
+                                        <select id="diabetes-novoMedicamentoFrequencia"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                            <option value="">Selecione a frequência</option>
+                                            <option value="1">1x ao dia</option>
+                                            <option value="2">2x ao dia</option>
+                                            <option value="3">3x ao dia</option>
+                                            <option value="4">4x ao dia</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="diabetes-novoMedicamentoDataInicio" class="block text-sm font-medium text-gray-700 mb-1">Data de Início <span class="text-gray-500 text-xs">(opcional)</span></label>
+                                        <input type="date" id="diabetes-novoMedicamentoDataInicio"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                            placeholder="Deixe em branco para usar data atual">
+                                    </div>
+                                    <div>
+                                        <label for="diabetes-novoMedicamentoObservacoes" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                                        <textarea id="diabetes-novoMedicamentoObservacoes"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent h-20"
+                                            placeholder="Observações sobre o medicamento..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Seção: Adicionar Insulina (Interface Especializada) -->
+                            <div id="diabetes-addInsulinSection" class="space-y-4 hidden">
+                                <h6 class="font-medium text-gray-900 flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-orange-600 mr-2">
+                                        <i class="ri-medicine-bottle-fill"></i>
+                                    </div>
+                                    Nova Insulina
+                                </h6>
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <!-- Tipo de Insulina -->
+                                        <div>
+                                            <label for="diabetes-tipoInsulina" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Insulina</label>
+                                            <select id="diabetes-tipoInsulina"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                                <option value="">Selecione o tipo de insulina</option>
+                                                <option value="NPH">Insulina NPH</option>
+                                                <option value="Regular">Insulina Regular</option>
+                                                <option value="Glargina">Insulina Glargina</option>
+                                                <option value="Lispro">Insulina Lispro</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Frequência de Aplicação -->
+                                        <div>
+                                            <label for="diabetes-frequenciaInsulina" class="block text-sm font-medium text-gray-700 mb-1">Frequência de Aplicação</label>
+                                            <select id="diabetes-frequenciaInsulina"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                                <option value="">Selecione a frequência</option>
+                                                <option value="1">1 vez ao dia</option>
+                                                <option value="2">2 vezes ao dia</option>
+                                                <option value="3">3 vezes ao dia</option>
+                                                <option value="4">4 vezes ao dia</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Container de Doses Dinâmico -->
+                                        <div id="diabetes-dosesContainer" class="hidden">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Doses e Horários</label>
+                                            <div class="bg-white border border-orange-300 rounded p-3">
+                                                <div class="text-xs text-gray-600 mb-3">
+                                                    <i class="ri-information-line"></i>
+                                                    Configure a dose (1-100 unidades) e horário para cada aplicação
+                                                </div>
+                                                <div id="diabetes-dosesInputs" class="space-y-3">
+                                                    <!-- Inputs de doses serão gerados dinamicamente -->
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Data de Início -->
+                                        <div>
+                                            <label for="diabetes-insulinaDataInicio" class="block text-sm font-medium text-gray-700 mb-1">Data de Início <span class="text-gray-500 text-xs">(opcional)</span></label>
+                                            <input type="date" id="diabetes-insulinaDataInicio"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                                placeholder="Deixe em branco para usar data atual">
+                                        </div>
+
+                                        <!-- Observações -->
+                                        <div>
+                                            <label for="diabetes-insulinaObservacoes" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                                            <textarea id="diabetes-insulinaObservacoes"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent h-20"
+                                                placeholder="Observações sobre a insulina (ex: técnica de aplicação, rotação de locais, etc.)"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Seção: Modificar Medicamento -->
+                            <div id="diabetes-modifyMedicationSection" class="space-y-4 hidden">
+                                <h6 class="font-medium text-gray-900">Modificar Medicamento Existente</h6>
+                                <div class="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <label for="diabetes-selectMedicamentoModificar" class="block text-sm font-medium text-gray-700 mb-1">Selecionar Medicamento</label>
+                                        <select id="diabetes-selectMedicamentoModificar"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                            <option value="">Selecione um medicamento</option>
+                                        </select>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Modificação</label>
+                                            <div class="space-y-2">
+                                                <label class="custom-radio">
+                                                    <input type="radio" name="diabetes-modification-type" value="frequency">
+                                                    <span class="radio-mark"></span>
+                                                    Alterar frequência
+                                                </label>
+                                                <label class="custom-radio">
+                                                    <input type="radio" name="diabetes-modification-type" value="stop">
+                                                    <span class="radio-mark"></span>
+                                                    Interromper medicamento
+                                                </label>
+                                                <label class="custom-radio">
+                                                    <input type="radio" name="diabetes-modification-type" value="pause">
+                                                    <span class="radio-mark"></span>
+                                                    Pausar temporariamente
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div id="diabetes-newFrequencySection" class="hidden">
+                                            <label for="diabetes-novaFrequencia" class="block text-sm font-medium text-gray-700 mb-1">Nova Frequência</label>
+                                            <select id="diabetes-novaFrequencia"
+                                                class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                                <option value="1">1x ao dia</option>
+                                                <option value="2">2x ao dia</option>
+                                                <option value="3">3x ao dia</option>
+                                                <option value="4">4x ao dia</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="diabetes-modificacaoObservacoes" class="block text-sm font-medium text-gray-700 mb-1">Motivo da Modificação</label>
+                                        <textarea id="diabetes-modificacaoObservacoes"
+                                            class="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent h-20"
+                                            placeholder="Descreva o motivo da modificação..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t flex justify-end flex-shrink-0">
+                <button id="diabetes-cancelTreatmentBtn" type="button"
+                    class="bg-gray-200 text-gray-800 py-2 px-4 rounded mr-2 focus:outline-none focus:ring-2 focus:ring-gray-300 !rounded-button whitespace-nowrap">Cancelar</button>
+                <button id="diabetes-saveTreatmentBtn" type="button"
+                    class="bg-amber-600 text-white py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-amber-600/20 hover:bg-amber-700 !rounded-button whitespace-nowrap">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

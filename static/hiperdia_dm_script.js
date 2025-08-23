@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Inicializar elementos do DOM adaptados para diabetes - CHAMADA APÓS DEFINIÇÃO DE ELEMENTS
     initDiabetesDomElements();
+    
+    // Configurar event listeners do modal de tratamento
+    setupTreatmentModalEventListeners();
 
     // Função para inicializar elementos específicos do diabetes
     function initDiabetesDomElements() {
@@ -139,6 +142,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 elements.mrgFields.classList.remove('hidden');
             } else if (codAcao === 3) { // Modificar tratamento
                 elements.medicamentoFields.classList.remove('hidden');
+                
+                // Opcionalmente, abrir diretamente o modal de tratamento
+                if (currentPacienteForModal && confirm('Deseja abrir o modal de gerenciamento de tratamento para fazer as modificações?')) {
+                    // Fechar modal de registro
+                    elements.registerModal.classList.add('hidden');
+                    
+                    // Abrir modal de tratamento
+                    setTimeout(() => {
+                        abrirModalTratamentoDiabetes(currentPacienteForModal);
+                    }, 100);
+                }
             }
         });
 
@@ -454,6 +468,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                 Paciente
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Tratamento atual
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -481,10 +498,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="text-xs text-gray-500">Equipe ${paciente.nome_equipe || 'N/A'} - Área ${paciente.microarea || 'N/A'} - Agente: ${paciente.nome_agente || 'A definir'}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
+                        <div id="tratamento-atual-${paciente.cod_paciente}" class="text-sm text-gray-700">
+                            <i class="ri-medicine-bottle-line text-gray-400"></i> Carregando...
+                        </div>
+                        <div class="mt-1">
+                            <button class="text-purple-600 hover:text-purple-900 text-xs font-medium" onclick="abrirModalTratamentoDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
+                                <i class="ri-edit-line"></i> Gerenciar Tratamento
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
                         ${statusClass}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button class="text-amber-600 hover:text-amber-900 mr-3" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
+                        <button class="text-amber-600 hover:text-amber-900" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
                             <i class="ri-timeline-line"></i> Timeline
                         </button>
                     </td>
@@ -499,6 +526,11 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         elements.pacientesLista.innerHTML = tableHTML;
+        
+        // Carregar tratamento atual para cada paciente
+        pacientes.forEach(paciente => {
+            loadTreatmentSummaryForPatient(paciente.cod_paciente);
+        });
     }
 
     // Função para calcular idade
@@ -526,6 +558,79 @@ document.addEventListener('DOMContentLoaded', function () {
             default:
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Acompanhamento</span>';
         }
+    }
+
+    // Função para carregar e exibir tratamento atual de um paciente
+    async function loadTreatmentSummaryForPatient(codCidadao) {
+        const treatmentDiv = document.getElementById(`tratamento-atual-${codCidadao}`);
+        if (!treatmentDiv) return;
+
+        try {
+            const response = await fetch(`/api/diabetes/medicamentos_atuais/${codCidadao}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.erro || 'Erro ao carregar medicamentos');
+            }
+
+            const medicamentos = data.medicamentos || [];
+            treatmentDiv.innerHTML = formatTreatmentSummary(medicamentos);
+
+        } catch (error) {
+            console.error(`Erro ao carregar tratamento para paciente ${codCidadao}:`, error);
+            treatmentDiv.innerHTML = '<span class="text-gray-400"><i class="ri-medicine-bottle-line"></i> Sem dados</span>';
+        }
+    }
+
+    // Função para formatar resumo do tratamento
+    function formatTreatmentSummary(medicamentos) {
+        if (!medicamentos || medicamentos.length === 0) {
+            return '<span class="text-gray-400"><i class="ri-medicine-bottle-line"></i> Sem medicamentos</span>';
+        }
+
+        // Determinar classe de fonte baseada no número de medicamentos
+        let fontSizeClass, iconSize;
+        if (medicamentos.length === 1 || medicamentos.length === 2) {
+            fontSizeClass = 'text-sm'; // Fonte atual (14px)
+            iconSize = 'text-base'; // Ícone normal
+        } else if (medicamentos.length === 3) {
+            fontSizeClass = 'text-xs'; // Fonte menor (12px)
+            iconSize = 'text-sm'; // Ícone menor
+        } else { // 4+ medicamentos
+            fontSizeClass = 'text-xs'; // Fonte ainda menor
+            iconSize = 'text-xs'; // Ícone ainda menor
+        }
+
+        // Palette de cores vibrantes para os ícones de medicamentos
+        const iconColors = [
+            'text-purple-600',   // Roxo vibrante
+            'text-blue-600',     // Azul vibrante
+            'text-emerald-500',  // Verde esmeralda
+            'text-red-500',      // Vermelho
+            'text-amber-500',    // Âmbar (amarelo dourado)
+            'text-pink-500',     // Rosa
+            'text-indigo-600',   // Índigo profundo
+            'text-teal-600',     // Teal escuro
+            'text-orange-500',   // Laranja
+            'text-cyan-600',     // Ciano escuro
+            'text-violet-500',   // Violeta
+            'text-lime-500',     // Verde lima
+            'text-rose-500',     // Rosa mais suave
+            'text-sky-500',      // Azul céu
+            'text-fuchsia-500'   // Fúcsia
+        ];
+
+        let medicamentosHTML = '';
+        
+        // Mostrar todos os medicamentos com cores diferentes
+        medicamentos.forEach((med, index) => {
+            const separator = index > 0 ? '<br>' : '';
+            const iconColor = iconColors[index % iconColors.length]; // Cicla pelas cores
+            medicamentosHTML += `${separator}<i class="ri-medicine-bottle-fill ${iconColor} ${iconSize}"></i> 
+                                <span class="${fontSizeClass} text-gray-700">${med.nome_medicamento} - ${med.dose || 1} comp ${med.frequencia || 1}x/dia</span>`;
+        });
+
+        return `<div class="text-sm">${medicamentosHTML}</div>`;
     }
 
     // Função para abrir modal da timeline (disponível globalmente)
@@ -859,6 +964,700 @@ document.addEventListener('DOMContentLoaded', function () {
         // Implementar geração de receituário para diabetes
         console.log('Gerar receituário para diabetes:', checkboxes.length, 'pacientes');
     }
+
+    // --- Funcionalidades de Gerenciamento de Tratamento para Diabetes ---
+
+    // Função para abrir modal de tratamento (disponível globalmente)
+    window.abrirModalTratamentoDiabetes = function(paciente) {
+        currentPacienteForModal = paciente;
+        
+        // Elementos do modal de tratamento
+        const modal = document.getElementById('diabetes-treatmentModal');
+        const modalTitle = document.getElementById('diabetes-treatmentModalTitle');
+        const avatarIniciais = document.getElementById('diabetes-treatmentModalAvatarIniciais');
+        const pacienteNome = document.getElementById('diabetes-treatmentModalPacienteNome');
+        const pacienteIdade = document.getElementById('diabetes-treatmentModalPacienteIdade');
+        const pacienteInfo = document.getElementById('diabetes-treatmentModalPacienteInfo');
+        
+        if (!modal) {
+            console.error('Modal de tratamento não encontrado');
+            return;
+        }
+        
+        // Preencher informações do paciente
+        modalTitle.textContent = 'Gerenciar Tratamento - ' + paciente.nome_paciente;
+        avatarIniciais.textContent = getInitials(paciente.nome_paciente);
+        pacienteNome.textContent = paciente.nome_paciente;
+        pacienteIdade.textContent = `${calculateAge(paciente.dt_nascimento)} anos`;
+        pacienteInfo.textContent = `${paciente.nome_equipe} - Área ${paciente.microarea}`;
+        
+        // Carregar medicamentos atuais
+        loadMedicamentosAtuaisDiabetes(paciente.cod_paciente);
+        
+        // Carregar lista de medicamentos para diabetes
+        loadMedicamentosDisponiveisDiabetes();
+        
+        // Mostrar modal
+        modal.classList.remove('hidden');
+    };
+
+    // Função para obter iniciais do nome
+    function getInitials(nome) {
+        if (!nome) return '??';
+        const words = nome.trim().split(' ');
+        if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+        return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+
+    // Função para carregar medicamentos atuais do paciente diabético
+    async function loadMedicamentosAtuaisDiabetes(codCidadao) {
+        const container = document.getElementById('diabetes-medicamentosAtuaisContainer');
+        const countDiv = document.getElementById('diabetes-medicamentosAtivosCount');
+        const noMedicamentosMessage = document.getElementById('diabetes-noMedicamentosMessage');
+        
+        if (!container) {
+            console.error('Container diabetes-medicamentosAtuaisContainer não encontrado');
+            return;
+        }
+        
+        // Log para debug se outros elementos não forem encontrados
+        if (!countDiv) console.warn('Elemento diabetes-medicamentosAtivosCount não encontrado');
+        if (!noMedicamentosMessage) console.warn('Elemento diabetes-noMedicamentosMessage não encontrado');
+        
+        try {
+            container.innerHTML = '<div class="text-center py-4 text-gray-500">Carregando medicamentos...</div>';
+            
+            const response = await fetch(`/api/diabetes/medicamentos_atuais/${codCidadao}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.erro || 'Erro ao carregar medicamentos');
+            }
+            
+            const medicamentos = data.medicamentos || [];
+            
+            if (medicamentos.length === 0) {
+                container.innerHTML = '';
+                if (noMedicamentosMessage) {
+                    noMedicamentosMessage.classList.remove('hidden');
+                }
+                if (countDiv) {
+                    countDiv.textContent = '0 medicamentos';
+                }
+                return;
+            }
+            
+            if (noMedicamentosMessage) {
+                noMedicamentosMessage.classList.add('hidden');
+            }
+            if (countDiv) {
+                countDiv.textContent = `${medicamentos.length} medicamento${medicamentos.length > 1 ? 's' : ''}`;
+            }
+            
+            let medicamentosHTML = '';
+            medicamentos.forEach(med => {
+                const dataInicio = med.data_inicio ? new Date(med.data_inicio).toLocaleDateString('pt-BR') : 'Não informado';
+                
+                medicamentosHTML += `
+                    <div class="border rounded-lg p-3 bg-gray-50">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h6 class="font-medium text-gray-900">${med.nome_medicamento}</h6>
+                                <p class="text-sm text-gray-600">
+                                    ${med.dose || 1} comp ${med.frequencia || 1}x/dia
+                                </p>
+                                <p class="text-xs text-gray-500">Início: ${dataInicio}</p>
+                                ${med.observacoes ? `<p class="text-xs text-gray-600 mt-1">${med.observacoes}</p>` : ''}
+                            </div>
+                            <div class="flex space-x-1">
+                                <button class="text-blue-600 hover:text-blue-800 p-1" onclick="modificarMedicamentoDiabetes(${med.cod_seq_medicamento})" title="Modificar">
+                                    <i class="ri-edit-line"></i>
+                                </button>
+                                <button class="text-red-600 hover:text-red-800 p-1" onclick="interromperMedicamentoDiabetes(${med.cod_seq_medicamento})" title="Interromper">
+                                    <i class="ri-stop-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = medicamentosHTML;
+            
+        } catch (error) {
+            console.error('Erro ao carregar medicamentos para paciente', codCidadao, ':', error);
+            container.innerHTML = `<div class="text-center py-4 text-red-500">Erro ao carregar medicamentos: ${error.message}</div>`;
+        }
+    }
+
+    // Função para carregar medicamentos disponíveis para diabetes
+    async function loadMedicamentosDisponiveisDiabetes() {
+        const select = document.getElementById('diabetes-novoMedicamentoNome');
+        if (!select) return;
+        
+        try {
+            const response = await fetch('/api/diabetes/medicamentos_diabetes');
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.erro || 'Erro ao carregar medicamentos');
+            }
+            
+            select.innerHTML = '<option value="">Selecione o medicamento</option>';
+            
+            data.medicamentos.forEach(med => {
+                select.innerHTML += `<option value="${med}">${med}</option>`;
+            });
+            
+        } catch (error) {
+            console.error('Erro ao carregar medicamentos disponíveis:', error);
+        }
+    }
+
+    // Função para configurar event listeners do modal de tratamento
+    function setupTreatmentModalEventListeners() {
+        // Botão fechar modal
+        const closeBtn = document.getElementById('diabetes-closeTreatmentModal');
+        const cancelBtn = document.getElementById('diabetes-cancelTreatmentBtn');
+        const saveBtn = document.getElementById('diabetes-saveTreatmentBtn');
+        
+        [closeBtn, cancelBtn].forEach(btn => {
+            if (btn) {
+                btn.onclick = () => {
+                    document.getElementById('diabetes-treatmentModal').classList.add('hidden');
+                };
+            }
+        });
+        
+        // Botão salvar
+        if (saveBtn) {
+            saveBtn.onclick = salvarTratamentoDiabetes;
+        }
+        
+        // Abas de ação (adicionar/modificar)
+        const actionTabs = document.querySelectorAll('.diabetes-treatment-action-tab');
+        actionTabs.forEach(tab => {
+            tab.onclick = () => {
+                // Remover active de todas as abas
+                actionTabs.forEach(t => {
+                    t.classList.remove('active', 'border-amber-500', 'bg-amber-50', 'text-amber-600');
+                    t.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+                });
+                
+                // Ativar aba clicada
+                tab.classList.add('active', 'border-amber-500', 'bg-amber-50', 'text-amber-600');
+                tab.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+                
+                // Mostrar/esconder seções
+                const action = tab.dataset.action;
+                toggleTreatmentSectionsDiabetes(action);
+            };
+        });
+        
+        // Radio buttons para tipo de modificação
+        const modificationRadios = document.querySelectorAll('input[name="diabetes-modification-type"]');
+        modificationRadios.forEach(radio => {
+            radio.onchange = () => {
+                const newFrequencySection = document.getElementById('diabetes-newFrequencySection');
+                if (radio.value === 'frequency' && radio.checked) {
+                    newFrequencySection.classList.remove('hidden');
+                } else {
+                    newFrequencySection.classList.add('hidden');
+                }
+            };
+        });
+    }
+
+    // Função para alternar seções do tratamento
+    function toggleTreatmentSectionsDiabetes(action) {
+        const addSection = document.getElementById('diabetes-addMedicationSection');
+        const addInsulinSection = document.getElementById('diabetes-addInsulinSection');
+        const modifySection = document.getElementById('diabetes-modifyMedicationSection');
+        
+        // Ocultar todas as seções primeiro
+        addSection.classList.add('hidden');
+        addInsulinSection.classList.add('hidden');
+        modifySection.classList.add('hidden');
+        
+        if (action === 'add') {
+            addSection.classList.remove('hidden');
+        } else if (action === 'add-insulin') {
+            addInsulinSection.classList.remove('hidden');
+            // Configurar listeners para insulina
+            setupInsulinEventListeners();
+        } else if (action === 'modify') {
+            modifySection.classList.remove('hidden');
+            // Carregar medicamentos para modificar
+            loadMedicamentosParaModificarDiabetes();
+        }
+    }
+
+    // Função para carregar medicamentos para modificar
+    async function loadMedicamentosParaModificarDiabetes() {
+        if (!currentPacienteForModal) return;
+        
+        const select = document.getElementById('diabetes-selectMedicamentoModificar');
+        if (!select) return;
+        
+        try {
+            const response = await fetch(`/api/diabetes/medicamentos_atuais/${currentPacienteForModal.cod_paciente}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.erro || 'Erro ao carregar medicamentos');
+            }
+            
+            select.innerHTML = '<option value="">Selecione um medicamento</option>';
+            
+            data.medicamentos.forEach(med => {
+                select.innerHTML += `<option value="${med.cod_seq_medicamento}">${med.nome_medicamento} - ${med.dose}comp ${med.frequencia}x/dia</option>`;
+            });
+            
+        } catch (error) {
+            console.error('Erro ao carregar medicamentos para modificar:', error);
+        }
+    }
+
+    // Função para salvar tratamento
+    async function salvarTratamentoDiabetes() {
+        if (!currentPacienteForModal) return;
+        
+        const activeTab = document.querySelector('.diabetes-treatment-action-tab.active');
+        if (!activeTab) return;
+        
+        const action = activeTab.dataset.action;
+        
+        if (action === 'add') {
+            await adicionarNovoMedicamentoDiabetes();
+        } else if (action === 'add-insulin') {
+            await adicionarNovaInsulina();
+        } else if (action === 'modify') {
+            await modificarMedicamentoDiabetes();
+        }
+    }
+
+    // Função para adicionar novo medicamento
+    async function adicionarNovoMedicamentoDiabetes() {
+        const nome = document.getElementById('diabetes-novoMedicamentoNome').value;
+        const dose = document.getElementById('diabetes-novoMedicamentoDose').value;
+        const frequencia = document.getElementById('diabetes-novoMedicamentoFrequencia').value;
+        const dataInicio = document.getElementById('diabetes-novoMedicamentoDataInicio').value;
+        const observacoes = document.getElementById('diabetes-novoMedicamentoObservacoes').value;
+        
+        if (!nome || !dose || !frequencia) {
+            alert('Preencha todos os campos obrigatórios.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/diabetes/medicamentos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    codcidadao: currentPacienteForModal.cod_paciente,
+                    nome_medicamento: nome,
+                    dose: parseInt(dose),
+                    frequencia: parseInt(frequencia),
+                    data_inicio: dataInicio || null,
+                    observacoes: observacoes
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.sucesso) {
+                alert('Medicamento adicionado com sucesso!');
+                
+                // Limpar formulário
+                document.getElementById('diabetes-novoMedicamentoNome').value = '';
+                document.getElementById('diabetes-novoMedicamentoDose').value = '';
+                document.getElementById('diabetes-novoMedicamentoFrequencia').value = '';
+                document.getElementById('diabetes-novoMedicamentoDataInicio').value = '';
+                document.getElementById('diabetes-novoMedicamentoObservacoes').value = '';
+                
+                // Recarregar medicamentos no modal
+                await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                
+                // Atualizar coluna de tratamento na tabela principal
+                await loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                
+            } else {
+                alert(`Erro: ${result.erro}`);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao adicionar medicamento:', error);
+            alert('Erro ao adicionar medicamento. Tente novamente.');
+        }
+    }
+
+    // Função para modificar medicamento existente
+    async function modificarMedicamentoDiabetes() {
+        const codMedicamento = document.getElementById('diabetes-selectMedicamentoModificar').value;
+        const modificationType = document.querySelector('input[name="diabetes-modification-type"]:checked');
+        const observacoes = document.getElementById('diabetes-modificacaoObservacoes').value;
+        
+        if (!codMedicamento || !modificationType) {
+            alert('Selecione um medicamento e o tipo de modificação.');
+            return;
+        }
+        
+        try {
+            if (modificationType.value === 'stop' || modificationType.value === 'pause') {
+                // Interromper medicamento
+                const response = await fetch(`/api/diabetes/medicamentos/${codMedicamento}/interromper`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        motivo_interrupcao: observacoes || `Medicamento ${modificationType.value === 'stop' ? 'interrompido' : 'pausado'} pelo profissional`
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.sucesso) {
+                    alert('Medicamento interrompido com sucesso!');
+                    await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                    await loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                } else {
+                    alert(`Erro: ${result.erro}`);
+                }
+                
+            } else if (modificationType.value === 'frequency') {
+                // Alterar frequência
+                const novaFrequencia = document.getElementById('diabetes-novaFrequencia').value;
+                
+                if (!novaFrequencia) {
+                    alert('Selecione a nova frequência.');
+                    return;
+                }
+                
+                const response = await fetch(`/api/diabetes/medicamentos/${codMedicamento}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        frequencia: parseInt(novaFrequencia),
+                        observacoes: observacoes || `Frequência alterada para ${novaFrequencia}x ao dia`
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.sucesso) {
+                    alert('Frequência alterada com sucesso!');
+                    await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                    await loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                } else {
+                    alert(`Erro: ${result.erro}`);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Erro ao modificar medicamento:', error);
+            alert('Erro ao modificar medicamento. Tente novamente.');
+        }
+    }
+
+    // Funções globais para os botões dos medicamentos
+    window.modificarMedicamentoDiabetes = function(codSeqMedicamento) {
+        // Mudar para aba de modificar
+        const modifyTab = document.querySelector('.diabetes-treatment-action-tab[data-action="modify"]');
+        if (modifyTab) {
+            modifyTab.click();
+            
+            // Selecionar o medicamento após carregar a lista
+            setTimeout(() => {
+                const select = document.getElementById('diabetes-selectMedicamentoModificar');
+                if (select) {
+                    select.value = codSeqMedicamento;
+                }
+            }, 500);
+        }
+    };
+
+    window.interromperMedicamentoDiabetes = function(codSeqMedicamento) {
+        if (confirm('Tem certeza que deseja interromper este medicamento?')) {
+            fetch(`/api/diabetes/medicamentos/${codSeqMedicamento}/interromper`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    motivo_interrupcao: 'Medicamento interrompido pelo profissional'
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.sucesso) {
+                    alert('Medicamento interrompido com sucesso!');
+                    loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                    loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                } else {
+                    alert(`Erro: ${result.erro}`);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao interromper medicamento:', error);
+                alert('Erro ao interromper medicamento. Tente novamente.');
+            });
+        }
+    };
+
+    // --- Funcionalidades Específicas de Insulina ---
+
+    // Configurar event listeners para insulina
+    function setupInsulinEventListeners() {
+        const frequenciaSelect = document.getElementById('diabetes-frequenciaInsulina');
+        if (frequenciaSelect) {
+            frequenciaSelect.addEventListener('change', function() {
+                const frequencia = parseInt(this.value);
+                if (frequencia >= 1 && frequencia <= 4) {
+                    generateDoseInputs(frequencia);
+                    document.getElementById('diabetes-dosesContainer').classList.remove('hidden');
+                } else {
+                    document.getElementById('diabetes-dosesContainer').classList.add('hidden');
+                }
+            });
+        }
+    }
+
+    // Gerar inputs de dose baseado na frequência
+    function generateDoseInputs(frequencia) {
+        const container = document.getElementById('diabetes-dosesInputs');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const horariosDefault = ['08:00', '12:00', '18:00', '22:00'];
+        
+        for (let i = 0; i < frequencia; i++) {
+            const doseDiv = document.createElement('div');
+            doseDiv.className = 'flex items-center space-x-3 p-2 bg-orange-25 rounded border';
+            
+            const aplicacaoLabel = ['1ª aplicação', '2ª aplicação', '3ª aplicação', '4ª aplicação'][i];
+            
+            doseDiv.innerHTML = `
+                <div class="flex-shrink-0 text-sm font-medium text-gray-700 w-24">
+                    ${aplicacaoLabel}:
+                </div>
+                <div class="flex items-center space-x-2">
+                    <select class="insulin-dose-input border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" data-index="${i}">
+                        ${Array.from({length: 100}, (_, idx) => idx + 1).map(num => 
+                            `<option value="${num}">${num}</option>`
+                        ).join('')}
+                    </select>
+                    <span class="text-sm text-gray-600">Unidades às</span>
+                    <input type="time" class="insulin-time-input border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" 
+                           value="${horariosDefault[i] || '08:00'}" data-index="${i}">
+                </div>
+            `;
+            
+            container.appendChild(doseDiv);
+        }
+    }
+
+    // Função para adicionar nova insulina
+    async function adicionarNovaInsulina() {
+        const tipoInsulina = document.getElementById('diabetes-tipoInsulina').value;
+        const frequenciaDia = parseInt(document.getElementById('diabetes-frequenciaInsulina').value);
+        const dataInicio = document.getElementById('diabetes-insulinaDataInicio').value;
+        const observacoes = document.getElementById('diabetes-insulinaObservacoes').value;
+
+        if (!tipoInsulina || !frequenciaDia) {
+            alert('Preencha o tipo de insulina e a frequência.');
+            return;
+        }
+
+        // Coletar dados das doses
+        const dosesInputs = document.querySelectorAll('.insulin-dose-input');
+        const timesInputs = document.querySelectorAll('.insulin-time-input');
+        
+        if (dosesInputs.length !== frequenciaDia || timesInputs.length !== frequenciaDia) {
+            alert('Erro na configuração das doses. Tente novamente.');
+            return;
+        }
+
+        const dosesEstruturadas = [];
+        for (let i = 0; i < frequenciaDia; i++) {
+            const dose = parseInt(dosesInputs[i].value);
+            const horario = timesInputs[i].value;
+            
+            if (!dose || !horario) {
+                alert(`Preencha a dose e horário da ${i + 1}ª aplicação.`);
+                return;
+            }
+            
+            dosesEstruturadas.push({
+                dose: dose,
+                horario: horario
+            });
+        }
+
+        try {
+            const saveBtn = document.getElementById('diabetes-saveTreatmentBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Salvando...';
+
+            const response = await fetch('/api/diabetes/insulinas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    codcidadao: currentPacienteForModal.cod_paciente,
+                    tipo_insulina: tipoInsulina,
+                    frequencia_dia: frequenciaDia,
+                    doses_estruturadas: dosesEstruturadas,
+                    data_inicio: dataInicio || null,
+                    observacoes: observacoes
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.sucesso) {
+                alert(`Insulina ${tipoInsulina} adicionada com sucesso!`);
+                
+                // Limpar formulário
+                document.getElementById('diabetes-tipoInsulina').value = '';
+                document.getElementById('diabetes-frequenciaInsulina').value = '';
+                document.getElementById('diabetes-insulinaDataInicio').value = '';
+                document.getElementById('diabetes-insulinaObservacoes').value = '';
+                document.getElementById('diabetes-dosesContainer').classList.add('hidden');
+                
+                // Recarregar medicamentos no modal (incluindo insulinas)
+                await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                
+                // Atualizar coluna de tratamento na tabela principal
+                await loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                
+            } else {
+                alert(`Erro: ${result.erro}`);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao adicionar insulina:', error);
+            alert('Erro ao adicionar insulina. Tente novamente.');
+        } finally {
+            const saveBtn = document.getElementById('diabetes-saveTreatmentBtn');
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Salvar Alterações';
+        }
+    }
+
+    // Atualizar função de carregar medicamentos para incluir insulinas
+    const originalLoadMedicamentosAtuais = loadMedicamentosAtuaisDiabetes;
+    loadMedicamentosAtuaisDiabetes = async function(codCidadao) {
+        await originalLoadMedicamentosAtuais(codCidadao);
+        await loadInsulinas(codCidadao);
+    };
+
+    // Carregar insulinas ativas do paciente
+    async function loadInsulinas(codCidadao) {
+        const container = document.getElementById('diabetes-medicamentosAtuaisContainer');
+        if (!container) return;
+
+        try {
+            const response = await fetch(`/api/diabetes/insulinas/${codCidadao}`);
+            const data = await response.json();
+
+            if (!response.ok || !data.sucesso) {
+                console.warn('Erro ou sem insulinas:', data.erro || 'Dados indisponíveis');
+                return;
+            }
+
+            const insulinas = data.insulinas || [];
+            if (insulinas.length === 0) return;
+
+            // Adicionar insulinas ao container existente
+            insulinas.forEach(insulina => {
+                const dataInicio = insulina.data_inicio ? new Date(insulina.data_inicio).toLocaleDateString('pt-BR') : 'Não informado';
+                
+                const insulinaHTML = `
+                    <div class="border rounded-lg p-3 bg-orange-50 border-orange-200">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <div class="w-5 h-5 flex items-center justify-center text-orange-600 mr-2">
+                                        <i class="ri-medicine-bottle-fill"></i>
+                                    </div>
+                                    <h6 class="font-medium text-gray-900">Insulina ${insulina.tipo_insulina}</h6>
+                                </div>
+                                <p class="text-sm text-gray-600">
+                                    ${insulina.doses_resumo || 'Dosagem não configurada'}
+                                </p>
+                                <p class="text-xs text-gray-500">Início: ${dataInicio}</p>
+                                ${insulina.observacoes ? `<p class="text-xs text-gray-600 mt-1">${insulina.observacoes}</p>` : ''}
+                            </div>
+                            <div class="flex space-x-1">
+                                <button class="text-blue-600 hover:text-blue-800 p-1" onclick="modificarInsulina(${insulina.cod_seq_insulina})" title="Modificar">
+                                    <i class="ri-edit-line"></i>
+                                </button>
+                                <button class="text-red-600 hover:text-red-800 p-1" onclick="interromperInsulina(${insulina.cod_seq_insulina})" title="Interromper">
+                                    <i class="ri-stop-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.insertAdjacentHTML('beforeend', insulinaHTML);
+            });
+
+            // Atualizar contador
+            const countDiv = document.getElementById('diabetes-medicamentosAtivosCount');
+            if (countDiv) {
+                const currentText = countDiv.textContent;
+                const currentCount = parseInt(currentText.match(/\d+/)?.[0] || 0);
+                const newCount = currentCount + insulinas.length;
+                countDiv.textContent = `${newCount} medicamento${newCount > 1 ? 's' : ''} (incluindo ${insulinas.length} insulina${insulinas.length > 1 ? 's' : ''})`;
+            }
+
+        } catch (error) {
+            console.error('Erro ao carregar insulinas:', error);
+        }
+    }
+
+    // Funções globais para gerenciar insulinas
+    window.modificarInsulina = function(codSeqInsulina) {
+        console.log('Modificar insulina:', codSeqInsulina);
+        // TODO: Implementar interface de modificação de insulina
+        alert('Funcionalidade de modificação de insulina será implementada em breve.');
+    };
+
+    window.interromperInsulina = function(codSeqInsulina) {
+        if (confirm('Tem certeza que deseja interromper esta insulina?')) {
+            fetch(`/api/diabetes/insulinas/${codSeqInsulina}/interromper`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    motivo_interrupcao: 'Insulina interrompida pelo profissional'
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.sucesso) {
+                    alert('Insulina interrompida com sucesso!');
+                    loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                    loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                } else {
+                    alert(`Erro: ${result.erro}`);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao interromper insulina:', error);
+                alert('Erro ao interromper insulina. Tente novamente.');
+            });
+        }
+    };
 
     // Inicialização
     fetchEquipesMicroareasDiabetes();

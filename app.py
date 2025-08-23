@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request, Response
 import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
+import json
 from datetime import date, datetime, timedelta
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -6452,6 +6453,481 @@ def plano_semanal_personalizado():
             cur.close()
         if conn:
             conn.close()
+
+# --- API Routes para Medicamentos de Diabetes ---
+
+@app.route('/api/diabetes/medicamentos', methods=['POST'])
+def api_diabetes_adicionar_medicamento():
+    """API para adicionar novo medicamento para paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        # Validação dos dados obrigatórios
+        cod_cidadao = data.get('codcidadao')
+        nome_medicamento = data.get('nome_medicamento')
+        dose = data.get('dose', 1)
+        frequencia = data.get('frequencia', 1)
+        
+        if not cod_cidadao or not nome_medicamento:
+            return jsonify({"sucesso": False, "erro": "Código do cidadão e nome do medicamento são obrigatórios."}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Inserir medicamento
+        query = """
+            INSERT INTO sistemaaps.tb_hiperdia_dm_medicamentos 
+            (codcidadao, nome_medicamento, dose, frequencia, posologia, data_inicio, observacoes)
+            VALUES (%(codcidadao)s, %(nome_medicamento)s, %(dose)s, %(frequencia)s, %(posologia)s, %(data_inicio)s, %(observacoes)s)
+            RETURNING cod_seq_medicamento
+        """
+        
+        params = {
+            'codcidadao': cod_cidadao,
+            'nome_medicamento': nome_medicamento,
+            'dose': dose,
+            'frequencia': frequencia,
+            'posologia': data.get('posologia', ''),
+            'data_inicio': data.get('data_inicio'),
+            'observacoes': data.get('observacoes', '')
+        }
+        
+        cur.execute(query, params)
+        cod_seq_medicamento = cur.fetchone()[0]
+        conn.commit()
+        
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": "Medicamento adicionado com sucesso.",
+            "cod_seq_medicamento": cod_seq_medicamento
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao adicionar medicamento diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/medicamentos/<int:cod_seq_medicamento>', methods=['PUT'])
+def api_diabetes_atualizar_medicamento(cod_seq_medicamento):
+    """API para atualizar medicamento de paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Construir query de atualização dinamicamente
+        campos_atualizacao = []
+        params = {'cod_seq_medicamento': cod_seq_medicamento}
+        
+        if 'nome_medicamento' in data:
+            campos_atualizacao.append("nome_medicamento = %(nome_medicamento)s")
+            params['nome_medicamento'] = data['nome_medicamento']
+        
+        if 'dose' in data:
+            campos_atualizacao.append("dose = %(dose)s")
+            params['dose'] = data['dose']
+        
+        if 'frequencia' in data:
+            campos_atualizacao.append("frequencia = %(frequencia)s")
+            params['frequencia'] = data['frequencia']
+        
+        if 'posologia' in data:
+            campos_atualizacao.append("posologia = %(posologia)s")
+            params['posologia'] = data['posologia']
+        
+        if 'observacoes' in data:
+            campos_atualizacao.append("observacoes = %(observacoes)s")
+            params['observacoes'] = data['observacoes']
+        
+        campos_atualizacao.append("updated_at = CURRENT_TIMESTAMP")
+        
+        if not campos_atualizacao:
+            return jsonify({"sucesso": False, "erro": "Nenhum campo para atualizar."}), 400
+        
+        query = f"""
+            UPDATE sistemaaps.tb_hiperdia_dm_medicamentos 
+            SET {', '.join(campos_atualizacao)}
+            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s
+        """
+        
+        cur.execute(query, params)
+        conn.commit()
+        
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Medicamento não encontrado."}), 404
+        
+        return jsonify({"sucesso": True, "mensagem": "Medicamento atualizado com sucesso."})
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar medicamento diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/medicamentos/<int:cod_seq_medicamento>/interromper', methods=['PUT'])
+def api_diabetes_interromper_medicamento(cod_seq_medicamento):
+    """API para interromper medicamento de paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        motivo_interrupcao = data.get('motivo_interrupcao', 'Interrompido pelo profissional')
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        query = """
+            UPDATE sistemaaps.tb_hiperdia_dm_medicamentos 
+            SET data_fim = CURRENT_DATE, 
+                motivo_interrupcao = %(motivo_interrupcao)s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_seq_medicamento = %(cod_seq_medicamento)s
+        """
+        
+        cur.execute(query, {
+            'cod_seq_medicamento': cod_seq_medicamento,
+            'motivo_interrupcao': motivo_interrupcao
+        })
+        conn.commit()
+        
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Medicamento não encontrado."}), 404
+        
+        return jsonify({"sucesso": True, "mensagem": "Medicamento interrompido com sucesso."})
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao interromper medicamento diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/medicamentos_diabetes')
+def api_diabetes_medicamentos_disponiveis():
+    """API para buscar lista de medicamentos disponíveis para diabetes"""
+    try:
+        # Lista de medicamentos comuns para diabetes
+        medicamentos_diabetes = [
+            "Metformina 500mg",
+            "Metformina 850mg", 
+            "Glibenclamida 5mg",
+            "Gliclazida 30mg",
+            "Gliclazida 60mg",
+            "Insulina NPH",
+            "Insulina Regular",
+            "Insulina Glargina",
+            "Insulina Lispro",
+            "Sitagliptina 50mg",
+            "Sitagliptina 100mg",
+            "Empagliflozina 10mg",
+            "Empagliflozina 25mg",
+            "Pioglitazona 15mg",
+            "Pioglitazona 30mg",
+            "Repaglinida 1mg",
+            "Repaglinida 2mg",
+            "Acarbose 50mg",
+            "Acarbose 100mg"
+        ]
+        
+        return jsonify({"medicamentos": medicamentos_diabetes})
+        
+    except Exception as e:
+        print(f"Erro ao buscar medicamentos para diabetes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+
+# --- API Routes para Insulinas ---
+
+@app.route('/api/diabetes/insulinas/<int:cod_cidadao>')
+def api_diabetes_insulinas_atuais(cod_cidadao):
+    """API para buscar insulinas ativas de um paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        query = """
+            SELECT 
+                cod_seq_insulina,
+                tipo_insulina,
+                frequencia_dia,
+                doses_estruturadas,
+                data_inicio,
+                observacoes,
+                created_at
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
+            WHERE codcidadao = %s 
+            AND data_fim IS NULL
+            ORDER BY tipo_insulina, created_at DESC
+        """
+        
+        cur.execute(query, (cod_cidadao,))
+        insulinas = cur.fetchall()
+        
+        # Processar dados das insulinas para formato mais amigável
+        insulinas_processadas = []
+        for insulina in insulinas:
+            doses_str = insulina['doses_estruturadas'] or '[]'
+            try:
+                doses = json.loads(doses_str)
+            except (json.JSONDecodeError, TypeError):
+                doses = []
+            
+            doses_formatadas = []
+            
+            for dose in doses:
+                dose_str = f"{dose.get('dose', 0)} U às {dose.get('horario', 'N/A')}"
+                doses_formatadas.append(dose_str)
+            
+            insulina_processada = dict(insulina)
+            insulina_processada['doses_formatadas'] = doses_formatadas
+            insulina_processada['doses_resumo'] = ' | '.join(doses_formatadas)
+            insulinas_processadas.append(insulina_processada)
+        
+        return jsonify({"sucesso": True, "insulinas": insulinas_processadas})
+        
+    except Exception as e:
+        print(f"Erro ao buscar insulinas para paciente {cod_cidadao}: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinas', methods=['POST'])
+def api_diabetes_adicionar_insulina():
+    """API para adicionar nova insulina para paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        # Validação dos dados obrigatórios
+        cod_cidadao = data.get('codcidadao')
+        tipo_insulina = data.get('tipo_insulina')
+        frequencia_dia = data.get('frequencia_dia')
+        doses_estruturadas = data.get('doses_estruturadas')
+        
+        if not all([cod_cidadao, tipo_insulina, frequencia_dia, doses_estruturadas]):
+            return jsonify({"sucesso": False, "erro": "Campos obrigatórios não preenchidos"}), 400
+        
+        # Validações específicas
+        if frequencia_dia not in [1, 2, 3, 4]:
+            return jsonify({"sucesso": False, "erro": "Frequência deve ser entre 1 e 4 vezes ao dia"}), 400
+        
+        if tipo_insulina not in ['Insulina NPH', 'Insulina Regular', 'Insulina Glargina', 'Insulina Lispro']:
+            return jsonify({"sucesso": False, "erro": "Tipo de insulina inválido"}), 400
+        
+        if len(doses_estruturadas) != frequencia_dia:
+            return jsonify({"sucesso": False, "erro": "Número de doses deve corresponder à frequência"}), 400
+        
+        # Validar formato das doses
+        for dose in doses_estruturadas:
+            if not isinstance(dose, dict) or 'dose' not in dose or 'horario' not in dose:
+                return jsonify({"sucesso": False, "erro": "Formato de doses inválido"}), 400
+            
+            dose_valor = dose.get('dose')
+            if not isinstance(dose_valor, int) or dose_valor < 1 or dose_valor > 100:
+                return jsonify({"sucesso": False, "erro": "Dose deve ser entre 1 e 100 unidades"}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar se já existe insulina do mesmo tipo ativa para o paciente
+        check_query = """
+            SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_insulina 
+            WHERE codcidadao = %s AND tipo_insulina = %s AND data_fim IS NULL
+        """
+        cur.execute(check_query, (cod_cidadao, tipo_insulina))
+        existing_count = cur.fetchone()[0]
+        
+        if existing_count > 0:
+            return jsonify({"sucesso": False, "erro": f"Paciente já possui {tipo_insulina} ativa. Interrompa a insulina anterior primeiro."}), 400
+        
+        # Inserir nova insulina
+        insert_query = """
+            INSERT INTO sistemaaps.tb_hiperdia_dm_insulina 
+            (codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, data_inicio, observacoes)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING cod_seq_insulina
+        """
+        
+        data_inicio = data.get('data_inicio') or None
+        observacoes = data.get('observacoes', '')
+        
+        cur.execute(insert_query, (
+            cod_cidadao,
+            tipo_insulina,
+            frequencia_dia,
+            json.dumps(doses_estruturadas),
+            data_inicio,
+            observacoes
+        ))
+        
+        cod_seq_insulina = cur.fetchone()[0]
+        conn.commit()
+        
+        print(f"Nova insulina adicionada: {tipo_insulina} para paciente {cod_cidadao}")
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": f"Insulina {tipo_insulina} adicionada com sucesso",
+            "cod_seq_insulina": cod_seq_insulina
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao adicionar insulina: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinas/<int:cod_seq_insulina>', methods=['PUT'])
+def api_diabetes_atualizar_insulina(cod_seq_insulina):
+    """API para atualizar insulina de paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar se a insulina existe e está ativa
+        check_query = """
+            SELECT codcidadao, tipo_insulina FROM sistemaaps.tb_hiperdia_dm_insulina 
+            WHERE cod_seq_insulina = %s AND data_fim IS NULL
+        """
+        cur.execute(check_query, (cod_seq_insulina,))
+        insulina_atual = cur.fetchone()
+        
+        if not insulina_atual:
+            return jsonify({"sucesso": False, "erro": "Insulina não encontrada ou já foi interrompida"}), 404
+        
+        # Preparar campos para atualização
+        campos_update = []
+        valores = []
+        
+        if 'frequencia_dia' in data:
+            freq = data['frequencia_dia']
+            if freq not in [1, 2, 3, 4]:
+                return jsonify({"sucesso": False, "erro": "Frequência deve ser entre 1 e 4 vezes ao dia"}), 400
+            campos_update.append("frequencia_dia = %s")
+            valores.append(freq)
+        
+        if 'doses_estruturadas' in data:
+            doses = data['doses_estruturadas']
+            # Validar doses
+            for dose in doses:
+                if not isinstance(dose, dict) or 'dose' not in dose or 'horario' not in dose:
+                    return jsonify({"sucesso": False, "erro": "Formato de doses inválido"}), 400
+                
+                dose_valor = dose.get('dose')
+                if not isinstance(dose_valor, int) or dose_valor < 1 or dose_valor > 100:
+                    return jsonify({"sucesso": False, "erro": "Dose deve ser entre 1 e 100 unidades"}), 400
+            
+            campos_update.append("doses_estruturadas = %s")
+            valores.append(json.dumps(doses))
+        
+        if 'observacoes' in data:
+            campos_update.append("observacoes = %s")
+            valores.append(data['observacoes'])
+        
+        if not campos_update:
+            return jsonify({"sucesso": False, "erro": "Nenhum campo para atualizar"}), 400
+        
+        # Atualizar timestamp
+        campos_update.append("updated_at = CURRENT_TIMESTAMP")
+        
+        # Executar update
+        update_query = f"""
+            UPDATE sistemaaps.tb_hiperdia_dm_insulina 
+            SET {', '.join(campos_update)}
+            WHERE cod_seq_insulina = %s
+        """
+        valores.append(cod_seq_insulina)
+        
+        cur.execute(update_query, valores)
+        conn.commit()
+        
+        print(f"Insulina {cod_seq_insulina} atualizada para paciente {insulina_atual[0]}")
+        return jsonify({"sucesso": True, "mensagem": "Insulina atualizada com sucesso"})
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar insulina {cod_seq_insulina}: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinas/<int:cod_seq_insulina>/interromper', methods=['PUT'])
+def api_diabetes_interromper_insulina(cod_seq_insulina):
+    """API para interromper insulina de paciente diabético"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        motivo_interrupcao = data.get('motivo_interrupcao', 'Insulina interrompida pelo profissional')
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar se a insulina existe e está ativa
+        check_query = """
+            SELECT codcidadao, tipo_insulina FROM sistemaaps.tb_hiperdia_dm_insulina 
+            WHERE cod_seq_insulina = %s AND data_fim IS NULL
+        """
+        cur.execute(check_query, (cod_seq_insulina,))
+        insulina_atual = cur.fetchone()
+        
+        if not insulina_atual:
+            return jsonify({"sucesso": False, "erro": "Insulina não encontrada ou já foi interrompida"}), 404
+        
+        # Interromper insulina
+        update_query = """
+            UPDATE sistemaaps.tb_hiperdia_dm_insulina 
+            SET data_fim = CURRENT_DATE,
+                motivo_interrupcao = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_seq_insulina = %s
+        """
+        
+        cur.execute(update_query, (motivo_interrupcao, cod_seq_insulina))
+        conn.commit()
+        
+        print(f"Insulina {insulina_atual[1]} interrompida para paciente {insulina_atual[0]}")
+        return jsonify({"sucesso": True, "mensagem": "Insulina interrompida com sucesso"})
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao interromper insulina {cod_seq_insulina}: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True, port=3030, host='0.0.0.0')
