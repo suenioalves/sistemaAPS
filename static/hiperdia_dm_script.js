@@ -1173,11 +1173,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const addSection = document.getElementById('diabetes-addMedicationSection');
         const addInsulinSection = document.getElementById('diabetes-addInsulinSection');
         const modifySection = document.getElementById('diabetes-modifyMedicationSection');
+        const modifyInsulinSection = document.getElementById('diabetes-modifyInsulinSection');
         
         // Ocultar todas as seções primeiro
         addSection.classList.add('hidden');
         addInsulinSection.classList.add('hidden');
         modifySection.classList.add('hidden');
+        modifyInsulinSection.classList.add('hidden');
         
         if (action === 'add') {
             addSection.classList.remove('hidden');
@@ -1189,6 +1191,10 @@ document.addEventListener('DOMContentLoaded', function () {
             modifySection.classList.remove('hidden');
             // Carregar medicamentos para modificar
             loadMedicamentosParaModificarDiabetes();
+        } else if (action === 'modify-insulin') {
+            modifyInsulinSection.classList.remove('hidden');
+            // Configurar listeners para modificação de insulina
+            setupModifyInsulinEventListeners();
         }
     }
 
@@ -1233,6 +1239,8 @@ document.addEventListener('DOMContentLoaded', function () {
             await adicionarNovaInsulina();
         } else if (action === 'modify') {
             await modificarMedicamentoDiabetes();
+        } else if (action === 'modify-insulin') {
+            await modificarInsulinaAtual();
         }
     }
 
@@ -1624,12 +1632,263 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Variáveis para controle da modificação de insulina
+    let insulinaParaModificar = null;
+
+    // Função para configurar listeners da modificação de insulina
+    function setupModifyInsulinEventListeners() {
+        const frequenciaSelect = document.getElementById('diabetes-editFrequenciaInsulina');
+        if (frequenciaSelect) {
+            frequenciaSelect.addEventListener('change', () => {
+                generateEditDoseInputs(parseInt(frequenciaSelect.value));
+            });
+        }
+    }
+
+    // Função para gerar campos de dose para edição
+    function generateEditDoseInputs(frequencia) {
+        const container = document.getElementById('diabetes-editDosesInputs');
+        if (!container) return;
+
+        container.innerHTML = '';
+        
+        const horarios = [
+            ['08:00'],
+            ['08:00', '20:00'],
+            ['08:00', '14:00', '20:00'],
+            ['08:00', '12:00', '18:00', '22:00']
+        ];
+
+        const horariosParaFreq = horarios[frequencia - 1] || horarios[0];
+
+        horariosParaFreq.forEach((horario, index) => {
+            const doseGroup = document.createElement('div');
+            doseGroup.className = 'grid grid-cols-2 gap-3';
+            
+            doseGroup.innerHTML = `
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Dose ${index + 1} (unidades)</label>
+                    <input type="number" id="diabetes-editDose${index}" min="1" max="100"
+                        class="w-full border border-gray-300 rounded py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        placeholder="Ex: 12">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Horário</label>
+                    <input type="time" id="diabetes-editHorario${index}" value="${horario}"
+                        class="w-full border border-gray-300 rounded py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500">
+                </div>
+            `;
+            
+            container.appendChild(doseGroup);
+        });
+    }
+
     // Funções globais para gerenciar insulinas
-    window.modificarInsulina = function(codSeqInsulina) {
+    window.modificarInsulina = async function(codSeqInsulina) {
         console.log('Modificar insulina:', codSeqInsulina);
-        // TODO: Implementar interface de modificação de insulina
-        alert('Funcionalidade de modificação de insulina será implementada em breve.');
+        
+        try {
+            // Buscar detalhes da insulina
+            const response = await fetch(`/api/diabetes/insulinas/${codSeqInsulina}/detalhes`);
+            const result = await response.json();
+            
+            if (!result.sucesso) {
+                alert(`Erro: ${result.erro}`);
+                return;
+            }
+            
+            insulinaParaModificar = result.insulina;
+            
+            // Abrir modal de tratamento
+            const modal = document.getElementById('diabetes-treatmentModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                
+                // Configurar informações do paciente se necessário
+                if (currentPacienteForModal) {
+                    document.getElementById('diabetes-treatmentModalPacienteNome').textContent = currentPacienteForModal.nome_paciente;
+                    document.getElementById('diabetes-treatmentModalPacienteIdade').textContent = `${currentPacienteForModal.idade} anos`;
+                    document.getElementById('diabetes-treatmentModalPacienteInfo').textContent = `${currentPacienteForModal.nome_equipe} - ${currentPacienteForModal.nome_microarea}`;
+                    
+                    const avatarDiv = document.getElementById('diabetes-treatmentModalAvatarIniciais');
+                    const iniciais = currentPacienteForModal.nome_paciente.split(' ')
+                        .slice(0, 2)
+                        .map(n => n[0])
+                        .join('')
+                        .toUpperCase();
+                    avatarDiv.innerHTML = `<span>${iniciais}</span>`;
+                }
+                
+                // Mostrar e ativar o botão de modificar insulina
+                const modifyInsulinTab = document.querySelector('[data-action="modify-insulin"]');
+                if (modifyInsulinTab) {
+                    modifyInsulinTab.classList.remove('hidden');
+                    modifyInsulinTab.click();
+                }
+                
+                // Preencher dados da insulina no formulário
+                await preencherFormularioModificacaoInsulina(insulinaParaModificar);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao carregar detalhes da insulina:', error);
+            alert('Erro ao carregar insulina para edição. Tente novamente.');
+        }
     };
+
+    // Função para preencher o formulário de modificação
+    async function preencherFormularioModificacaoInsulina(insulina) {
+        // Tipo de insulina
+        const tipoSelect = document.getElementById('diabetes-editTipoInsulina');
+        if (tipoSelect) {
+            tipoSelect.value = insulina.tipo_insulina;
+        }
+        
+        // Frequência
+        const frequenciaSelect = document.getElementById('diabetes-editFrequenciaInsulina');
+        if (frequenciaSelect) {
+            frequenciaSelect.value = insulina.frequencia_dia.toString();
+            // Gerar campos de dose baseados na frequência
+            generateEditDoseInputs(insulina.frequencia_dia);
+        }
+        
+        // Aguardar a geração dos campos de dose e depois preenchê-los
+        setTimeout(() => {
+            // Preencher doses
+            if (insulina.doses_estruturadas && Array.isArray(insulina.doses_estruturadas)) {
+                insulina.doses_estruturadas.forEach((dose, index) => {
+                    const doseInput = document.getElementById(`diabetes-editDose${index}`);
+                    const horarioInput = document.getElementById(`diabetes-editHorario${index}`);
+                    
+                    if (doseInput && dose.dose) {
+                        doseInput.value = dose.dose;
+                    }
+                    if (horarioInput && dose.horario) {
+                        horarioInput.value = dose.horario;
+                    }
+                });
+            }
+        }, 100);
+        
+        // Data de início
+        const dataInicioInput = document.getElementById('diabetes-editInsulinaDataInicio');
+        if (dataInicioInput && insulina.data_inicio) {
+            dataInicioInput.value = insulina.data_inicio;
+        }
+        
+        // Observações
+        const observacoesTextarea = document.getElementById('diabetes-editInsulinaObservacoes');
+        if (observacoesTextarea) {
+            observacoesTextarea.value = insulina.observacoes || '';
+        }
+        
+        // Limpar motivo da modificação
+        const motivoTextarea = document.getElementById('diabetes-editInsulinaMotivoModificacao');
+        if (motivoTextarea) {
+            motivoTextarea.value = '';
+        }
+    }
+
+    // Função para modificar insulina atual
+    async function modificarInsulinaAtual() {
+        if (!insulinaParaModificar) {
+            alert('Nenhuma insulina selecionada para modificação.');
+            return;
+        }
+        
+        try {
+            // Coletasdados do formulário
+            const tipoInsulina = document.getElementById('diabetes-editTipoInsulina').value;
+            const frequenciaDia = parseInt(document.getElementById('diabetes-editFrequenciaInsulina').value);
+            const dataInicio = document.getElementById('diabetes-editInsulinaDataInicio').value;
+            const observacoes = document.getElementById('diabetes-editInsulinaObservacoes').value;
+            const motivoModificacao = document.getElementById('diabetes-editInsulinaMotivoModificacao').value;
+            
+            // Validações
+            if (!tipoInsulina) {
+                alert('Selecione o tipo de insulina.');
+                return;
+            }
+            
+            if (!motivoModificacao.trim()) {
+                alert('Informe o motivo da modificação.');
+                return;
+            }
+            
+            // Coletar doses estruturadas
+            const dosesEstruturadas = [];
+            for (let i = 0; i < frequenciaDia; i++) {
+                const doseInput = document.getElementById(`diabetes-editDose${i}`);
+                const horarioInput = document.getElementById(`diabetes-editHorario${i}`);
+                
+                if (!doseInput || !horarioInput || !doseInput.value || !horarioInput.value) {
+                    alert(`Preencha a dose e horário ${i + 1}.`);
+                    return;
+                }
+                
+                const dose = parseInt(doseInput.value);
+                if (dose < 1 || dose > 100) {
+                    alert(`Dose ${i + 1} deve ser entre 1 e 100 unidades.`);
+                    return;
+                }
+                
+                dosesEstruturadas.push({
+                    dose: dose,
+                    horario: horarioInput.value
+                });
+            }
+            
+            // Dados para envio
+            const dadosModificacao = {
+                tipo_insulina: tipoInsulina,
+                frequencia_dia: frequenciaDia,
+                doses_estruturadas: dosesEstruturadas,
+                data_inicio: dataInicio || null,
+                observacoes: observacoes.trim(),
+                motivo_modificacao: motivoModificacao.trim()
+            };
+            
+            // Enviar modificação
+            const response = await fetch(`/api/diabetes/insulinas/${insulinaParaModificar.cod_seq_insulina}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dadosModificacao)
+            });
+            
+            const result = await response.json();
+            
+            if (result.sucesso) {
+                alert('Insulina modificada com sucesso!');
+                
+                // Fechar modal
+                const modal = document.getElementById('diabetes-treatmentModal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                }
+                
+                // Recarregar medicamentos atuais
+                await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
+                
+                // Limpar variável
+                insulinaParaModificar = null;
+                
+                // Esconder botão de modificar insulina novamente
+                const modifyInsulinTab = document.querySelector('[data-action="modify-insulin"]');
+                if (modifyInsulinTab) {
+                    modifyInsulinTab.classList.add('hidden');
+                }
+                
+            } else {
+                alert(`Erro ao modificar insulina: ${result.erro}`);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao modificar insulina:', error);
+            alert('Erro ao modificar insulina. Tente novamente.');
+        }
+    }
 
     window.interromperInsulina = function(codSeqInsulina) {
         if (confirm('Tem certeza que deseja interromper esta insulina?')) {

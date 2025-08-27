@@ -6802,81 +6802,168 @@ def api_diabetes_adicionar_insulina():
         if cur: cur.close()
         if conn: conn.close()
 
+@app.route('/api/diabetes/insulinas/<int:cod_seq_insulina>/detalhes', methods=['GET'])
+def api_diabetes_obter_detalhes_insulina(cod_seq_insulina):
+    """API para obter detalhes de uma insulina específica para edição"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Obter detalhes da insulina
+        query = """
+            SELECT cod_seq_insulina, codcidadao, tipo_insulina, frequencia_dia, 
+                   doses_estruturadas, data_inicio, data_fim, observacoes,
+                   status, motivo_interrupcao, created_at, updated_at
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
+            WHERE cod_seq_insulina = %s AND data_fim IS NULL
+        """
+        cur.execute(query, (cod_seq_insulina,))
+        result = cur.fetchone()
+        
+        if not result:
+            return jsonify({"sucesso": False, "erro": "Insulina não encontrada ou já foi interrompida"}), 404
+        
+        (cod_seq, codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, 
+         data_inicio, data_fim, observacoes, status, motivo_interrupcao, 
+         created_at, updated_at) = result
+        
+        # Parse das doses estruturadas
+        doses = []
+        if doses_estruturadas:
+            try:
+                doses = json.loads(doses_estruturadas)
+            except json.JSONDecodeError:
+                doses = []
+        
+        insulina_detalhes = {
+            "cod_seq_insulina": cod_seq,
+            "codcidadao": codcidadao,
+            "tipo_insulina": tipo_insulina,
+            "frequencia_dia": frequencia_dia,
+            "doses_estruturadas": doses,
+            "data_inicio": data_inicio.strftime('%Y-%m-%d') if data_inicio else None,
+            "observacoes": observacoes or '',
+            "status": status or 'ATIVO'
+        }
+        
+        return jsonify({"sucesso": True, "insulina": insulina_detalhes})
+        
+    except Exception as e:
+        print(f"Erro ao obter detalhes da insulina {cod_seq_insulina}: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 @app.route('/api/diabetes/insulinas/<int:cod_seq_insulina>', methods=['PUT'])
 def api_diabetes_atualizar_insulina(cod_seq_insulina):
-    """API para atualizar insulina de paciente diabético"""
+    """API para modificar insulina de paciente diabético (cria novo registro mantendo histórico)"""
     conn = None
     cur = None
     try:
         data = request.get_json()
+        motivo_modificacao = data.get('motivo_modificacao', 'Modificação de dosagem/frequência')
         
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Verificar se a insulina existe e está ativa
-        check_query = """
-            SELECT codcidadao, tipo_insulina FROM sistemaaps.tb_hiperdia_dm_insulina 
+        # Obter dados da insulina atual
+        select_query = """
+            SELECT codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, 
+                   data_inicio, observacoes 
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
-        cur.execute(check_query, (cod_seq_insulina,))
+        cur.execute(select_query, (cod_seq_insulina,))
         insulina_atual = cur.fetchone()
         
         if not insulina_atual:
             return jsonify({"sucesso": False, "erro": "Insulina não encontrada ou já foi interrompida"}), 404
         
-        # Preparar campos para atualização
-        campos_update = []
-        valores = []
+        codcidadao, tipo_atual, freq_atual, doses_atuais, data_inicio_atual, obs_atuais = insulina_atual
         
-        if 'frequencia_dia' in data:
-            freq = data['frequencia_dia']
-            if freq not in [1, 2, 3, 4]:
-                return jsonify({"sucesso": False, "erro": "Frequência deve ser entre 1 e 4 vezes ao dia"}), 400
-            campos_update.append("frequencia_dia = %s")
-            valores.append(freq)
+        # Validar dados de entrada
+        nova_frequencia = data.get('frequencia_dia', freq_atual)
+        if nova_frequencia not in [1, 2, 3, 4]:
+            return jsonify({"sucesso": False, "erro": "Frequência deve ser entre 1 e 4 vezes ao dia"}), 400
         
-        if 'doses_estruturadas' in data:
-            doses = data['doses_estruturadas']
-            # Validar doses
-            for dose in doses:
+        novo_tipo = data.get('tipo_insulina', tipo_atual)
+        tipos_validos = ['Insulina NPH', 'Insulina Regular', 'Insulina Glargina', 'Insulina Lispro']
+        if novo_tipo not in tipos_validos:
+            return jsonify({"sucesso": False, "erro": f"Tipo de insulina deve ser um dos: {', '.join(tipos_validos)}"}), 400
+        
+        novas_doses = data.get('doses_estruturadas', json.loads(doses_atuais) if doses_atuais else [])
+        # Validar doses
+        if novas_doses:
+            for dose in novas_doses:
                 if not isinstance(dose, dict) or 'dose' not in dose or 'horario' not in dose:
                     return jsonify({"sucesso": False, "erro": "Formato de doses inválido"}), 400
                 
                 dose_valor = dose.get('dose')
                 if not isinstance(dose_valor, int) or dose_valor < 1 or dose_valor > 100:
                     return jsonify({"sucesso": False, "erro": "Dose deve ser entre 1 e 100 unidades"}), 400
-            
-            campos_update.append("doses_estruturadas = %s")
-            valores.append(json.dumps(doses))
         
-        if 'observacoes' in data:
-            campos_update.append("observacoes = %s")
-            valores.append(data['observacoes'])
+        nova_data_inicio = data.get('data_inicio')
+        if nova_data_inicio:
+            try:
+                datetime.strptime(nova_data_inicio, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({"sucesso": False, "erro": "Data de início inválida"}), 400
         
-        if not campos_update:
-            return jsonify({"sucesso": False, "erro": "Nenhum campo para atualizar"}), 400
+        novas_observacoes = data.get('observacoes', obs_atuais or '')
         
-        # Atualizar timestamp
-        campos_update.append("updated_at = CURRENT_TIMESTAMP")
+        # Verificar se houve mudança
+        doses_atuais_parsed = json.loads(doses_atuais) if doses_atuais else []
+        if (nova_frequencia == freq_atual and 
+            novo_tipo == tipo_atual and 
+            novas_doses == doses_atuais_parsed and
+            novas_observacoes == (obs_atuais or '') and
+            nova_data_inicio == (data_inicio_atual.strftime('%Y-%m-%d') if data_inicio_atual else None)):
+            return jsonify({"sucesso": False, "erro": "Nenhuma modificação foi detectada"}), 400
         
-        # Executar update
-        update_query = f"""
+        # Marcar insulina atual como substituída
+        cur.execute("""
             UPDATE sistemaaps.tb_hiperdia_dm_insulina 
-            SET {', '.join(campos_update)}
+            SET status = 'SUBSTITUIDO', 
+                data_fim = CURRENT_DATE,
+                motivo_interrupcao = %s,
+                updated_at = CURRENT_TIMESTAMP
             WHERE cod_seq_insulina = %s
-        """
-        valores.append(cod_seq_insulina)
+        """, (motivo_modificacao, cod_seq_insulina))
         
-        cur.execute(update_query, valores)
+        # Criar novo registro de insulina
+        insert_query = """
+            INSERT INTO sistemaaps.tb_hiperdia_dm_insulina 
+            (codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, 
+             data_inicio, observacoes, status, cod_insulina_anterior, motivo_modificacao,
+             created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, 'ATIVO', %s, %s, 
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING cod_seq_insulina
+        """
+        
+        cur.execute(insert_query, (
+            codcidadao, novo_tipo, nova_frequencia, json.dumps(novas_doses),
+            nova_data_inicio or data_inicio_atual, novas_observacoes,
+            cod_seq_insulina, motivo_modificacao
+        ))
+        
+        novo_cod_seq = cur.fetchone()[0]
         conn.commit()
         
-        print(f"Insulina {cod_seq_insulina} atualizada para paciente {insulina_atual[0]}")
-        return jsonify({"sucesso": True, "mensagem": "Insulina atualizada com sucesso"})
+        print(f"Insulina {cod_seq_insulina} modificada para paciente {codcidadao}. Nova insulina: {novo_cod_seq}")
+        return jsonify({
+            "sucesso": True, 
+            "mensagem": "Insulina modificada com sucesso",
+            "novo_cod_seq": novo_cod_seq
+        })
         
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Erro ao atualizar insulina {cod_seq_insulina}: {e}")
+        print(f"Erro ao modificar insulina {cod_seq_insulina}: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
