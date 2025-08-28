@@ -67,5 +67,11 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Claude Code configurações locais
+.claude/settings.local.json
+
+# Arquivos de exemplo/teste
 nul 
 exemplo pro claude.png
+teste_*.py
