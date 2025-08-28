@@ -50,8 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
         responsavelInput: document.getElementById('responsavel-diabetes'),
         saveActionBtn: document.getElementById('save-action-btn-diabetes'),
         cancelActionBtn: document.getElementById('cancel-action-btn-diabetes'),
-        mrgFields: document.getElementById('mrg-fields-diabetes'),
-        medicamentoFields: document.getElementById('medicamento-fields-diabetes')
+        mrgFields: document.getElementById('mrg-fields-diabetes')
     };
 
     // Inicializar elementos do DOM adaptados para diabetes - CHAMADA APÓS DEFINIÇÃO DE ELEMENTS
@@ -135,24 +134,13 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Ocultar todos os campos específicos
             elements.mrgFields.classList.add('hidden');
-            elements.medicamentoFields.classList.add('hidden');
             
             // Mostrar campos baseado na ação
             if (codAcao === 11) { // Avaliar Mapeamento Residencial de Glicemias
                 elements.mrgFields.classList.remove('hidden');
             } else if (codAcao === 3) { // Modificar tratamento
-                elements.medicamentoFields.classList.remove('hidden');
-                
-                // Opcionalmente, abrir diretamente o modal de tratamento
-                if (currentPacienteForModal && confirm('Deseja abrir o modal de gerenciamento de tratamento para fazer as modificações?')) {
-                    // Fechar modal de registro
-                    elements.registerModal.classList.add('hidden');
-                    
-                    // Abrir modal de tratamento
-                    setTimeout(() => {
-                        abrirModalTratamentoDiabetes(currentPacienteForModal);
-                    }, 100);
-                }
+                // Modificar tratamento agora apenas registra a ação na timeline
+                // O tratamento real será modificado através do modal de tratamento separadamente
             }
         });
 
@@ -873,6 +861,22 @@ document.addEventListener('DOMContentLoaded', function () {
                     `;
                 }
                 
+                // Determinar classe do status com cores atualizadas
+                let statusBadgeClass;
+                switch (item.status_acao) {
+                    case 'REALIZADA':
+                        statusBadgeClass = 'bg-green-100 text-green-800';
+                        break;
+                    case 'CANCELADA':
+                        statusBadgeClass = 'bg-red-100 text-red-800';
+                        break;
+                    case 'AGUARDANDO':
+                    case 'PENDENTE':
+                    default:
+                        statusBadgeClass = 'bg-yellow-100 text-yellow-800';
+                        break;
+                }
+                
                 timelineHTML += `
                     <div class="border-l-4 border-amber-500 pl-4 pb-4 mb-4">
                         <div class="flex justify-between items-start">
@@ -882,8 +886,45 @@ document.addEventListener('DOMContentLoaded', function () {
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
                                 ${mrgDetailsHtml}
+                                
+                                <!-- Botões de ação da timeline -->
+                                <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
+                                    ${item.status_acao !== 'REALIZADA' ? `
+                                        <button 
+                                            class="timeline-action-btn timeline-action-complete text-xs px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center"
+                                            data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                            data-action="complete"
+                                            title="Marcar como concluída"
+                                        >
+                                            <i class="ri-check-line mr-1"></i>
+                                            Ação Concluída
+                                        </button>
+                                    ` : ''}
+                                    
+                                    ${item.status_acao !== 'CANCELADA' ? `
+                                        <button 
+                                            class="timeline-action-btn timeline-action-cancel text-xs px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center"
+                                            data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                            data-action="cancel"
+                                            title="Marcar como cancelada"
+                                        >
+                                            <i class="ri-close-line mr-1"></i>
+                                            Ação Cancelada
+                                        </button>
+                                    ` : ''}
+                                    
+                                    <button 
+                                        class="timeline-action-btn timeline-action-delete text-xs px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors duration-200 flex items-center"
+                                        data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                        data-action="delete"
+                                        title="Excluir ação"
+                                    >
+                                        <i class="ri-delete-bin-line mr-1"></i>
+                                        Excluir
+                                    </button>
+                                </div>
                             </div>
-                            <span class="px-2 py-1 text-xs rounded-full ${statusClass} ml-2">${item.status_acao}</span>
+                            <span class="px-2 py-1 text-xs rounded-full ${statusBadgeClass} ml-2 whitespace-nowrap">${item.status_acao}</span>
                         </div>
                     </div>
                 `;
@@ -929,9 +970,101 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
             });
+            
+            // Adicionar event listeners para os botões de ação da timeline
+            document.querySelectorAll('.timeline-action-btn').forEach(button => {
+                button.addEventListener('click', async function() {
+                    const codAcompanhamento = this.getAttribute('data-cod-acompanhamento');
+                    const action = this.getAttribute('data-action');
+                    
+                    if (!codAcompanhamento) {
+                        console.error('Código do acompanhamento não encontrado');
+                        return;
+                    }
+                    
+                    try {
+                        await handleTimelineAction(codAcompanhamento, action, this);
+                    } catch (error) {
+                        console.error('Erro ao executar ação da timeline:', error);
+                        alert('Erro ao executar ação. Tente novamente.');
+                    }
+                });
+            });
         } catch (error) {
             console.error('Erro ao carregar timeline:', error);
             elements.timelineContent.innerHTML = '<div class="p-4 text-center text-red-500">Erro ao carregar timeline</div>';
+        }
+    }
+
+    // Função para gerenciar ações da timeline (Concluída, Cancelada, Excluir)
+    async function handleTimelineAction(codAcompanhamento, action, buttonElement) {
+        let confirmMessage = '';
+        let apiEndpoint = '';
+        let requestMethod = 'PUT';
+        let requestBody = {};
+        
+        switch (action) {
+            case 'complete':
+                confirmMessage = 'Tem certeza que deseja marcar esta ação como concluída?';
+                apiEndpoint = `/api/diabetes/timeline/${codAcompanhamento}/status`;
+                requestBody = { status: 'REALIZADA', data_realizacao: new Date().toISOString().split('T')[0] };
+                break;
+            case 'cancel':
+                confirmMessage = 'Tem certeza que deseja cancelar esta ação?';
+                apiEndpoint = `/api/diabetes/timeline/${codAcompanhamento}/status`;
+                requestBody = { status: 'CANCELADA', data_realizacao: new Date().toISOString().split('T')[0] };
+                break;
+            case 'delete':
+                confirmMessage = 'Tem certeza que deseja excluir esta ação? Esta operação não pode ser desfeita.';
+                apiEndpoint = `/api/diabetes/timeline/${codAcompanhamento}`;
+                requestMethod = 'DELETE';
+                break;
+            default:
+                throw new Error(`Ação não reconhecida: ${action}`);
+        }
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+        
+        // Desabilitar botão durante a requisição
+        const originalText = buttonElement.innerHTML;
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = '<i class="ri-loader-4-line animate-spin mr-1"></i>Processando...';
+        
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: requestMethod,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: requestMethod !== 'DELETE' ? JSON.stringify(requestBody) : undefined
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.erro || `HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.sucesso) {
+                alert(result.mensagem || 'Ação executada com sucesso!');
+                
+                // Recarregar timeline para refletir as mudanças
+                if (currentPacienteForModal && currentPacienteForModal.cod_paciente) {
+                    await loadTimelineDiabetes(currentPacienteForModal.cod_paciente);
+                }
+            } else {
+                throw new Error(result.erro || 'Erro desconhecido');
+            }
+        } catch (error) {
+            console.error(`Erro ao executar ação da timeline (${action}):`, error);
+            alert(`Erro ao executar ação: ${error.message}`);
+            
+            // Restaurar botão em caso de erro
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = originalText;
         }
     }
 
@@ -945,7 +1078,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function resetActionForm() {
         elements.actionForm.reset();
         elements.mrgFields.classList.add('hidden');
-        elements.medicamentoFields.classList.add('hidden');
     }
 
     // Função para salvar ação
@@ -972,7 +1104,7 @@ document.addEventListener('DOMContentLoaded', function () {
             data_acao_atual: dataAcao,
             observacoes: observacoes || null,
             responsavel_pela_acao: responsavel || null,
-            status_acao: 'REALIZADA'
+            status_acao: 'AGUARDANDO'
         };
 
         // Adicionar dados específicos baseado na ação
@@ -988,19 +1120,8 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             payload.mrg_data = mrgData;
         } else if (codAcao === 3) { // Modificar tratamento
-            const nomeMedicamento = document.getElementById('nome-medicamento-diabetes').value;
-            if (!nomeMedicamento) {
-                alert('Por favor, preencha o nome do medicamento.');
-                return;
-            }
-            
-            const medicamentoData = {
-                nome_medicamento: nomeMedicamento,
-                dose: parseInt(document.getElementById('dose-medicamento-diabetes').value) || 1,
-                frequencia: parseInt(document.getElementById('freq-medicamento-diabetes').value) || 1,
-                data_inicio: document.getElementById('data-inicio-medicamento-diabetes').value || null
-            };
-            payload.medicamento_data = medicamentoData;
+            // Modificar tratamento agora apenas registra a ação na timeline
+            // Não há dados adicionais necessários - a ação será registrada como AGUARDANDO (padrão)
         }
 
         try {

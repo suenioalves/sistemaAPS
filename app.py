@@ -5459,12 +5459,20 @@ def api_diabetes_registrar_acao():
             RETURNING cod_acompanhamento
         """
         
+        # Determinar status e data de realização
+        status_acao = data.get('status_acao', 'AGUARDANDO')
+        data_realizacao = None
+        
+        # Se status for REALIZADA, definir data_realizacao
+        if status_acao == 'REALIZADA':
+            data_realizacao = data.get('data_realizacao', data['data_acao_atual'])
+        
         cur.execute(query, {
             'cod_cidadao': data['cod_cidadao'],
             'cod_acao_atual': data['cod_acao_atual'],
-            'status_acao': data.get('status_acao', 'REALIZADA'),
+            'status_acao': status_acao,
             'data_agendamento': data.get('data_agendamento', data['data_acao_atual']),
-            'data_realizacao': data['data_acao_atual'],
+            'data_realizacao': data_realizacao,
             'observacoes': data.get('observacoes'),
             'responsavel_pela_acao': data.get('responsavel_pela_acao')
         })
@@ -5492,22 +5500,8 @@ def api_diabetes_registrar_acao():
                 'analise_mrg': mrg_data.get('analise_mrg')
             })
         
-        # Se for ação de Modificar tratamento (cod_acao 3), inserir medicamento
-        if int(data['cod_acao_atual']) == 3 and 'medicamento_data' in data:
-            med_query = """
-                INSERT INTO sistemaaps.tb_hiperdia_dm_medicamentos 
-                (codcidadao, nome_medicamento, dose, frequencia, data_inicio)
-                VALUES (%(codcidadao)s, %(nome_medicamento)s, %(dose)s, %(frequencia)s, %(data_inicio)s)
-            """
-            
-            med_data = data['medicamento_data']
-            cur.execute(med_query, {
-                'codcidadao': data['cod_cidadao'],
-                'nome_medicamento': med_data['nome_medicamento'],
-                'dose': med_data.get('dose', 1),
-                'frequencia': med_data.get('frequencia', 1),
-                'data_inicio': med_data.get('data_inicio')
-            })
+        # Ação de Modificar tratamento (cod_acao 3) agora apenas registra a ação na timeline
+        # A modificação real do tratamento será feita através do modal de tratamento dedicado
         
         conn.commit()
         
@@ -5521,6 +5515,126 @@ def api_diabetes_registrar_acao():
         if conn:
             conn.rollback()
         print(f"Erro ao registrar ação para diabético: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/timeline/<int:cod_acompanhamento>/status', methods=['PUT'])
+def api_diabetes_update_timeline_status(cod_acompanhamento):
+    """API para atualizar status de uma ação da timeline (REALIZADA, CANCELADA)"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        
+        if not data or 'status' not in data:
+            return jsonify({"sucesso": False, "erro": "Status é obrigatório"}), 400
+        
+        status = data['status']
+        data_realizacao = data.get('data_realizacao')
+        
+        # Validar status - aceita todos os valores permitidos pela constraint do banco
+        if status not in ['REALIZADA', 'CANCELADA', 'AGUARDANDO', 'PENDENTE']:
+            return jsonify({"sucesso": False, "erro": "Status inválido. Valores aceitos: REALIZADA, CANCELADA, AGUARDANDO, PENDENTE"}), 400
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar se a ação existe
+        cur.execute("""
+            SELECT cod_acompanhamento, status_acao, cod_cidadao
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            WHERE cod_acompanhamento = %s
+        """, (cod_acompanhamento,))
+        
+        action = cur.fetchone()
+        if not action:
+            return jsonify({"sucesso": False, "erro": "Ação não encontrada"}), 404
+        
+        # Atualizar status
+        update_query = """
+            UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento 
+            SET status_acao = %s, 
+                data_realizacao = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_acompanhamento = %s
+        """
+        
+        cur.execute(update_query, (status, data_realizacao, cod_acompanhamento))
+        conn.commit()
+        
+        mensagem_map = {
+            'REALIZADA': 'Ação marcada como concluída com sucesso!',
+            'CANCELADA': 'Ação cancelada com sucesso!',
+            'AGUARDANDO': 'Status da ação atualizado para aguardando',
+            'PENDENTE': 'Status da ação atualizado para pendente'
+        }
+        
+        return jsonify({
+            "sucesso": True,
+            "mensagem": mensagem_map.get(status, "Status atualizado com sucesso!")
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar status da timeline: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/timeline/<int:cod_acompanhamento>', methods=['DELETE'])
+def api_diabetes_delete_timeline_action(cod_acompanhamento):
+    """API para excluir uma ação da timeline"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar se a ação existe
+        cur.execute("""
+            SELECT cod_acompanhamento, cod_cidadao
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            WHERE cod_acompanhamento = %s
+        """, (cod_acompanhamento,))
+        
+        action = cur.fetchone()
+        if not action:
+            return jsonify({"sucesso": False, "erro": "Ação não encontrada"}), 404
+        
+        # Primeiro, excluir dados MRG relacionados (se existirem)
+        cur.execute("""
+            DELETE FROM sistemaaps.tb_hiperdia_mrg 
+            WHERE cod_acompanhamento = %s
+        """, (cod_acompanhamento,))
+        
+        # Excluir a ação principal
+        cur.execute("""
+            DELETE FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            WHERE cod_acompanhamento = %s
+        """, (cod_acompanhamento,))
+        
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Ação não pôde ser excluída"}), 400
+        
+        conn.commit()
+        
+        return jsonify({
+            "sucesso": True,
+            "mensagem": "Ação excluída com sucesso!"
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao excluir ação da timeline: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
