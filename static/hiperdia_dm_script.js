@@ -566,15 +566,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!treatmentDiv) return;
 
         try {
-            const response = await fetch(`/api/diabetes/medicamentos_atuais/${codCidadao}`);
-            const data = await response.json();
+            // Buscar medicamentos e insulinas em paralelo
+            const [medicamentosResponse, insulinasResponse] = await Promise.all([
+                fetch(`/api/diabetes/medicamentos_atuais/${codCidadao}`),
+                fetch(`/api/diabetes/insulinas/${codCidadao}`)
+            ]);
 
-            if (!response.ok) {
-                throw new Error(data.erro || 'Erro ao carregar medicamentos');
+            // Processar medicamentos
+            const medicamentosData = await medicamentosResponse.json();
+            const medicamentos = medicamentosData.medicamentos || [];
+
+            // Processar insulinas
+            let insulinas = [];
+            if (insulinasResponse.ok) {
+                const insulinasData = await insulinasResponse.json();
+                insulinas = insulinasData.insulinas || [];
             }
 
-            const medicamentos = data.medicamentos || [];
-            treatmentDiv.innerHTML = formatTreatmentSummary(medicamentos);
+            // Combinar medicamentos e insulinas para exibição
+            const tratamentoCompleto = {
+                medicamentos: medicamentos,
+                insulinas: insulinas
+            };
+
+            treatmentDiv.innerHTML = formatTreatmentSummary(tratamentoCompleto);
 
         } catch (error) {
             console.error(`Erro ao carregar tratamento para paciente ${codCidadao}:`, error);
@@ -583,20 +598,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Função para formatar resumo do tratamento
-    function formatTreatmentSummary(medicamentos) {
-        if (!medicamentos || medicamentos.length === 0) {
+    function formatTreatmentSummary(tratamento) {
+        const medicamentos = tratamento.medicamentos || [];
+        const insulinas = tratamento.insulinas || [];
+        const totalTratamentos = medicamentos.length + insulinas.length;
+
+        if (totalTratamentos === 0) {
             return '<span class="text-gray-400"><i class="ri-medicine-bottle-line"></i> Sem medicamentos</span>';
         }
 
-        // Determinar classe de fonte baseada no número de medicamentos
+        // Determinar classe de fonte baseada no número total de tratamentos
         let fontSizeClass, iconSize;
-        if (medicamentos.length === 1 || medicamentos.length === 2) {
+        if (totalTratamentos === 1 || totalTratamentos === 2) {
             fontSizeClass = 'text-sm'; // Fonte atual (14px)
             iconSize = 'text-base'; // Ícone normal
-        } else if (medicamentos.length === 3) {
+        } else if (totalTratamentos === 3) {
             fontSizeClass = 'text-xs'; // Fonte menor (12px)
             iconSize = 'text-sm'; // Ícone menor
-        } else { // 4+ medicamentos
+        } else { // 4+ tratamentos
             fontSizeClass = 'text-xs'; // Fonte ainda menor
             iconSize = 'text-xs'; // Ícone ainda menor
         }
@@ -620,17 +639,84 @@ document.addEventListener('DOMContentLoaded', function () {
             'text-fuchsia-500'   // Fúcsia
         ];
 
-        let medicamentosHTML = '';
+        // Mapeamento de cores específicas para insulinas baseado no tipo
+        const insulinColors = {
+            'Insulina NPH': 'text-green-600',        // NPH - Verde
+            'Insulina Regular': 'text-yellow-600',   // Regular - Amarelo
+            'Insulina Glargina': 'text-purple-600',  // Glargina - Roxo
+            'Insulina Lispro': 'text-blue-600'       // Lispro - Azul
+        };
+
+        let tratamentoHTML = '';
+        let itemIndex = 0;
         
-        // Mostrar todos os medicamentos com cores diferentes
-        medicamentos.forEach((med, index) => {
-            const separator = index > 0 ? '<br>' : '';
-            const iconColor = iconColors[index % iconColors.length]; // Cicla pelas cores
-            medicamentosHTML += `${separator}<i class="ri-medicine-bottle-fill ${iconColor} ${iconSize}"></i> 
-                                <span class="${fontSizeClass} text-gray-700">${med.nome_medicamento} - ${med.dose || 1} comp ${med.frequencia || 1}x/dia</span>`;
+        // Exibir medicamentos orais primeiro
+        medicamentos.forEach((med) => {
+            const separator = itemIndex > 0 ? '<br>' : '';
+            const iconColor = iconColors[itemIndex % iconColors.length]; // Cicla pelas cores
+            tratamentoHTML += `${separator}<i class="ri-medicine-bottle-fill ${iconColor} ${iconSize}"></i> 
+                              <span class="${fontSizeClass} text-gray-700">${med.nome_medicamento} - ${med.dose || 1} comp ${med.frequencia || 1}x/dia</span>`;
+            itemIndex++;
         });
 
-        return `<div class="text-sm">${medicamentosHTML}</div>`;
+        // Exibir insulinas com formatação especial
+        insulinas.forEach((insulin) => {
+            const separator = itemIndex > 0 ? '<br>' : '';
+            const insulinColor = insulinColors[insulin.tipo_insulina] || 'text-orange-600'; // Cor padrão se não mapeado
+            
+            // Formatar doses no formato U (unidades)
+            const dosesFormatadas = formatInsulinDoses(insulin.doses_estruturadas);
+            
+            tratamentoHTML += `${separator}<i class="ri-syringe-line ${insulinColor} ${iconSize}"></i> 
+                              <span class="${fontSizeClass} text-gray-700">${insulin.tipo_insulina} - ${dosesFormatadas}</span>`;
+            itemIndex++;
+        });
+
+        return `<div class="text-sm">${tratamentoHTML}</div>`;
+    }
+
+    // Função auxiliar para formatar doses de insulina no formato solicitado (12U/20U/30U)
+    function formatInsulinDoses(dosesEstruturadas) {
+        if (!dosesEstruturadas) {
+            return 'Dose não definida';
+        }
+
+        try {
+            let doses = dosesEstruturadas;
+            
+            // Se for string JSON, fazer parse
+            if (typeof dosesEstruturadas === 'string') {
+                try {
+                    doses = JSON.parse(dosesEstruturadas);
+                } catch (parseError) {
+                    console.error('Erro ao fazer parse do JSON de doses:', parseError);
+                    return 'Erro no formato da dose';
+                }
+            }
+            
+            // Verificar se é array válido
+            if (!Array.isArray(doses) || doses.length === 0) {
+                return 'Dose não definida';
+            }
+            
+            // Formatar doses no formato U (unidades)
+            const dosesFormatadas = doses
+                .map(dose => {
+                    if (dose && typeof dose.dose === 'number') {
+                        return `${dose.dose}U`;
+                    } else {
+                        console.warn('Dose inválida encontrada:', dose);
+                        return '0U';
+                    }
+                })
+                .join('/');
+                
+            return dosesFormatadas || 'Dose não definida';
+            
+        } catch (error) {
+            console.error('Erro ao formatar doses de insulina:', error);
+            return 'Erro na dose';
+        }
     }
 
     // Função para abrir modal da timeline (disponível globalmente)
@@ -1719,10 +1805,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     avatarDiv.innerHTML = `<span>${iniciais}</span>`;
                 }
                 
-                // Mostrar e ativar o botão de modificar insulina
+                // Ativar o botão de modificar insulina
                 const modifyInsulinTab = document.querySelector('[data-action="modify-insulin"]');
                 if (modifyInsulinTab) {
-                    modifyInsulinTab.classList.remove('hidden');
                     modifyInsulinTab.click();
                 }
                 
@@ -1871,14 +1956,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Recarregar medicamentos atuais
                 await loadMedicamentosAtuaisDiabetes(currentPacienteForModal.cod_paciente);
                 
+                // Atualizar coluna de tratamento na tabela principal
+                await loadTreatmentSummaryForPatient(currentPacienteForModal.cod_paciente);
+                
                 // Limpar variável
                 insulinaParaModificar = null;
                 
-                // Esconder botão de modificar insulina novamente
-                const modifyInsulinTab = document.querySelector('[data-action="modify-insulin"]');
-                if (modifyInsulinTab) {
-                    modifyInsulinTab.classList.add('hidden');
-                }
+                // Botão de modificar insulina permanece sempre visível
                 
             } else {
                 alert(`Erro ao modificar insulina: ${result.erro}`);
