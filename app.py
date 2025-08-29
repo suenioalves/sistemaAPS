@@ -5182,7 +5182,7 @@ def api_pacientes_hiperdia_dm():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Base da query para pacientes diabéticos usando view específica com agente
+        # Base da query para pacientes diabéticos usando view específica com agente e ação atual
         base_query = """
             SELECT DISTINCT 
                 d.cod_paciente,
@@ -5195,6 +5195,23 @@ def api_pacientes_hiperdia_dm():
                 d.tipo_diabetes,
                 d.situacao_problema,
                 ag.nome_agente,
+                -- Ação atual (mais recente)
+                ultima_acao.cod_acao as acao_atual_cod,
+                ultima_acao.dsc_acao as acao_atual_nome,
+                ultima_acao.status_acao as acao_atual_status,
+                ultima_acao.data_agendamento as acao_atual_data_agendamento,
+                ultima_acao.data_realizacao as acao_atual_data_realizacao,
+                -- Status inteligente baseado na lógica de acompanhamento
+                CASE 
+                    WHEN ultima_acao.cod_acao IS NULL THEN 'sem_avaliacao'
+                    WHEN ultima_acao.status_acao = 'AGUARDANDO' THEN 'em_analise'
+                    WHEN ultima_acao.status_acao = 'REALIZADA' THEN 'em_analise'
+                    WHEN ultima_acao.status_acao = 'FINALIZADO' THEN 'diabetes_compensada'
+                    WHEN d.situacao_problema = 1 THEN 'controlado'
+                    WHEN d.situacao_problema = 0 THEN 'descompensado'
+                    ELSE 'indefinido'
+                END as status_dm_novo,
+                -- Status antigo para compatibilidade
                 CASE 
                     WHEN d.situacao_problema = 1 THEN 'controlado'
                     WHEN d.situacao_problema = 0 THEN 'descompensado'
@@ -5202,6 +5219,20 @@ def api_pacientes_hiperdia_dm():
                 END as status_dm
             FROM sistemaaps.mv_hiperdia_diabetes d
             LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
+            LEFT JOIN LATERAL (
+                SELECT 
+                    a.cod_acao,
+                    ta.dsc_acao,
+                    a.status_acao,
+                    a.data_agendamento,
+                    a.data_realizacao,
+                    a.created_at
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                LEFT JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+                WHERE a.cod_cidadao = d.cod_paciente
+                ORDER BY a.created_at DESC
+                LIMIT 1
+            ) ultima_acao ON true
             WHERE 1=1
         """
 
@@ -5257,11 +5288,25 @@ def api_pacientes_hiperdia_dm():
         cur.execute(full_query, params)
         pacientes = cur.fetchall()
         
-        # Contar total de pacientes - query com agente
+        # Contar total de pacientes - query com agente e ação atual  
         count_query = """
             SELECT COUNT(DISTINCT d.cod_paciente) as count
             FROM sistemaaps.mv_hiperdia_diabetes d
             LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
+            LEFT JOIN LATERAL (
+                SELECT 
+                    a.cod_acao,
+                    ta.dsc_acao,
+                    a.status_acao,
+                    a.data_agendamento,
+                    a.data_realizacao,
+                    a.created_at
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                LEFT JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+                WHERE a.cod_cidadao = d.cod_paciente
+                ORDER BY a.created_at DESC
+                LIMIT 1
+            ) ultima_acao ON true
             WHERE 1=1
         """
         if where_clauses:
@@ -5463,8 +5508,8 @@ def api_diabetes_registrar_acao():
         status_acao = data.get('status_acao', 'AGUARDANDO')
         data_realizacao = None
         
-        # Se status for REALIZADA, definir data_realizacao
-        if status_acao == 'REALIZADA':
+        # Se status for REALIZADA ou FINALIZADO, definir data_realizacao
+        if status_acao in ['REALIZADA', 'FINALIZADO']:
             data_realizacao = data.get('data_realizacao', data['data_acao_atual'])
         
         cur.execute(query, {
@@ -5537,8 +5582,8 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
         data_realizacao = data.get('data_realizacao')
         
         # Validar status - aceita todos os valores permitidos pela constraint do banco
-        if status not in ['REALIZADA', 'CANCELADA', 'AGUARDANDO', 'PENDENTE']:
-            return jsonify({"sucesso": False, "erro": "Status inválido. Valores aceitos: REALIZADA, CANCELADA, AGUARDANDO, PENDENTE"}), 400
+        if status not in ['REALIZADA', 'CANCELADA', 'AGUARDANDO', 'PENDENTE', 'FINALIZADO']:
+            return jsonify({"sucesso": False, "erro": "Status inválido. Valores aceitos: REALIZADA, CANCELADA, AGUARDANDO, PENDENTE, FINALIZADO"}), 400
         
         conn = get_db_connection()
         cur = conn.cursor()

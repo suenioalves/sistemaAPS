@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 Status
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ações
+                                Ação Atual
                             </th>
                         </tr>
                     </thead>
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         pacientes.forEach(paciente => {
-            const statusClass = getStatusClass(paciente.status_dm);
+            const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm);
             const idade = calculateAge(paciente.dt_nascimento);
             
             tableHTML += `
@@ -498,10 +498,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${statusClass}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button class="text-amber-600 hover:text-amber-900" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
-                            <i class="ri-timeline-line"></i> Timeline
-                        </button>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${getAcaoAtualDisplay(paciente)}
+                        <div class="mt-2">
+                            <button class="text-amber-600 hover:text-amber-900 font-medium" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
+                                <i class="ri-edit-line"></i> Editar Ações
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -534,9 +537,18 @@ document.addEventListener('DOMContentLoaded', function () {
         return age;
     }
 
-    // Função para obter classe de status específica para diabetes
-    function getStatusClass(status) {
+    // Função para obter classe de status específica para diabetes com nova lógica avançada
+    function getStatusClass(statusNovo, statusAntigo) {
+        // Usar status novo se disponível, senão usar status antigo
+        const status = statusNovo || statusAntigo;
+        
         switch (status) {
+            case 'sem_avaliacao':
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Sem avaliação</span>';
+            case 'em_analise':
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">EM ANÁLISE</span>';
+            case 'diabetes_compensada':
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">DIABETES COMPENSADA</span>';
             case 'controlado':
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Controlado</span>';
             case 'descompensado':
@@ -546,6 +558,53 @@ document.addEventListener('DOMContentLoaded', function () {
             default:
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Acompanhamento</span>';
         }
+    }
+
+    // Função para exibir a ação atual do paciente
+    function getAcaoAtualDisplay(paciente) {
+        if (!paciente.acao_atual_nome) {
+            return '<div class="text-xs text-gray-500 italic">Nenhuma ação registrada</div>';
+        }
+
+        const nomeAcao = paciente.acao_atual_nome;
+        const status = paciente.acao_atual_status;
+        const dataAgendamento = paciente.acao_atual_data_agendamento;
+        const dataRealizacao = paciente.acao_atual_data_realizacao;
+
+        let displayText = '';
+        let colorClass = '';
+        let data = '';
+
+        switch (status) {
+            case 'AGUARDANDO':
+                displayText = `${nomeAcao} - Aguardando`;
+                colorClass = 'text-yellow-600';
+                data = dataAgendamento ? `(${new Date(dataAgendamento).toLocaleDateString('pt-BR')})` : '';
+                break;
+            case 'REALIZADA':
+                displayText = `${nomeAcao} - Realizado`;
+                colorClass = 'text-green-600';
+                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                break;
+            case 'CANCELADA':
+                displayText = `${nomeAcao} - Cancelado`;
+                colorClass = 'text-red-600';
+                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                break;
+            case 'FINALIZADO':
+                displayText = `${nomeAcao} - Finalizado`;
+                colorClass = 'text-green-600 font-semibold';
+                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                break;
+            default:
+                displayText = `${nomeAcao} - ${status}`;
+                colorClass = 'text-gray-600';
+                break;
+        }
+
+        return `<div class="text-xs ${colorClass}">
+                    ${displayText} ${data}
+                </div>`;
     }
 
     // Função para carregar e exibir tratamento atual de um paciente
@@ -710,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Função para abrir modal da timeline (disponível globalmente)
     window.abrirModalTimelineDiabetes = function(paciente) {
         currentPacienteForModal = paciente;
-        elements.timelineModalTitle.textContent = `Timeline - ${paciente.nome_paciente}`;
+        elements.timelineModalTitle.textContent = `Editar Ações - ${paciente.nome_paciente}`;
         elements.timelineModal.classList.remove('hidden');
         
         // Carregar timeline
@@ -741,7 +800,7 @@ document.addEventListener('DOMContentLoaded', function () {
             timeline.forEach(item => {
                 const dataDisplay = item.data_realizacao || item.data_agendamento;
                 const dataFormatada = dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida';
-                const statusClass = item.status_acao === 'REALIZADA' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+                const statusClass = (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
                 
                 // Processar dados MRG se existirem
                 let mrgDetailsHtml = '';
@@ -867,6 +926,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     case 'REALIZADA':
                         statusBadgeClass = 'bg-green-100 text-green-800';
                         break;
+                    case 'FINALIZADO':
+                        statusBadgeClass = 'bg-green-100 text-green-800 font-semibold';
+                        break;
                     case 'CANCELADA':
                         statusBadgeClass = 'bg-red-100 text-red-800';
                         break;
@@ -889,7 +951,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
-                                    ${item.status_acao !== 'REALIZADA' ? `
+                                    ${(item.status_acao !== 'REALIZADA' && item.status_acao !== 'FINALIZADO') ? `
                                         <button 
                                             class="timeline-action-btn timeline-action-complete text-xs px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center"
                                             data-cod-acompanhamento="${item.cod_acompanhamento}"
@@ -901,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         </button>
                                     ` : ''}
                                     
-                                    ${item.status_acao !== 'CANCELADA' ? `
+                                    ${(item.status_acao !== 'CANCELADA' && item.status_acao !== 'FINALIZADO') ? `
                                         <button 
                                             class="timeline-action-btn timeline-action-cancel text-xs px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center"
                                             data-cod-acompanhamento="${item.cod_acompanhamento}"
@@ -1104,7 +1166,8 @@ document.addEventListener('DOMContentLoaded', function () {
             data_acao_atual: dataAcao,
             observacoes: observacoes || null,
             responsavel_pela_acao: responsavel || null,
-            status_acao: 'AGUARDANDO'
+            // Finalizar Acompanhamento é marcado como FINALIZADO imediatamente
+            status_acao: codAcao === 12 ? 'FINALIZADO' : 'AGUARDANDO'
         };
 
         // Adicionar dados específicos baseado na ação
