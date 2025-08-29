@@ -5390,7 +5390,7 @@ def api_diabetes_timeline(cod_paciente):
             JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             WHERE a.cod_cidadao = %(cod_paciente)s
-            ORDER BY COALESCE(a.data_realizacao, a.data_agendamento) DESC
+            ORDER BY a.created_at DESC
         """
         
         cur.execute(query, {'cod_paciente': cod_paciente})
