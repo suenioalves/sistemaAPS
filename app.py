@@ -1080,7 +1080,10 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             pa_ultima.tipo_abordagem AS ultimo_tipo_abordagem,
             pa_ultima.resultado_abordagem AS ultimo_resultado_abordagem,
             pa_ultima.data_acao AS ultima_data_acao,
-            pa_ultima.responsavel_pela_acao AS responsavel_pela_acao
+            pa_ultima.responsavel_pela_acao AS responsavel_pela_acao,
+            pa_penultima.tipo_abordagem AS penultima_tipo_abordagem,
+            pa_penultima.resultado_abordagem AS penultima_resultado_abordagem,
+            pa_penultima.data_acao AS penultima_data_acao
         """
         
         from_join_clause = """
@@ -1103,6 +1106,14 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
             ORDER BY pa.data_acao DESC, pa.co_abordagem DESC
             LIMIT 1
         ) pa_ultima ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT pa.tipo_abordagem, pa.resultado_abordagem, pa.data_acao
+            FROM sistemaaps.tb_plafam_adolescentes pa
+            WHERE pa.co_cidadao = m.cod_paciente
+              AND pa.resultado_abordagem IS NOT NULL
+            ORDER BY pa.data_acao DESC, pa.co_abordagem DESC
+            LIMIT 1 OFFSET 1
+        ) pa_penultima ON TRUE
         """
 
         # Para contagem, usar FROM clause completo se filtro de próxima ação for aplicado
@@ -1164,6 +1175,13 @@ def api_timeline_adolescentes(): # Rota para a timeline de adolescentes
                 row_dict['ultima_data_acao_formatada'] = ultima_data_acao.strftime('%d/%m/%Y')
             else:
                 row_dict['ultima_data_acao_formatada'] = None
+
+            # Processar dados da penúltima ação realizada
+            penultima_data_acao = row_dict.get('penultima_data_acao')
+            if penultima_data_acao and isinstance(penultima_data_acao, date):
+                row_dict['penultima_data_acao_formatada'] = penultima_data_acao.strftime('%d/%m/%Y')
+            else:
+                row_dict['penultima_data_acao_formatada'] = None
 
 
             # Tratamento de datas para cada linha

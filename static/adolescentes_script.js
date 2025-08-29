@@ -672,56 +672,69 @@ document.addEventListener('DOMContentLoaded', function () {
                         Registrar Ações</button>`;
             }
 
-            let proximaAcaoDisplay = 'A definir';
+            let proximaAcaoDisplay = '';
+            
             if (shouldHideActions) {
                 proximaAcaoDisplay = '';
-            } else if (ado.ultimo_tipo_abordagem === 10) {
-                // Casos especiais para "Nova ação" (tipo 10) com diferentes abordagens
-                const dataAcao = ado.proxima_acao_data_formatada || ado.ultima_data_acao_formatada || 'Data não informada';
-                
-                if (ado.ultimo_resultado_abordagem === 11) {
-                    // "Sem método"
-                    proximaAcaoDisplay = `<span class="text-yellow-800 font-medium">Sem método - Avisar equipe</span><br><span class="text-xs text-yellow-600">(${dataAcao})</span>`;
-                } else if (ado.ultimo_resultado_abordagem === 12) {
-                    // "Método vencido"
-                    proximaAcaoDisplay = `<span class="text-red-800 font-medium">Método vencido - Avisar equipe</span><br><span class="text-xs text-red-600">(${dataAcao})</span>`;
-                } else if (ado.ultimo_resultado_abordagem === 13) {
-                    // "Vencimento próximo"
-                    proximaAcaoDisplay = `<span class="text-green-800 font-medium">Vencimento próximo - Avisar equipe</span><br><span class="text-xs text-green-600">(${dataAcao})</span>`;
-                } else if (ado.ultimo_resultado_abordagem === 14) {
-                    // "Atualizar no PEC"
-                    proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${dataAcao})</span>`;
-                } else if (ado.ultimo_resultado_abordagem === 15) {
-                    // "Método em uso"
-                    proximaAcaoDisplay = `<span class="text-gray-700 font-medium">Método em uso</span><br><span class="text-xs text-gray-600">(${dataAcao})</span>`;
-                } else {
-                    // Fallback para outros códigos de "Nova ação"
-                    proximaAcaoDisplay = `<span class="text-purple-700 font-medium">Nova ação</span><br><span class="text-xs text-purple-600">(${dataAcao})</span>`;
+            } else {
+                // Mapeamento de tipos de abordagem
+                const tipoAbordagemMap = {
+                    1: "Abordagem com pais",
+                    2: "Abordagem direta com adolescente",
+                    3: "Consulta na UBS", 
+                    4: "Entrega de convite",
+                    5: "Fora de área",
+                    6: "Iniciar método em domicílio",
+                    7: "Remover do acompanhamento",
+                    8: "Atualizar no PEC",
+                    10: "Nova ação"
+                };
+
+                // Mapeamento de resultados de abordagem
+                const resultadoAbordagemMap = {
+                    1: "Deseja iniciar um método contraceptivo",
+                    2: "Recusou método contraceptivo",
+                    3: "Ausente em domicílio",
+                    4: "Já usa um método",
+                    5: "Grávida",
+                    6: "Mudou de área",
+                    7: "Não encontrada",
+                    8: "Recusa o acompanhamento",
+                    9: "Menor de 10 anos",
+                    10: "Aceita acompanhamento",
+                    11: "Sem método",
+                    12: "Método vencido", 
+                    13: "Vencimento próximo",
+                    14: "Atualizar no PEC",
+                    15: "Método em uso"
+                };
+
+                // Construir o display com 3 linhas conforme solicitado
+                let linhas = [];
+
+                // Linha 1 (Azul): Ação que originou o resultado - última ação realizada (tipo + data)
+                if (ado.ultimo_tipo_abordagem && ado.ultima_data_acao_formatada) {
+                    const ultimoTipo = tipoAbordagemMap[ado.ultimo_tipo_abordagem] || 'Ação realizada';
+                    linhas.push(`<div class="text-blue-600" style="font-size: 10px; line-height: 1.2;">${ultimoTipo} (${ado.ultima_data_acao_formatada})</div>`);
                 }
-            } else if (ado.ultimo_resultado_abordagem === 4) {
-                // Caso especial: "Já usa um método" - mostrar em azul para consistência
-                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
-            } else if (ado.proxima_acao_tipo === 5 || ado.proxima_acao_tipo === 7 || 
-                      (ado.proxima_acao_descricao && 
-                       (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
-                        ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')))) {
-                // Caso especial: "Fora de área" ou "Remover do acompanhamento" - mostrar "Atualizar no PEC" em azul
-                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
-            } else if (ado.proxima_acao_tipo === 3 || (ado.proxima_acao_descricao && (ado.proxima_acao_descricao.toLowerCase().includes('consulta na ubs') || ado.proxima_acao_descricao.toLowerCase().includes('iniciar método na ubs')))) {
-                // Caso especial: "Iniciar método na UBS" - mostrar em verde escuro
-                proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método na UBS</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da consulta'})</span>`;
-            } else if (ado.proxima_acao_tipo === 6 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('iniciar método em domicílio'))) {
-                // Caso especial: "Iniciar método em domicílio" - mostrar em verde escuro
-                proximaAcaoDisplay = `<span class="text-green-700 font-medium">Iniciar método em domicílio</span><br><span class="text-xs text-green-700">(${ado.proxima_acao_data_formatada || 'data da visita'})</span>`;
-            } else if (ado.proxima_acao_tipo === 8 || (ado.proxima_acao_descricao && ado.proxima_acao_descricao.toLowerCase().includes('atualizar no pec'))) {
-                // Caso especial: "Atualizar PEC" - mostrar em azul
-                proximaAcaoDisplay = `<span class="text-blue-700 font-medium">Atualizar no PEC (${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
-            } else if (ado.proxima_acao_descricao) {
-                // Verificar se é "Abordagem com pais" para colorir de amarelo escuro
-                if (ado.proxima_acao_descricao.toLowerCase().includes('abordagem com pais')) {
-                    proximaAcaoDisplay = `<span class="text-yellow-700 font-medium">${ado.proxima_acao_descricao}</span><br><span class="text-xs text-yellow-600">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+
+                // Linha 2 (Vermelho): Resultado da abordagem (resultado da última ação)
+                if (ado.ultimo_resultado_abordagem) {
+                    const ultimoResultado = resultadoAbordagemMap[ado.ultimo_resultado_abordagem] || 'Resultado não definido';
+                    linhas.push(`<div class="text-red-600" style="font-size: 10px; line-height: 1.2;">${ultimoResultado}</div>`);
+                }
+
+                // Linha 3 (Amarelo): Próxima ação - tipo_abordagem (data) - SEM o texto "próxima ação:"
+                if (ado.proxima_acao_tipo && ado.proxima_acao_data_formatada) {
+                    const proximoTipo = tipoAbordagemMap[ado.proxima_acao_tipo] || ado.proxima_acao_descricao || 'Próxima ação';
+                    linhas.push(`<div class="text-yellow-600" style="font-size: 10px; line-height: 1.2;">${proximoTipo} (${ado.proxima_acao_data_formatada})</div>`);
+                }
+
+                // Juntar as linhas ou exibir mensagem padrão
+                if (linhas.length > 0) {
+                    proximaAcaoDisplay = `<div class="text-center">${linhas.join('')}</div>`;
                 } else {
-                    proximaAcaoDisplay = `<span class="font-medium">${ado.proxima_acao_descricao}</span><br><span class="text-xs text-gray-500">(${ado.proxima_acao_data_formatada || 'Data não definida'})</span>`;
+                    proximaAcaoDisplay = '<div class="text-center text-gray-500" style="font-size: 10px;">A definir</div>';
                 }
             }
 
