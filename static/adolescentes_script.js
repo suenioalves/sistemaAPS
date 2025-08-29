@@ -516,18 +516,8 @@ document.addEventListener('DOMContentLoaded', function () {
         let metodoClass = 'text-gray-900';
         let containerClass = '';
 
-        // Verificar se está fora de área (quando próxima ação é "mudou de área" ou "remover do acompanhamento")
-        const isForaDeArea = ado.proxima_acao_tipo === 5 || ado.proxima_acao_tipo === 7 || 
-                           (ado.proxima_acao_descricao && 
-                            (ado.proxima_acao_descricao.toLowerCase().includes('mudou de área') || 
-                             ado.proxima_acao_descricao.toLowerCase().includes('remover do acompanhamento')));
-
-        if (isForaDeArea) {
-            metodoTexto = 'FORA DE ÁREA';
-            statusTexto = '';
-            metodoClass = 'text-red-700 font-bold';
-            containerClass = 'border-2 border-red-500 rounded-full px-3 py-1 inline-block bg-red-50';
-        } else if (ado.status_gravidez === 'Grávida') {
+        // Verificar apenas status de gravidez, não ações
+        if (ado.status_gravidez === 'Grávida') {
             metodoTexto = 'GESTANTE';
             statusTexto = ado.data_provavel_parto ? `DPP: ${ado.data_provavel_parto}` : 'DPP não informada';
             statusClass = 'text-pink-600 font-semibold';
@@ -666,10 +656,14 @@ document.addEventListener('DOMContentLoaded', function () {
             let registrarAcoesHtml = '';
             if (!shouldHideActions) {
                 registrarAcoesHtml = `
-                    <button class="timeline-ver-detalhes-btn text-primary hover:text-indigo-700 !rounded-button whitespace-nowrap" 
+                    <button class="timeline-ver-detalhes-btn text-primary hover:text-indigo-700 !rounded-button text-center" 
                             data-cod-paciente="${ado.cod_paciente}"
                             data-nome-paciente="${ado.nome_paciente || ''}">
-                        Registrar Ações</button>`;
+                        <div class="flex flex-col items-center leading-tight">
+                            <span>Registrar</span>
+                            <span>Ações</span>
+                        </div>
+                    </button>`;
             }
 
             let proximaAcaoDisplay = '';
@@ -756,7 +750,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${proximaAcaoDisplay}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                     ${registrarAcoesHtml}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">
