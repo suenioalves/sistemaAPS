@@ -514,11 +514,13 @@ export const hiperdiaDom = {
         timelineLine.className = 'timeline-line';
         _elements.timelineModalContentArea.appendChild(timelineLine);
 
-        // Filtro: Remover "Solicitar MRPA", "Solicitar Exames" e "Encaminhar Nutrição" se não estiverem pendentes
+        // Filtro: Remover "Solicitar Exames" e "Encaminhar Nutrição" se não estiverem pendentes
+        // "Solicitar MRPA" agora é mostrado em todos os status (PENDENTE, REALIZADA, CANCELADA)
         const filteredEvents = events.filter(evento => {
-            if ((evento.cod_acao === 1 || evento.cod_acao === 4 || evento.cod_acao === 7) && evento.status_acao !== 'PENDENTE') {
-                return false; // Não exibe Solicitar MRPA, Solicitar Exames ou Encaminhar Nutrição se não for pendente
+            if ((evento.cod_acao === 4 || evento.cod_acao === 7) && evento.status_acao !== 'PENDENTE') {
+                return false; // Não exibe Solicitar Exames ou Encaminhar Nutrição se não for pendente
             }
+            // Sempre mostra Solicitar MRPA (cod_acao === 1) independente do status
             return true;
         });
 
@@ -582,9 +584,40 @@ export const hiperdiaDom = {
             
             const cardBorderClass = evento.status_acao === 'PENDENTE' ? 'border-2 border-yellow-400' : '';
     
-            const cancelButtonHtml = evento.status_acao === 'PENDENTE'
-                ? `<button class="cancel-action-btn text-xs text-red-500 hover:text-red-700 font-medium ml-4" data-cod-acompanhamento="${evento.cod_acompanhamento}">Cancelar</button>`
-                : '';
+            // Novos botões de ação baseados no status
+            let actionButtonsHtml = '';
+            if (evento.status_acao === 'PENDENTE') {
+                // Determinar o texto do botão baseado no tipo de ação
+                let buttonText = 'Ação Realizada'; // padrão
+                if (evento.cod_acao === 9) { // Agendar Hiperdia
+                    buttonText = 'Iniciar Hiperdia';
+                } else if (evento.cod_acao === 2) { // Avaliar MRPA
+                    buttonText = 'Avaliar MRPA';
+                } else if (evento.cod_acao === 3) { // Modificar tratamento
+                    buttonText = 'Tratamento modificado';
+                }
+                
+                actionButtonsHtml = `
+                    <div class="flex gap-2 ml-4">
+                        <button class="action-realizada-btn bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded font-medium transition-colors duration-200" 
+                                data-cod-acompanhamento="${evento.cod_acompanhamento}" 
+                                data-cod-acao="${evento.cod_acao}"
+                                title="Marcar como realizada">
+                            ${buttonText}
+                        </button>
+                        <button class="action-cancelada-btn bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded font-medium transition-colors duration-200" 
+                                data-cod-acompanhamento="${evento.cod_acompanhamento}" 
+                                title="Marcar como cancelada">
+                            Ação Cancelada
+                        </button>
+                        <button class="action-excluir-btn bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded font-medium transition-colors duration-200" 
+                                data-cod-acompanhamento="${evento.cod_acompanhamento}" 
+                                title="Excluir ação">
+                            Excluir
+                        </button>
+                    </div>
+                `;
+            }
 
             let examResultsHtml = '';
             if (evento.resultados_exames) {
@@ -915,10 +948,15 @@ export const hiperdiaDom = {
 
             // Custom logic for display based on user requirements
             if (evento.cod_acao === 9 && evento.status_acao === 'PENDENTE') {
-                adjustedActionText = "Agendado Hiperdia";
+                adjustedActionText = "Agendar Hiperdia";
                 adjustedStatusDisplay = "(Pendente)";
                 iconClass = 'ri-calendar-check-line';
-                iconColorClass = 'bg-blue-100 text-blue-600';
+                iconColorClass = 'bg-yellow-600 text-white'; // Alterado para amarelo escuro
+            } else if (evento.cod_acao === 1 && evento.status_acao === 'PENDENTE') {
+                adjustedActionText = "Solicitar MRPA";
+                adjustedStatusDisplay = "(Pendente)";
+                iconClass = 'ri-file-add-line';
+                iconColorClass = 'bg-yellow-600 text-white'; // Amarelo escuro para pendente
             } else if (evento.cod_acao === 9 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Iniciado Hiperdia";
                 adjustedStatusDisplay = "(Realizada)";
@@ -928,51 +966,60 @@ export const hiperdiaDom = {
                 adjustedActionText = "Solicitar MRPA";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-file-add-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
+            } else if (evento.cod_acao === 1 && evento.status_acao === 'CANCELADA') {
+                adjustedActionText = "Solicitar MRPA";
+                adjustedStatusDisplay = "(Cancelada)";
+                iconClass = 'ri-file-add-line';
+                iconColorClass = 'bg-red-600 text-white'; // Vermelho para cancelada
             } else if (evento.cod_acao === 2 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Avaliar MRPA";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-stethoscope-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 3 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Modificar Tratamento";
                 adjustedStatusDisplay = "(Realizada)";
-                iconClass = 'ri-capsule-line'; // Keep capsule icon
-                iconColorClass = 'bg-green-100 text-green-600'; // Change to green
+                iconClass = 'ri-capsule-line';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 4 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Solicitar Exames";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-test-tube-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 5 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Avaliar Exames";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-file-search-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 6 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Avaliar RCV";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-heart-2-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 7 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Encaminhar Nutrição";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-arrow-right-up-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 8 && evento.status_acao === 'REALIZADA') {
                 adjustedActionText = "Registrar Nutrição";
                 adjustedStatusDisplay = "(Realizada)";
                 iconClass = 'ri-apple-line';
-                iconColorClass = 'bg-green-100 text-green-600';
+                iconColorClass = 'bg-green-600 text-white';
             } else { // Default icons and colors for PENDENTE and CANCELADA or other cases
                 switch (evento.status_acao) {
                     case 'PENDENTE':
                         iconClass = 'ri-time-line';
-                        iconColorClass = 'bg-yellow-100 text-yellow-600';
+                        iconColorClass = 'bg-yellow-600 text-white'; // Alterado para amarelo escuro
                         break;
                     case 'CANCELADA':
                         iconClass = 'ri-close-circle-line';
-                        iconColorClass = 'bg-red-100 text-red-600';
+                        iconColorClass = 'bg-red-600 text-white'; // Alterado para vermelho
+                        break;
+                    case 'REALIZADA':
+                        iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
+                        iconColorClass = 'bg-green-600 text-white'; // Alterado para verde
                         break;
                     default:
                         iconClass = actionIcons[evento.cod_acao] || actionIcons['default'];
@@ -987,11 +1034,13 @@ export const hiperdiaDom = {
                         <div class="w-6 h-6 flex items-center justify-center"><i class="${iconClass} text-xl"></i></div>
                     </div>
                     <div class="ml-4 bg-white rounded-lg shadow p-4 flex-grow ${cardBorderClass}">
-                        <div class="flex justify-between items-center mb-2">
-                            <h5 class="font-medium">${adjustedActionText} <span class="text-xs">${adjustedStatusDisplay}</span></h5>
-                            <div class="flex items-center">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h5 class="font-medium">${adjustedActionText} <span class="text-xs">${adjustedStatusDisplay}</span></h5>
+                            </div>
+                            <div class="flex flex-col items-end gap-2">
                                 <span class="text-sm text-gray-500">${dataFormatada}</span>
-                                ${cancelButtonHtml}
+                                ${actionButtonsHtml}
                             </div>
                         </div>
                         ${evento.observacoes ? `<p class="text-sm text-gray-600 mb-2">${evento.observacoes.replace(/\n/g, '<br>')}</p>` : ''}
@@ -1406,7 +1455,7 @@ export const hiperdiaDom = {
     setSaveButtonLoading: (isLoading) => {
         if (_elements.saveRegisterModalBtn) { // Corrected: _elements.saveRegisterModalBtn
             _elements.saveRegisterModalBtn.disabled = isLoading; // Corrected: _elements.saveRegisterModalBtn
-            _elements.saveRegisterModalBtn.textContent = isLoading ? 'Salvando...' : 'Salvar registro'; // Corrected: _elements.saveRegisterModalBtn
+            _elements.saveRegisterModalBtn.textContent = isLoading ? 'Salvando...' : 'Salvar Ação'; // Corrected: _elements.saveRegisterModalBtn
         }
     },
 

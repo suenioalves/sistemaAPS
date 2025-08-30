@@ -352,6 +352,42 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function abrirModalRegistroHiperdiaComAcao(actionValue) {
+        if (!currentPacienteForModal) return;
+        
+        // Abrir o modal de registro
+        hiperdiaDom.openRegisterModal(currentPacienteForModal);
+        
+        // Aguardar que o modal seja renderizado antes de selecionar a ação
+        setTimeout(() => {
+            // Encontrar e ativar a aba específica
+            const targetTab = document.querySelector(`.action-type-tab[data-action-value="${actionValue}"]`);
+            if (targetTab) {
+                // Remover active de todas as abas
+                elements.actionTypeTabs.forEach(t => {
+                    t.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                    t.classList.add('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                });
+                
+                // Ativar a aba específica
+                targetTab.classList.add('active', 'border-primary', 'bg-primary/10', 'text-primary');
+                targetTab.classList.remove('border-gray-200', 'bg-white', 'hover:bg-gray-50', 'text-gray-600');
+                
+                // Atualizar as seções do formulário
+                handleActionTypeChange();
+            }
+        }, 100);
+
+        hiperdiaApi.fetchMedicamentos(currentPacienteForModal.cod_paciente)
+            .then(medicamentos => {
+                hiperdiaDom.renderMedicamentosCards(medicamentos);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar medicamentos:', error);
+                hiperdiaDom.renderMedicamentosCards([]); // Renderiza como vazio em caso de erro
+            });
+    }
+
     async function saveHiperdiaAction() {
         if (!currentPacienteForModal) {
             alert('Erro: Paciente não selecionado.');
@@ -819,59 +855,150 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- Event Listeners ---
-    if (elements.timelineModalContentArea) { // Corrected: elements.timelineModalContentArea
-        elements.timelineModalContentArea.addEventListener('click', async (event) => { // Corrected: elements.timelineModalContentArea
-            if (event.target.classList.contains('cancel-action-btn')) {
-                const button = event.target;
-                const codAcompanhamento = button.dataset.codAcompanhamento;
-
-                // Confirmação mais detalhada
+    if (elements.timelineModalContentArea) {
+        elements.timelineModalContentArea.addEventListener('click', async (event) => {
+            const button = event.target;
+            const codAcompanhamento = button.dataset.codAcompanhamento;
+            
+            // Handler para o botão "Ação Realizada"
+            if (button.classList.contains('action-realizada-btn')) {
+                const codAcao = parseInt(button.dataset.codAcao);
+                
+                // Se for "Iniciar Hiperdia" (cod_acao === 9), abrir modal de registro com "Iniciar MRPA" selecionado
+                if (codAcao === 9) {
+                    abrirModalRegistroHiperdiaComAcao('1'); // Abrir com "Iniciar MRPA" (cod_acao 1)
+                    return;
+                }
+                
+                // Se for "Avaliar MRPA" (cod_acao === 2), abrir modal de registro com "Avaliar MRPA" selecionado
+                if (codAcao === 2) {
+                    abrirModalRegistroHiperdiaComAcao('2'); // Abrir com "Avaliar MRPA" (cod_acao 2)
+                    return;
+                }
+                
+                // Para outras ações, comportamento original
+                const confirmacao = confirm('Confirma que a ação foi realizada?');
+                if (!confirmacao) return;
+                
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Processando...';
+                button.classList.add('opacity-50');
+                
+                try {
+                    const data = await hiperdiaApi.atualizarStatusAcao(codAcompanhamento, 'REALIZADA');
+                    if (data.sucesso) {
+                        // Feedback visual temporário
+                        button.textContent = '✓ Realizada';
+                        button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        button.classList.add('bg-green-800');
+                        
+                        // Recarrega a timeline
+                        if (currentPacienteForModal) {
+                            await abrirModalTimelineHiperdia(currentPacienteForModal);
+                        }
+                        
+                        setTimeout(() => {
+                            alert('Ação marcada como realizada com sucesso!');
+                        }, 100);
+                    } else {
+                        alert(`Erro: ${data.erro}`);
+                        button.disabled = false;
+                        button.textContent = originalText;
+                        button.classList.remove('opacity-50');
+                    }
+                } catch (error) {
+                    console.error('Erro ao marcar ação como realizada:', error);
+                    alert('Ocorreu um erro ao marcar a ação como realizada.');
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.classList.remove('opacity-50');
+                }
+            }
+            
+            // Handler para o botão "Ação Cancelada"
+            if (button.classList.contains('action-cancelada-btn')) {
+                const confirmacao = confirm('Confirma que a ação foi cancelada?');
+                if (!confirmacao) return;
+                
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Processando...';
+                button.classList.add('opacity-50');
+                
+                try {
+                    const data = await hiperdiaApi.atualizarStatusAcao(codAcompanhamento, 'CANCELADA');
+                    if (data.sucesso) {
+                        // Feedback visual temporário
+                        button.textContent = '✓ Cancelada';
+                        button.classList.remove('bg-red-600', 'hover:bg-red-700');
+                        button.classList.add('bg-red-800');
+                        
+                        // Recarrega a timeline
+                        if (currentPacienteForModal) {
+                            await abrirModalTimelineHiperdia(currentPacienteForModal);
+                        }
+                        
+                        setTimeout(() => {
+                            alert('Ação marcada como cancelada com sucesso!');
+                        }, 100);
+                    } else {
+                        alert(`Erro: ${data.erro}`);
+                        button.disabled = false;
+                        button.textContent = originalText;
+                        button.classList.remove('opacity-50');
+                    }
+                } catch (error) {
+                    console.error('Erro ao marcar ação como cancelada:', error);
+                    alert('Ocorreu um erro ao marcar a ação como cancelada.');
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.classList.remove('opacity-50');
+                }
+            }
+            
+            // Handler para o botão "Excluir"
+            if (button.classList.contains('action-excluir-btn')) {
                 const confirmacao = confirm(
                     'ATENÇÃO: Esta ação será completamente removida da base de dados, junto com todas as ações posteriores que dependem dela.\n\n' +
                     'Esta operação não pode ser desfeita.\n\n' +
                     'Tem certeza que deseja continuar?'
                 );
-
-                if (confirmacao) {
-                    button.disabled = true;
-                    button.textContent = 'Removendo...';
-                    button.classList.add('opacity-50');
-                    
-                    try {
-                        const data = await hiperdiaApi.cancelarAcao(codAcompanhamento);
-                        if (data.sucesso) {
-                            // Mostrar mensagem de sucesso com detalhes
-                            const mensagem = data.acoes_removidas > 1 
-                                ? `Ação e ${data.acoes_removidas - 1} ação(ões) posterior(es) removida(s) com sucesso!`
-                                : 'Ação removida com sucesso!';
-                            
-                            // Feedback visual temporário
-                            button.textContent = '✓ Removido';
-                            button.classList.remove('text-red-500', 'hover:text-red-700');
-                            button.classList.add('text-green-600');
-                            
-                            // Recarrega a timeline para refletir a mudança
-                            if (currentPacienteForModal) {
-                                await abrirModalTimelineHiperdia(currentPacienteForModal);
-                            }
-                            
-                            // Mostrar alerta de sucesso
-                            setTimeout(() => {
-                                alert(mensagem);
-                            }, 100);
-                        } else {
-                            alert(`Erro ao remover ação: ${data.erro}`);
-                            button.disabled = false;
-                            button.textContent = 'Cancelar';
-                            button.classList.remove('opacity-50');
+                if (!confirmacao) return;
+                
+                button.disabled = true;
+                const originalText = button.textContent;
+                button.textContent = 'Excluindo...';
+                button.classList.add('opacity-50');
+                
+                try {
+                    const data = await hiperdiaApi.excluirAcao(codAcompanhamento);
+                    if (data.sucesso) {
+                        // Feedback visual temporário
+                        button.textContent = '✓ Excluída';
+                        button.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                        button.classList.add('bg-green-800');
+                        
+                        // Recarrega a timeline
+                        if (currentPacienteForModal) {
+                            await abrirModalTimelineHiperdia(currentPacienteForModal);
                         }
-                    } catch (error) {
-                        console.error('Erro na requisição de cancelamento:', error);
-                        alert('Ocorreu um erro de comunicação ao tentar remover a ação.');
+                        
+                        setTimeout(() => {
+                            alert(data.mensagem || 'Ação excluída com sucesso!');
+                        }, 100);
+                    } else {
+                        alert(`Erro: ${data.erro}`);
                         button.disabled = false;
-                        button.textContent = 'Cancelar';
+                        button.textContent = originalText;
                         button.classList.remove('opacity-50');
                     }
+                } catch (error) {
+                    console.error('Erro ao excluir ação:', error);
+                    alert('Ocorreu um erro ao excluir a ação.');
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.classList.remove('opacity-50');
                 }
             }
         });

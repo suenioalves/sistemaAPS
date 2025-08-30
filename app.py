@@ -19,7 +19,7 @@ import re
 
 # Global map for action types (Hiperdia)
 TIPO_ACAO_MAP_PY = {
-    1: "Solicitar MRPA",
+    1: "Iniciar MRPA",
     2: "Avaliar MRPA",
     3: "Modificar tratamento",
     4: "Solicitar Exames",
@@ -2229,6 +2229,189 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
     except Exception as e:
         if conn: conn.rollback()
         print(f"Erro ao cancelar ação do Hiperdia: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/atualizar_status_acao/<int:cod_acompanhamento>', methods=['POST'])
+def api_atualizar_status_acao_hiperdia(cod_acompanhamento):
+    """Endpoint para atualizar o status de uma ação (REALIZADA ou CANCELADA)"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"sucesso": False, "erro": "Dados não fornecidos"}), 400
+
+        novo_status = data.get('status_acao')
+        if novo_status not in ['REALIZADA', 'CANCELADA']:
+            return jsonify({"sucesso": False, "erro": "Status inválido. Deve ser 'REALIZADA' ou 'CANCELADA'"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Primeiro, verificar se a ação existe e está pendente
+        cur.execute("""
+            SELECT cod_cidadao, cod_acao, status_acao
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_acompanhamento = %(cod_acompanhamento)s
+        """, {'cod_acompanhamento': cod_acompanhamento})
+        
+        acao_info = cur.fetchone()
+        if not acao_info:
+            return jsonify({"sucesso": False, "erro": "Ação não encontrada."}), 404
+
+        cod_cidadao, cod_acao, status_atual = acao_info
+
+        if status_atual != 'PENDENTE':
+            return jsonify({"sucesso": False, "erro": "Apenas ações pendentes podem ter o status alterado."}), 400
+
+        # Atualizar o status da ação
+        data_realizacao = 'CURRENT_DATE' if novo_status == 'REALIZADA' else None
+        
+        if novo_status == 'REALIZADA':
+            cur.execute("""
+                UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                SET status_acao = %(status_acao)s,
+                    data_realizacao = CURRENT_DATE
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {
+                'status_acao': novo_status,
+                'cod_acompanhamento': cod_acompanhamento
+            })
+        else:  # CANCELADA
+            cur.execute("""
+                UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                SET status_acao = %(status_acao)s,
+                    data_realizacao = NULL
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {
+                'status_acao': novo_status,
+                'cod_acompanhamento': cod_acompanhamento
+            })
+
+        if cur.rowcount == 0:
+            return jsonify({"sucesso": False, "erro": "Nenhuma ação foi atualizada."}), 404
+
+        conn.commit()
+        
+        return jsonify({
+            "sucesso": True,
+            "mensagem": f"Ação marcada como {novo_status.lower()} com sucesso!"
+        })
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao atualizar status da ação: {e}")
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/hiperdia/excluir_acao/<int:cod_acompanhamento>', methods=['DELETE'])
+def api_excluir_acao_hiperdia(cod_acompanhamento):
+    """Endpoint para excluir completamente uma ação"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Primeiro, buscar informações da ação para identificar referências posteriores
+        cur.execute("""
+            SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_acompanhamento = %(cod_acompanhamento)s
+        """, {'cod_acompanhamento': cod_acompanhamento})
+        
+        acao_info = cur.fetchone()
+        if not acao_info:
+            return jsonify({"sucesso": False, "erro": "Ação não encontrada."}), 404
+
+        cod_cidadao, cod_acao, status_acao, cod_acao_origem = acao_info
+
+        # Buscar todas as ações posteriores que referenciam esta ação
+        cur.execute("""
+            SELECT cod_acompanhamento, cod_acao, status_acao
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_acao_origem = %(cod_acompanhamento)s
+            ORDER BY cod_acompanhamento ASC
+        """, {'cod_acompanhamento': cod_acompanhamento})
+        
+        acoes_posteriores = cur.fetchall()
+
+        # Iniciar transação para remoção em cascata
+        try:
+            # Tabelas relacionadas para limpeza
+            tabelas_relacionadas = [
+                'sistemaaps.tb_hiperdia_mrpa',
+                'sistemaaps.tb_hiperdia_tratamento',
+                'sistemaaps.tb_hiperdia_resultados_exames',
+                'sistemaaps.tb_hiperdia_risco_cv',
+                'sistemaaps.tb_hiperdia_nutricao',
+                'sistemaaps.tb_hiperdia_has_cardiologia'
+            ]
+
+            # 1. Remover dados relacionados à ação principal
+            for tabela in tabelas_relacionadas:
+                cur.execute(f"""
+                    DELETE FROM {tabela}
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # 2. Remover ações posteriores em cascata
+            for acao_posterior in acoes_posteriores:
+                cod_acompanhamento_posterior = acao_posterior[0]
+                
+                # Remover dados relacionados à ação posterior
+                for tabela in tabelas_relacionadas:
+                    cur.execute(f"""
+                        DELETE FROM {tabela}
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                    """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+                # Remover a ação posterior
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """, {'cod_acompanhamento': cod_acompanhamento_posterior})
+
+            # 3. Finalmente, remover a ação principal
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """, {'cod_acompanhamento': cod_acompanhamento})
+
+            # Verificar se alguma linha foi realmente removida
+            if cur.rowcount == 0:
+                conn.rollback()
+                return jsonify({"sucesso": False, "erro": "Ação não encontrada para remoção."}), 404
+
+            conn.commit()
+            
+            # Contar quantas ações foram removidas
+            total_removidas = 1 + len(acoes_posteriores)  # ação principal + ações posteriores
+            
+            if len(acoes_posteriores) == 0:
+                mensagem = "Ação excluída com sucesso!"
+            else:
+                mensagem = f"Ação e {len(acoes_posteriores)} ação(ões) posterior(es) excluída(s) com sucesso!"
+            
+            return jsonify({
+                "sucesso": True, 
+                "mensagem": mensagem,
+                "acoes_removidas": total_removidas
+            })
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Erro durante a exclusão em cascata: {e}")
+            return jsonify({"sucesso": False, "erro": f"Erro durante a exclusão: {str(e)}"}), 500
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao excluir ação do Hiperdia: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
     finally:
         if cur: cur.close()

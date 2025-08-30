@@ -294,5 +294,60 @@ export const hiperdiaApi = {
             console.error('Erro ao buscar medicamentos para hipertensão:', error);
             throw error;
         }
+    },
+
+    /**
+     * Atualiza o status de uma ação (REALIZADA ou CANCELADA).
+     * @param {number} codAcompanhamento - Código da ação.
+     * @param {string} novoStatus - Novo status ('REALIZADA' ou 'CANCELADA').
+     * @returns {Promise<object>} Resultado da operação.
+     */
+    atualizarStatusAcao: async (codAcompanhamento, novoStatus) => {
+        try {
+            if (!codAcompanhamento) {
+                throw new Error('Código da ação é obrigatório');
+            }
+            if (!['REALIZADA', 'CANCELADA'].includes(novoStatus)) {
+                throw new Error('Status inválido. Deve ser REALIZADA ou CANCELADA');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/atualizar_status_acao/${codAcompanhamento}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status_acao: novoStatus }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.erro || `HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao atualizar status da ação:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Exclui completamente uma ação.
+     * @param {number} codAcompanhamento - Código da ação.
+     * @returns {Promise<object>} Resultado da operação.
+     */
+    excluirAcao: async (codAcompanhamento) => {
+        try {
+            if (!codAcompanhamento) {
+                throw new Error('Código da ação é obrigatório');
+            }
+            const response = await fetch(`${API_BASE_URL}/api/hiperdia/excluir_acao/${codAcompanhamento}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.erro || `HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        } catch (error) {
+            console.error('Erro ao excluir ação:', error);
+            throw error;
+        }
     }
 };
