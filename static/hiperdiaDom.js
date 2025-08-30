@@ -813,6 +813,35 @@ export const hiperdiaDom = {
             let mrpaDetailsHtml = '';
             if (evento.mrpa_details) {
                 const details = evento.mrpa_details;
+                
+                // Determinar o status da hipertensão baseado em status_mrpa
+                let statusHtml = '';
+                if (details.status_mrpa !== null && details.status_mrpa !== undefined) {
+                    if (details.status_mrpa === 1) {
+                        // Hipertensão controlada (Manter tratamento)
+                        statusHtml = `
+                            <div class="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                                <div class="flex items-center">
+                                    <i class="ri-heart-pulse-line text-green-600 text-sm mr-2"></i>
+                                    <span class="font-medium text-green-700 text-sm">Hipertensão controlada!</span>
+                                </div>
+                                <p class="text-green-600 text-xs mt-1">Tratamento adequado - pressão arterial controlada.</p>
+                            </div>
+                        `;
+                    } else if (details.status_mrpa === 0) {
+                        // Hipertensão descompensada (Modificar tratamento)
+                        statusHtml = `
+                            <div class="mt-3 p-2 bg-red-50 border border-red-200 rounded">
+                                <div class="flex items-center">
+                                    <i class="ri-heart-line text-red-600 text-sm mr-2"></i>
+                                    <span class="font-medium text-red-700 text-sm">Hipertensão descompensada!</span>
+                                </div>
+                                <p class="text-red-600 text-xs mt-1">Ajuste necessário - pressão arterial não controlada.</p>
+                            </div>
+                        `;
+                    }
+                }
+                
                 mrpaDetailsHtml = `
                     <div class="mt-3 pt-3 border-t border-gray-200 text-xs">
                         <p class="font-medium text-gray-700 mb-1">Resultados do MRPA:</p>
@@ -827,6 +856,7 @@ export const hiperdiaDom = {
                             </div>
                         </div>
                         ${details.analise_mrpa ? `<div class="mt-2"><p class="text-gray-600">Análise:</p><p class="font-medium text-gray-800 whitespace-pre-wrap">${details.analise_mrpa}</p></div>` : ''}
+                        ${statusHtml}
                     </div>
                 `;
             }

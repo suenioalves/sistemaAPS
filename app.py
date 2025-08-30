@@ -1936,7 +1936,7 @@ def api_hiperdia_timeline(cod_cidadao):
                 re.hemoglobina_glicada, re.ureia, re.creatinina, re.sodio, re.potassio, re.acido_urico,
                 tr.tipo_ajuste, tr.medicamentos_novos,
                 rcv.idade, rcv.sexo, rcv.tabagismo, rcv.diabetes, rcv.colesterol_total as rcv_colesterol, rcv.pressao_sistolica,
-                mrpa.media_pa_sistolica, mrpa.media_pa_diastolica, mrpa.analise_mrpa,
+                mrpa.media_pa_sistolica, mrpa.media_pa_diastolica, mrpa.analise_mrpa, mrpa.status_mrpa,
                 nu.peso, nu.imc, nu.circunferencia_abdominal, nu.orientacoes_nutricionais,
                 mrg.data_mrg, mrg.g_jejum, mrg.g_apos_cafe, mrg.g_antes_almoco, mrg.g_apos_almoco, 
                 mrg.g_antes_jantar, mrg.g_ao_deitar, mrg.analise_mrg,
@@ -2056,6 +2056,7 @@ def api_hiperdia_timeline(cod_cidadao):
                     'media_pa_sistolica': row['media_pa_sistolica'],
                     'media_pa_diastolica': row['media_pa_diastolica'],
                     'analise_mrpa': row['analise_mrpa'],
+                    'status_mrpa': row['status_mrpa']
                 }
             
             # Se for uma avaliação de MRG e houver dados, agrupa-os
@@ -2645,23 +2646,31 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             
             # Salvar os dados da avaliação do MRPA
             print(f"[LOG] Salvando dados da avaliação do MRPA na tabela tb_hiperdia_mrpa")
+            
+            # Determinar status_mrpa baseado na decisão de tratamento
+            decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
+            # 0 = Modificar Tratamento (Hipertensão descompensada)
+            # 1 = Manter Tratamento (Hipertensão controlada)
+            status_mrpa = 1 if ('manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento) else 0
+            print(f"[LOG] Decisão de tratamento: {decisao_tratamento}, status_mrpa: {status_mrpa}")
+            
             sql_insert_mrpa = """
                 INSERT INTO sistemaaps.tb_hiperdia_mrpa
-                (cod_acompanhamento, data_mrpa, media_pa_sistolica, media_pa_diastolica, analise_mrpa)
-                VALUES (%(cod_acompanhamento)s, %(data_mrpa)s, %(media_pa_sistolica)s, %(media_pa_diastolica)s, %(analise_mrpa)s);
+                (cod_acompanhamento, data_mrpa, media_pa_sistolica, media_pa_diastolica, analise_mrpa, status_mrpa)
+                VALUES (%(cod_acompanhamento)s, %(data_mrpa)s, %(media_pa_sistolica)s, %(media_pa_diastolica)s, %(analise_mrpa)s, %(status_mrpa)s);
             """
             params = {
                 'cod_acompanhamento': cod_acompanhamento_realizado,
                 'data_mrpa': data_realizacao_acao,
                 'media_pa_sistolica': mapped_data.get('pressao_sistolica'),
                 'media_pa_diastolica': mapped_data.get('pressao_diastolica'),
-                'analise_mrpa': mapped_data.get('observacoes')
+                'analise_mrpa': mapped_data.get('observacoes'),
+                'status_mrpa': status_mrpa
             }
             cur.execute(sql_insert_mrpa, params)
-            print(f"[LOG] Dados da avaliação do MRPA salvos com sucesso")
+            print(f"[LOG] Dados da avaliação do MRPA salvos com sucesso com status_mrpa: {status_mrpa}")
             
             # Verificar se a decisão é "Manter tratamento" e criar "Solicitar Exames" se for
-            decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
             if 'manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento:
                 print(f"[LOG] Decisão é 'Manter tratamento'. Criando ação 'Solicitar Exames' automaticamente.")
                 
@@ -3351,23 +3360,31 @@ def api_registrar_acao_hiperdia():
             
             # Salvar os dados da avaliação do MRPA
             print(f"[LOG] Salvando dados da avaliação do MRPA na tabela tb_hiperdia_mrpa")
+            
+            # Determinar status_mrpa baseado na decisão de tratamento
+            decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
+            # 0 = Modificar Tratamento (Hipertensão descompensada)
+            # 1 = Manter Tratamento (Hipertensão controlada)
+            status_mrpa = 1 if ('manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento) else 0
+            print(f"[LOG] Decisão de tratamento: {decisao_tratamento}, status_mrpa: {status_mrpa}")
+            
             sql_insert_mrpa = """
                 INSERT INTO sistemaaps.tb_hiperdia_mrpa
-                (cod_acompanhamento, data_mrpa, media_pa_sistolica, media_pa_diastolica, analise_mrpa)
-                VALUES (%(cod_acompanhamento)s, %(data_mrpa)s, %(media_pa_sistolica)s, %(media_pa_diastolica)s, %(analise_mrpa)s);
+                (cod_acompanhamento, data_mrpa, media_pa_sistolica, media_pa_diastolica, analise_mrpa, status_mrpa)
+                VALUES (%(cod_acompanhamento)s, %(data_mrpa)s, %(media_pa_sistolica)s, %(media_pa_diastolica)s, %(analise_mrpa)s, %(status_mrpa)s);
             """
             params = {
                 'cod_acompanhamento': cod_acompanhamento_realizado,
                 'data_mrpa': data_realizacao_acao,
                 'media_pa_sistolica': mapped_data.get('pressao_sistolica'),
                 'media_pa_diastolica': mapped_data.get('pressao_diastolica'),
-                'analise_mrpa': mapped_data.get('observacoes')
+                'analise_mrpa': mapped_data.get('observacoes'),
+                'status_mrpa': status_mrpa
             }
             cur.execute(sql_insert_mrpa, params)
-            print(f"[LOG] Dados da avaliação do MRPA salvos com sucesso")
+            print(f"[LOG] Dados da avaliação do MRPA salvos com sucesso com status_mrpa: {status_mrpa}")
             
             # Verificar a decisão e criar ações futuras conforme necessário
-            decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
             if 'manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento:
                 print(f"[LOG] Decisão é 'Manter tratamento'. Criando ação 'Solicitar Exames' automaticamente.")
                 
