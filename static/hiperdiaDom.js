@@ -589,7 +589,9 @@ export const hiperdiaDom = {
             if (evento.status_acao === 'PENDENTE') {
                 // Determinar o texto do botão baseado no tipo de ação
                 let buttonText = 'Ação Realizada'; // padrão
-                if (evento.cod_acao === 9) { // Agendar Hiperdia
+                if (evento.cod_acao === 1) { // Iniciar MRPA
+                    buttonText = 'Iniciar MRPA';
+                } else if (evento.cod_acao === 9) { // Agendar Hiperdia
                     buttonText = 'Iniciar Hiperdia';
                 } else if (evento.cod_acao === 2) { // Avaliar MRPA
                     buttonText = 'Avaliar MRPA';

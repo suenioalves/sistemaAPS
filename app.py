@@ -3155,6 +3155,7 @@ def api_registrar_acao_hiperdia():
         observacoes = data.get('observacoes')
         responsavel_pela_acao = data.get('responsavel_pela_acao')
         status_acao = data.get('status_acao', 'REALIZADA')
+        skip_auto_next_actions = data.get('skip_auto_next_actions', False)
 
         print(f"[LOG] Iniciando api_registrar_acao_hiperdia - cod_cidadao: {cod_cidadao}, cod_acao_atual: {cod_acao_atual}")
         print(f"[LOG] Dados recebidos: {data}")
@@ -3165,62 +3166,120 @@ def api_registrar_acao_hiperdia():
 
         data_realizacao_acao = datetime.strptime(data_acao_atual_str, '%Y-%m-%d').date()
 
-        # Tratamento especial para "Solicitar MRPA" - marcar "Agendar Hiperdia" como realizado e criar "Solicitar MRPA" como pendente
-        if int(cod_acao_atual) == 1: # Solicitar MRPA
-            print(f"[LOG] Processando Solicitar MRPA (cod_acao = 1)")
+        # Tratamento especial para "Iniciar MRPA" (cod_acao = 1)
+        if int(cod_acao_atual) == 1: # Iniciar MRPA
+            print(f"[LOG] Processando Iniciar MRPA (cod_acao = 1)")
             
-            # 1. Marcar "Agendar Hiperdia" (cod_acao = 9) pendente como REALIZADA
-            print(f"[LOG] Marcando ações 'Agendar Hiperdia' pendentes como realizadas")
-            sql_update_agendar_hiperdia = """
-                UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
-                SET status_acao = 'REALIZADA',
-                    data_agendamento = %(data_realizacao)s,
-                    data_realizacao = %(data_realizacao)s,
-                    responsavel_pela_acao = %(responsavel_pela_acao)s
-                WHERE cod_cidadao = %(cod_cidadao)s
-                  AND cod_acao = 9
-                  AND status_acao = 'PENDENTE';
-            """
-            cur.execute(sql_update_agendar_hiperdia, {
-                'data_realizacao': data_realizacao_acao,
-                'responsavel_pela_acao': responsavel_pela_acao,
-                'cod_cidadao': cod_cidadao
-            })
-            print(f"[LOG] Ações 'Agendar Hiperdia' pendentes marcadas como realizadas")
-            
-            # 2. Criar "Solicitar MRPA" como REALIZADA com a data de hoje
-            print(f"[LOG] Criando ação 'Solicitar MRPA' como REALIZADA")
-            sql_insert_solicitar_mrpa = """
-                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                VALUES (%(cod_cidadao)s, 1, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, 'Solicitação de MRPA para monitorização da pressão arterial.', %(responsavel_pela_acao)s)
-                RETURNING cod_acompanhamento;
-            """
-            cur.execute(sql_insert_solicitar_mrpa, {
-                'cod_cidadao': cod_cidadao,
-                'data_realizacao': data_realizacao_acao,
-                'responsavel_pela_acao': responsavel_pela_acao
-            })
-            cod_acompanhamento_criado = cur.fetchone()[0]
-            print(f"[LOG] Ação 'Solicitar MRPA' criada como REALIZADA - cod_acompanhamento: {cod_acompanhamento_criado}")
+            # Verificar se é uma ação futura (PENDENTE) ou ação normal (REALIZADA)
+            if status_acao == 'PENDENTE' and skip_auto_next_actions:
+                # Caso 1: Criação de ação futura PENDENTE (ex: vinda de "Modificar tratamento")
+                print(f"[LOG] Criando 'Iniciar MRPA' como PENDENTE (ação futura)")
+                sql_insert_iniciar_mrpa_pendente = """
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, 1, 'PENDENTE', %(data_agendamento)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                """
+                cur.execute(sql_insert_iniciar_mrpa_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'data_agendamento': data_realizacao_acao,  # Para PENDENTE, data_realizacao_acao é usada como data_agendamento
+                    'observacoes': observacoes,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_criado = cur.fetchone()[0]
+                print(f"[LOG] Ação 'Iniciar MRPA' PENDENTE criada - cod_acompanhamento: {cod_acompanhamento_criado}, data_agendamento: {data_realizacao_acao}")
+            else:
+                # Caso 2: Verificar se existe "Iniciar MRPA" PENDENTE para atualizar ou criar novo
+                print(f"[LOG] Verificando se existe 'Iniciar MRPA' PENDENTE para atualizar")
+                
+                # Verificar se existe ação "Iniciar MRPA" PENDENTE para este cidadão
+                sql_check_pendente = """
+                    SELECT cod_acompanhamento FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    WHERE cod_cidadao = %(cod_cidadao)s AND cod_acao = 1 AND status_acao = 'PENDENTE'
+                    ORDER BY data_agendamento DESC LIMIT 1;
+                """
+                cur.execute(sql_check_pendente, {'cod_cidadao': cod_cidadao})
+                existing_pendente = cur.fetchone()
+                
+                if existing_pendente:
+                    # Caso 2a: Atualizar "Iniciar MRPA" PENDENTE existente para REALIZADA
+                    cod_acompanhamento_existente = existing_pendente[0]
+                    print(f"[LOG] Encontrada ação 'Iniciar MRPA' PENDENTE existente (cod_acompanhamento: {cod_acompanhamento_existente}). Atualizando para REALIZADA.")
+                    
+                    sql_update_iniciar_mrpa = """
+                        UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                        SET status_acao = 'REALIZADA',
+                            data_realizacao = %(data_realizacao)s,
+                            responsavel_pela_acao = %(responsavel_pela_acao)s
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                    """
+                    cur.execute(sql_update_iniciar_mrpa, {
+                        'data_realizacao': data_realizacao_acao,
+                        'responsavel_pela_acao': responsavel_pela_acao,
+                        'cod_acompanhamento': cod_acompanhamento_existente
+                    })
+                    cod_acompanhamento_criado = cod_acompanhamento_existente
+                    print(f"[LOG] Ação 'Iniciar MRPA' atualizada para REALIZADA - cod_acompanhamento: {cod_acompanhamento_criado}")
+                else:
+                    # Caso 2b: Fluxo normal - marcar "Agendar Hiperdia" como realizado e criar novo "Iniciar MRPA" como REALIZADA
+                    print(f"[LOG] Fluxo normal: marcando 'Agendar Hiperdia' como realizada e criando novo 'Iniciar MRPA' como REALIZADA")
+                    
+                    # 1. Marcar "Agendar Hiperdia" (cod_acao = 9) pendente como REALIZADA
+                    print(f"[LOG] Marcando ações 'Agendar Hiperdia' pendentes como realizadas")
+                    sql_update_agendar_hiperdia = """
+                        UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                        SET status_acao = 'REALIZADA',
+                            data_agendamento = %(data_realizacao)s,
+                            data_realizacao = %(data_realizacao)s,
+                            responsavel_pela_acao = %(responsavel_pela_acao)s
+                        WHERE cod_cidadao = %(cod_cidadao)s
+                          AND cod_acao = 9
+                          AND status_acao = 'PENDENTE';
+                    """
+                    cur.execute(sql_update_agendar_hiperdia, {
+                        'data_realizacao': data_realizacao_acao,
+                        'responsavel_pela_acao': responsavel_pela_acao,
+                        'cod_cidadao': cod_cidadao
+                    })
+                    print(f"[LOG] Ações 'Agendar Hiperdia' pendentes marcadas como realizadas")
+                    
+                    # 2. Criar "Iniciar MRPA" como REALIZADA com a data de hoje
+                    print(f"[LOG] Criando ação 'Iniciar MRPA' como REALIZADA")
+                    sql_insert_iniciar_mrpa_realizada = """
+                        INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                        (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                        VALUES (%(cod_cidadao)s, 1, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, 'Iniciar MRPA para monitorização da pressão arterial.', %(responsavel_pela_acao)s)
+                        RETURNING cod_acompanhamento;
+                    """
+                    cur.execute(sql_insert_iniciar_mrpa_realizada, {
+                        'cod_cidadao': cod_cidadao,
+                        'data_realizacao': data_realizacao_acao,
+                        'responsavel_pela_acao': responsavel_pela_acao
+                    })
+                    cod_acompanhamento_criado = cur.fetchone()[0]
+                    print(f"[LOG] Ação 'Iniciar MRPA' criada como REALIZADA - cod_acompanhamento: {cod_acompanhamento_criado}")
             
             # 3. Criar automaticamente "Avaliar MRPA" (cod_acao = 2) como PENDENTE para 7 dias
-            print(f"[LOG] Criando ação 'Avaliar MRPA' automaticamente para 7 dias")
-            cod_proxima_acao_pendente = 2 # Avaliar MRPA
-            data_agendamento_proxima = data_realizacao_acao + timedelta(days=7) # 7 dias
-            sql_insert_pendente = '''
-                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
-                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Avaliação do MRPA após 7 dias de monitorização.', %(responsavel_pela_acao)s);
-            '''
-            cur.execute(sql_insert_pendente, {
-                'cod_cidadao': cod_cidadao,
-                'cod_acao': cod_proxima_acao_pendente,
-                'data_agendamento': data_agendamento_proxima,
-                'cod_acao_origem': cod_acompanhamento_criado,
-                'responsavel_pela_acao': responsavel_pela_acao
-            })
-            print(f"[LOG] Ação futura 'Avaliar MRPA' criada automaticamente para 7 dias")
+            # (apenas se não foi solicitado para pular ações automáticas)
+            if not skip_auto_next_actions:
+                print(f"[LOG] Criando ação 'Avaliar MRPA' automaticamente para 7 dias")
+                cod_proxima_acao_pendente = 2 # Avaliar MRPA
+                data_agendamento_proxima = data_realizacao_acao + timedelta(days=7) # 7 dias
+                sql_insert_pendente = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Avaliação do MRPA após 7 dias de monitorização.', %(responsavel_pela_acao)s);
+                '''
+                cur.execute(sql_insert_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_criado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                print(f"[LOG] Ação futura 'Avaliar MRPA' criada automaticamente para 7 dias")
+            else:
+                print(f"[LOG] Pulando criação automática de 'Avaliar MRPA' devido a skip_auto_next_actions=True")
 
         # Tratamento especial para "Avaliar MRPA" - buscar ação pendente existente
         elif int(cod_acao_atual) == 2: # Avaliar MRPA
@@ -3571,24 +3630,43 @@ def api_registrar_acao_hiperdia():
             print(f"[LOG] Ação 'Solicitar MRPA' criada como REALIZADA - cod_acompanhamento: {cod_acompanhamento_criado}")
 
         else:
-            # Criar nova ação para outras ações
-            sql_insert_acompanhamento = """
-                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
-                (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
-                RETURNING cod_acompanhamento;
-            """
-            print(f"[LOG] Executando INSERT na tabela tb_hiperdia_has_acompanhamento")
-            cur.execute(sql_insert_acompanhamento, {
-                'cod_cidadao': cod_cidadao,
-                'cod_acao': cod_acao_atual,
-                'status_acao': status_acao,
-                'data_realizacao': data_realizacao_acao,
-                'observacoes': observacoes,
-                'responsavel_pela_acao': responsavel_pela_acao
-            })
-            cod_acompanhamento_criado = cur.fetchone()[0]
-            print(f"[LOG] Nova ação criada - cod_acompanhamento: {cod_acompanhamento_criado}")
+            # Criar nova ação para outras ações (tratamento diferenciado para PENDENTE vs REALIZADA)
+            if status_acao == 'PENDENTE':
+                sql_insert_acompanhamento = """
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_agendamento)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                """
+                print(f"[LOG] Executando INSERT PENDENTE na tabela tb_hiperdia_has_acompanhamento")
+                cur.execute(sql_insert_acompanhamento, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_acao_atual,
+                    'status_acao': status_acao,
+                    'data_agendamento': data_realizacao_acao,  # Para PENDENTE, data_realizacao_acao é usada como data_agendamento
+                    'observacoes': observacoes,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_criado = cur.fetchone()[0]
+                print(f"[LOG] Nova ação PENDENTE criada - cod_acompanhamento: {cod_acompanhamento_criado}, data_agendamento: {data_realizacao_acao}")
+            else:
+                sql_insert_acompanhamento = """
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    RETURNING cod_acompanhamento;
+                """
+                print(f"[LOG] Executando INSERT REALIZADA na tabela tb_hiperdia_has_acompanhamento")
+                cur.execute(sql_insert_acompanhamento, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_acao_atual,
+                    'status_acao': status_acao,
+                    'data_realizacao': data_realizacao_acao,
+                    'observacoes': observacoes,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                cod_acompanhamento_criado = cur.fetchone()[0]
+                print(f"[LOG] Nova ação REALIZADA criada - cod_acompanhamento: {cod_acompanhamento_criado}, data_realizacao: {data_realizacao_acao}")
 
             # Handle specific data based on action type
             # Tratamento especial para "Encaminhar Cardiologia"

@@ -62,6 +62,38 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    // Function to create a future action without automatic next actions
+    const createFutureActionWithoutAutoNext = async (codAcao, daysFromNow, status = "PENDENTE", observacaoAdicional = '', codAcaoAtual, dataAcaoAtual, currentPacienteForModal) => {
+        // Calcular data futura baseada em HOJE (não na data da ação)
+        const futureDate = new Date(); // Data de hoje
+        futureDate.setDate(futureDate.getDate() + daysFromNow);
+        const futureDateStr = futureDate.toISOString().split('T')[0];
+        
+        // Usar apenas o observacaoAdicional se fornecido, caso contrário usar texto padrão
+        let actionObservacoes = observacaoAdicional || `Ação criada automaticamente a partir da ação ${codAcaoAtual}.`;
+
+        const futurePayload = {
+            cod_cidadao: currentPacienteForModal.cod_paciente,
+            cod_acao_atual: codAcao,
+            data_acao_atual: futureDateStr,
+            observacoes: actionObservacoes,
+            status_acao: status,
+            responsavel_pela_acao: null,
+            skip_auto_next_actions: true // Parâmetro especial para pular criação automática de ações futuras
+        };
+        
+        try {
+            const result = await hiperdiaApi.registrarAcao(futurePayload);
+            if (!result.sucesso) {
+                console.error(`Erro ao criar ação futura (código ${codAcao}): ${result.erro}`);
+            }
+            return result;
+        } catch (error) {
+            console.error(`Erro na requisição para criar ação futura (código ${codAcao}):`, error);
+            return { sucesso: false, erro: error.message };
+        }
+    };
+
     function updateSummaryCards() {
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual, // Use current state variables
@@ -442,8 +474,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (result.sucesso) {
                         hiperdiaDom.closeRegisterModal();
                         fetchPacientesHiperdia();
-                        // Criar ação futura "Solicitar MRPA" para 30 dias
-                        await createFutureAction(1, 30, "PENDENTE", "Nova solicitação de MRPA após modificação do tratamento.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
+                        // Criar ação futura "Iniciar MRPA" para 30 dias (sem criar automaticamente Avaliar MRPA)
+                        await createFutureActionWithoutAutoNext(1, 30, "PENDENTE", "Iniciar MRPA após modificação do tratamento.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                         
                         // Mantém o modal da timeline aberto e o atualiza
                         abrirModalTimelineHiperdia(currentPacienteForModal);
@@ -864,6 +896,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (button.classList.contains('action-realizada-btn')) {
                 const codAcao = parseInt(button.dataset.codAcao);
                 
+                // Se for "Iniciar MRPA" (cod_acao === 1), abrir modal de registro com "Iniciar MRPA" selecionado
+                if (codAcao === 1) {
+                    abrirModalRegistroHiperdiaComAcao('1'); // Abrir com "Iniciar MRPA" (cod_acao 1)
+                    return;
+                }
+                
                 // Se for "Iniciar Hiperdia" (cod_acao === 9), abrir modal de registro com "Iniciar MRPA" selecionado
                 if (codAcao === 9) {
                     abrirModalRegistroHiperdiaComAcao('1'); // Abrir com "Iniciar MRPA" (cod_acao 1)
@@ -873,6 +911,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Se for "Avaliar MRPA" (cod_acao === 2), abrir modal de registro com "Avaliar MRPA" selecionado
                 if (codAcao === 2) {
                     abrirModalRegistroHiperdiaComAcao('2'); // Abrir com "Avaliar MRPA" (cod_acao 2)
+                    return;
+                }
+                
+                // Se for "Modificar tratamento" (cod_acao === 3), abrir modal de registro com "Modificar tratamento" selecionado
+                if (codAcao === 3) {
+                    abrirModalRegistroHiperdiaComAcao('3'); // Abrir com "Modificar tratamento" (cod_acao 3)
                     return;
                 }
                 
