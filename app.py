@@ -27,7 +27,9 @@ TIPO_ACAO_MAP_PY = {
     6: "Avaliar RCV",
     7: "Encaminhar para nutrição",
     8: "Registrar consulta nutrição",
-    9: "Agendar Hiperdia"
+    9: "Agendar Hiperdia",
+    10: "Encaminhar Cardiologia",
+    11: "Registrar Cardiologia"
 }
 
 # Global map for Plafam action types
@@ -3406,7 +3408,63 @@ def api_registrar_acao_hiperdia():
             print(f"[LOG] Nova ação criada - cod_acompanhamento: {cod_acompanhamento_criado}")
 
             # Handle specific data based on action type
-            # (Removido o tratamento específico da ação 6 - Avaliar RCV, pois agora está no bloco elif acima)
+            # Tratamento especial para "Encaminhar Cardiologia"
+            if int(cod_acao_atual) == 10: # Encaminhar Cardiologia
+                print(f"[LOG] Processando Encaminhar Cardiologia (cod_acao = 10)")
+                
+                cardiologia_data = data.get('cardiologia_data', {})
+                profissional_responsavel = cardiologia_data.get('profissional_responsavel', responsavel_pela_acao)
+                observacoes_cardiologia = cardiologia_data.get('observacoes', observacoes)
+                
+                # Inserir na tabela específica de cardiologia
+                sql_insert_cardiologia = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_cardiologia
+                    (cod_acompanhamento, cod_cidadao, tipo_acao, data_acao, profissional_responsavel, observacoes)
+                    VALUES (%(cod_acompanhamento)s, %(cod_cidadao)s, %(tipo_acao)s, %(data_acao)s, %(profissional_responsavel)s, %(observacoes)s);
+                '''
+                cur.execute(sql_insert_cardiologia, {
+                    'cod_acompanhamento': cod_acompanhamento_criado,
+                    'cod_cidadao': cod_cidadao,
+                    'tipo_acao': cod_acao_atual,
+                    'data_acao': data_realizacao_acao,
+                    'profissional_responsavel': profissional_responsavel,
+                    'observacoes': observacoes_cardiologia
+                })
+                print(f"[LOG] Encaminhamento para cardiologia registrado - cod_acompanhamento: {cod_acompanhamento_criado}")
+
+            # Tratamento especial para "Registrar Cardiologia"
+            elif int(cod_acao_atual) == 11: # Registrar Cardiologia
+                print(f"[LOG] Processando Registrar Cardiologia (cod_acao = 11)")
+                
+                cardiologia_data = data.get('cardiologia_data', {})
+                profissional_responsavel = cardiologia_data.get('profissional_responsavel', responsavel_pela_acao)
+                consulta_cardiologia = cardiologia_data.get('consulta_cardiologia', '')
+                recomendacoes_cardiologia = cardiologia_data.get('recomendacoes_cardiologia', '')
+                observacoes_cardiologia = cardiologia_data.get('observacoes', observacoes)
+                
+                if not consulta_cardiologia:
+                    print(f"[LOG] ERRO: Consulta cardiológica não fornecida")
+                    return jsonify({"sucesso": False, "erro": "Dados da consulta cardiológica são obrigatórios."}), 400
+                
+                # Inserir na tabela específica de cardiologia
+                sql_insert_cardiologia = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_cardiologia
+                    (cod_acompanhamento, cod_cidadao, tipo_acao, data_acao, profissional_responsavel, 
+                     consulta_cardiologia, recomendacoes_cardiologia, observacoes)
+                    VALUES (%(cod_acompanhamento)s, %(cod_cidadao)s, %(tipo_acao)s, %(data_acao)s, %(profissional_responsavel)s, 
+                            %(consulta_cardiologia)s, %(recomendacoes_cardiologia)s, %(observacoes)s);
+                '''
+                cur.execute(sql_insert_cardiologia, {
+                    'cod_acompanhamento': cod_acompanhamento_criado,
+                    'cod_cidadao': cod_cidadao,
+                    'tipo_acao': cod_acao_atual,
+                    'data_acao': data_realizacao_acao,
+                    'profissional_responsavel': profissional_responsavel,
+                    'consulta_cardiologia': consulta_cardiologia,
+                    'recomendacoes_cardiologia': recomendacoes_cardiologia,
+                    'observacoes': observacoes_cardiologia
+                })
+                print(f"[LOG] Consulta cardiológica registrada - cod_acompanhamento: {cod_acompanhamento_criado}")
 
         conn.commit()
         print(f"[LOG] Commit realizado com sucesso - Ação {cod_acao_atual} registrada")

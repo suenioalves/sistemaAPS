@@ -712,6 +712,41 @@ document.addEventListener('DOMContentLoaded', function () {
             payload.status_acao = "REALIZADA";
             payload.data_realizacao = dataAcaoAtual;
         }
+
+        // Adiciona dados específicos da ação "Encaminhar Cardiologia" (codAcaoAtual === 10)
+        if (parseInt(codAcaoAtual) === 10) {
+            // Para encaminhar cardiologia, usamos apenas os campos padrão (responsável e observações do final do modal)
+            payload.cardiologia_data = {
+                profissional_responsavel: responsavelPelaAcao,
+                observacoes: observacoes
+            };
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
+        }
+
+        // Adiciona dados específicos da ação "Registrar Cardiologia" (codAcaoAtual === 11)
+        if (parseInt(codAcaoAtual) === 11) {
+            const consultaCardiologia = document.getElementById('hiperdia-cardiologia-consulta')?.value;
+            const recomendacoesCardiologia = document.getElementById('hiperdia-cardiologia-recomendacoes')?.value;
+            const profissionalResponsavel = document.getElementById('hiperdia-cardiologia-reg-profissional')?.value;
+
+            // Validação dos campos obrigatórios
+            if (!consultaCardiologia || !recomendacoesCardiologia) {
+                alert('Por favor, preencha a consulta cardiológica e as recomendações.');
+                hiperdiaDom.setSaveButtonLoading(false);
+                return;
+            }
+
+            payload.cardiologia_data = {
+                consulta_cardiologia: consultaCardiologia,
+                recomendacoes_cardiologia: recomendacoesCardiologia,
+                tipo_consulta: 'Presencial', // Valor padrão
+                profissional_responsavel: profissionalResponsavel || responsavelPelaAcao,
+                observacoes: observacoes // Usa apenas as observações do campo padrão
+            };
+            payload.status_acao = "REALIZADA";
+            payload.data_realizacao = dataAcaoAtual;
+        }
         
         console.log('[LOG] Payload final antes de enviar:', payload);
         

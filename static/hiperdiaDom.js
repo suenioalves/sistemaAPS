@@ -69,6 +69,8 @@ export const hiperdiaDom = {
         _elements.imageExamsSection = document.getElementById('hiperdia-imageExamsSection');
         _elements.nutritionSection = document.getElementById('hiperdia-nutritionSection');
         _elements.cardiologySection = document.getElementById('hiperdia-cardiologySection');
+        _elements.encaminharCardiologiaSection = document.getElementById('hiperdia-encaminharCardiologiaSection');
+        _elements.registrarCardiologiaSection = document.getElementById('hiperdia-registrarCardiologiaSection');
         _elements.riskSection = document.getElementById('hiperdia-riskSection');
         _elements.dataAcaoAtualInput = document.getElementById('hiperdia-data-acao-atual');
         _elements.hiperdiaObservacoes = document.getElementById('hiperdia-observacoes');
@@ -1151,7 +1153,8 @@ export const hiperdiaDom = {
     toggleRegisterSections: (selectedValue, dataAcaoAtual) => {
         const sections = [
             _elements.mrpaSection, _elements.medicationSection, _elements.labExamsSection, _elements.imageExamsSection,
-            _elements.nutritionSection, _elements.cardiologySection, _elements.riskSection
+            _elements.nutritionSection, _elements.cardiologySection, _elements.encaminharCardiologiaSection, 
+            _elements.registrarCardiologiaSection, _elements.riskSection
         ];
         sections.forEach(section => {
             if (section) section.classList.add('hidden');
@@ -1274,6 +1277,20 @@ export const hiperdiaDom = {
                     } else {
                         _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> O Hiperdia será agendado como pendente até a data selecionada.`;
                     }
+                }
+                break;
+            case '10': // Encaminhar Cardiologia
+                if (_elements.encaminharCardiologiaSection) _elements.encaminharCardiologiaSection.classList.remove('hidden');
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Esta ação registra o encaminhamento para cardiologia.`;
+                }
+                break;
+            case '11': // Registrar Cardiologia
+                if (_elements.registrarCardiologiaSection) _elements.registrarCardiologiaSection.classList.remove('hidden');
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Esta ação registra o retorno da consulta cardiológica.`;
                 }
                 break;
             default:
