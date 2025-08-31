@@ -731,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (!decision) {
-                alert('Por favor, selecione se o tratamento será mantido ou modificado.');
+                alert('Por favor, selecione uma das opções: manter tratamento, modificar tratamento ou encaminhar para cardiologia.');
                 hiperdiaDom.setSaveButtonLoading(false);
                 return;
             }
@@ -917,6 +917,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Se for "Modificar tratamento" (cod_acao === 3), abrir modal de registro com "Modificar tratamento" selecionado
                 if (codAcao === 3) {
                     abrirModalRegistroHiperdiaComAcao('3'); // Abrir com "Modificar tratamento" (cod_acao 3)
+                    return;
+                }
+                
+                // Se for "Encaminhar Cardiologia" (cod_acao === 10), abrir modal de registro com "Registrar Cardiologia" selecionado
+                if (codAcao === 10) {
+                    abrirModalRegistroHiperdiaComAcao('11'); // Abrir com "Registrar Cardiologia" (cod_acao 11)
                     return;
                 }
                 

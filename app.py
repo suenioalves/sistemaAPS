@@ -2651,7 +2651,13 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
             # 0 = Modificar Tratamento (Hipertensão descompensada)
             # 1 = Manter Tratamento (Hipertensão controlada)
-            status_mrpa = 1 if ('manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento) else 0
+            # 2 = Encaminhar Cardiologia
+            if 'cardiology' in decisao_tratamento or 'cardiologia' in decisao_tratamento:
+                status_mrpa = 2
+            elif 'manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento:
+                status_mrpa = 1
+            else:
+                status_mrpa = 0
             print(f"[LOG] Decisão de tratamento: {decisao_tratamento}, status_mrpa: {status_mrpa}")
             
             sql_insert_mrpa = """
@@ -2709,6 +2715,41 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                     'responsavel_pela_acao': responsavel_pela_acao
                 })
                 print(f"[LOG] Ação futura 'Modificar tratamento' criada automaticamente")
+            elif 'cardiology' in decisao_tratamento or 'cardiologia' in decisao_tratamento:
+                print(f"[LOG] Decisão é 'Encaminhar Cardiologia'. Criando ação 'Encaminhar Cardiologia' automaticamente.")
+                
+                # Criar ação futura "Encaminhar Cardiologia" (pendente) para hoje
+                cod_proxima_acao_pendente = 10 # Encaminhar Cardiologia
+                data_agendamento_proxima = data_realizacao_acao # Mesma data (hoje)
+                sql_insert_pendente = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Encaminhamento para cardiologia conforme avaliação do MRPA.', %(responsavel_pela_acao)s);
+                '''
+                cur.execute(sql_insert_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_realizado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                print(f"[LOG] Ação futura 'Encaminhar Cardiologia' criada automaticamente")
+                
+                # Também registrar imediatamente o encaminhamento na tabela de cardiologia
+                print(f"[LOG] Registrando encaminhamento na tabela tb_hiperdia_has_cardiologia")
+                sql_insert_cardiologia = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_cardiologia
+                    (cod_acompanhamento, cod_cidadao, tipo_acao, data_acao, profissional_responsavel, observacoes)
+                    VALUES (%(cod_acompanhamento)s, %(cod_cidadao)s, 10, %(data_acao)s, %(profissional_responsavel)s, %(observacoes)s);
+                '''
+                cur.execute(sql_insert_cardiologia, {
+                    'cod_acompanhamento': cod_acompanhamento_realizado,
+                    'cod_cidadao': cod_cidadao,
+                    'data_acao': data_realizacao_acao,
+                    'profissional_responsavel': responsavel_pela_acao,
+                    'observacoes': 'Encaminhamento para cardiologia baseado na avaliação do MRPA com status_mrpa=2'
+                })
+                print(f"[LOG] Encaminhamento para cardiologia registrado com sucesso")
             else:
                 print(f"[LOG] Decisão não reconhecida: '{decisao_tratamento}'. Não será criada ação automática.")
 
@@ -3365,7 +3406,13 @@ def api_registrar_acao_hiperdia():
             decisao_tratamento = mrpa_assessment_data.get('decision', '').lower()
             # 0 = Modificar Tratamento (Hipertensão descompensada)
             # 1 = Manter Tratamento (Hipertensão controlada)
-            status_mrpa = 1 if ('manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento) else 0
+            # 2 = Encaminhar Cardiologia
+            if 'cardiology' in decisao_tratamento or 'cardiologia' in decisao_tratamento:
+                status_mrpa = 2
+            elif 'manter' in decisao_tratamento or 'maintain' in decisao_tratamento or 'manter tratamento' in decisao_tratamento:
+                status_mrpa = 1
+            else:
+                status_mrpa = 0
             print(f"[LOG] Decisão de tratamento: {decisao_tratamento}, status_mrpa: {status_mrpa}")
             
             sql_insert_mrpa = """
@@ -3423,6 +3470,41 @@ def api_registrar_acao_hiperdia():
                     'responsavel_pela_acao': responsavel_pela_acao
                 })
                 print(f"[LOG] Ação futura 'Modificar tratamento' criada automaticamente")
+            elif 'cardiology' in decisao_tratamento or 'cardiologia' in decisao_tratamento:
+                print(f"[LOG] Decisão é 'Encaminhar Cardiologia'. Criando ação 'Encaminhar Cardiologia' automaticamente.")
+                
+                # Criar ação futura "Encaminhar Cardiologia" (pendente) para hoje
+                cod_proxima_acao_pendente = 10 # Encaminhar Cardiologia
+                data_agendamento_proxima = data_realizacao_acao # Mesma data (hoje)
+                sql_insert_pendente = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'Encaminhamento para cardiologia conforme avaliação do MRPA.', %(responsavel_pela_acao)s);
+                '''
+                cur.execute(sql_insert_pendente, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_realizado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                print(f"[LOG] Ação futura 'Encaminhar Cardiologia' criada automaticamente")
+                
+                # Também registrar imediatamente o encaminhamento na tabela de cardiologia
+                print(f"[LOG] Registrando encaminhamento na tabela tb_hiperdia_has_cardiologia")
+                sql_insert_cardiologia = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_cardiologia
+                    (cod_acompanhamento, cod_cidadao, tipo_acao, data_acao, profissional_responsavel, observacoes)
+                    VALUES (%(cod_acompanhamento)s, %(cod_cidadao)s, 10, %(data_acao)s, %(profissional_responsavel)s, %(observacoes)s);
+                '''
+                cur.execute(sql_insert_cardiologia, {
+                    'cod_acompanhamento': cod_acompanhamento_realizado,
+                    'cod_cidadao': cod_cidadao,
+                    'data_acao': data_realizacao_acao,
+                    'profissional_responsavel': responsavel_pela_acao,
+                    'observacoes': 'Encaminhamento para cardiologia baseado na avaliação do MRPA com status_mrpa=2'
+                })
+                print(f"[LOG] Encaminhamento para cardiologia registrado com sucesso")
             else:
                 print(f"[LOG] Decisão não reconhecida: '{decisao_tratamento}'. Não será criada ação automática.")
 
@@ -3743,6 +3825,36 @@ def api_registrar_acao_hiperdia():
                     'observacoes': observacoes_cardiologia
                 })
                 print(f"[LOG] Consulta cardiológica registrada - cod_acompanhamento: {cod_acompanhamento_criado}")
+                
+                # Após registrar a consulta cardiológica, marcar ação "Encaminhar Cardiologia" (cod_acao = 10) como REALIZADA
+                print(f"[LOG] Buscando ação 'Encaminhar Cardiologia' pendente para finalizar...")
+                cur.execute('''
+                    SELECT cod_acompanhamento 
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento 
+                    WHERE cod_cidadao = %(cod_cidadao)s 
+                        AND cod_acao = 10 
+                        AND status_acao = 'PENDENTE'
+                    ORDER BY data_agendamento DESC
+                    LIMIT 1;
+                ''', {'cod_cidadao': cod_cidadao})
+                
+                encaminhamento_pendente = cur.fetchone()
+                if encaminhamento_pendente:
+                    cod_acompanhamento_encaminhamento = encaminhamento_pendente[0]
+                    cur.execute('''
+                        UPDATE sistemaaps.tb_hiperdia_has_acompanhamento
+                        SET status_acao = 'REALIZADA',
+                            data_realizacao = %(data_realizacao)s,
+                            responsavel_pela_acao = %(responsavel_pela_acao)s
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s;
+                    ''', {
+                        'data_realizacao': data_realizacao_acao,
+                        'responsavel_pela_acao': responsavel_pela_acao,
+                        'cod_acompanhamento': cod_acompanhamento_encaminhamento
+                    })
+                    print(f"[LOG] Ação 'Encaminhar Cardiologia' (cod_acompanhamento: {cod_acompanhamento_encaminhamento}) finalizada automaticamente")
+                else:
+                    print(f"[LOG] Nenhuma ação 'Encaminhar Cardiologia' pendente encontrada para finalizar")
 
         conn.commit()
         print(f"[LOG] Commit realizado com sucesso - Ação {cod_acao_atual} registrada")

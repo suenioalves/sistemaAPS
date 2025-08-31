@@ -597,6 +597,8 @@ export const hiperdiaDom = {
                     buttonText = 'Avaliar MRPA';
                 } else if (evento.cod_acao === 3) { // Modificar tratamento
                     buttonText = 'Tratamento modificado';
+                } else if (evento.cod_acao === 10) { // Encaminhar Cardiologia
+                    buttonText = 'Consulta Realizada';
                 }
                 
                 actionButtonsHtml = `
@@ -837,6 +839,17 @@ export const hiperdiaDom = {
                                     <span class="font-medium text-red-700 text-sm">Hipertensão descompensada!</span>
                                 </div>
                                 <p class="text-red-600 text-xs mt-1">Ajuste necessário - pressão arterial não controlada.</p>
+                            </div>
+                        `;
+                    } else if (details.status_mrpa === 2) {
+                        // Encaminhamento para Cardiologia
+                        statusHtml = `
+                            <div class="mt-3 p-2 bg-red-50 border border-red-200 rounded">
+                                <div class="flex items-center">
+                                    <i class="ri-heart-pulse-line text-red-600 text-sm mr-2"></i>
+                                    <span class="font-medium text-red-700 text-sm">Encaminhado para Cardiologia</span>
+                                </div>
+                                <p class="text-red-600 text-xs mt-1">Avaliação especializada necessária conforme resultado do MRPA.</p>
                             </div>
                         `;
                     }
