@@ -395,6 +395,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Encontrar e ativar a aba específica
             const targetTab = document.querySelector(`.action-type-tab[data-action-value="${actionValue}"]`);
             if (targetTab) {
+                console.log(`Ativando aba com action-value="${actionValue}"`);
+                
                 // Remover active de todas as abas
                 elements.actionTypeTabs.forEach(t => {
                     t.classList.remove('active', 'border-primary', 'bg-primary/10', 'text-primary');
@@ -407,8 +409,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 // Atualizar as seções do formulário
                 handleActionTypeChange();
+                
+                // Verificar se a aba foi realmente ativada
+                setTimeout(() => {
+                    const activeCheck = document.querySelector('.action-type-tab.active');
+                    console.log(`Verificação: Aba ativa após ativação: ${activeCheck?.dataset.actionValue || 'NENHUMA'}`);
+                }, 50);
+            } else {
+                console.error(`Aba com action-value="${actionValue}" não encontrada`);
             }
-        }, 100);
+        }, 200); // Aumentado de 100ms para 200ms
 
         hiperdiaApi.fetchMedicamentos(currentPacienteForModal.cod_paciente)
             .then(medicamentos => {
@@ -426,13 +436,36 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const codAcaoAtual = document.querySelector('.action-type-tab.active')?.dataset.actionValue;
+        let activeTab = document.querySelector('.action-type-tab.active');
+        let codAcaoAtual = activeTab?.dataset.actionValue;
+        
+        // Fallback: Se não encontrar aba ativa, tentar encontrar a primeira aba com border-primary
+        if (!codAcaoAtual) {
+            console.warn('Aba ativa não encontrada, tentando fallback...');
+            const fallbackTab = document.querySelector('.action-type-tab.border-primary') || 
+                               Array.from(document.querySelectorAll('.action-type-tab')).find(tab => 
+                                   tab.classList.contains('bg-primary/10') || tab.classList.contains('text-primary')
+                               );
+            if (fallbackTab) {
+                codAcaoAtual = fallbackTab.dataset.actionValue;
+                console.log(`Fallback: Encontrada aba com action-value="${codAcaoAtual}"`);
+            }
+        }
+        
         const dataAcaoAtual = elements.dataAcaoAtualInput.value;
         const observacoes = elements.hiperdiaObservacoes.value;
         const responsavelPelaAcao = elements.hiperdiaResponsavelAcao.value;
         
+        // Debug: Log the active tab state
+        if (!activeTab && !codAcaoAtual) {
+            console.error('Nenhuma aba ativa encontrada. Verificando todas as abas...');
+            document.querySelectorAll('.action-type-tab').forEach((tab, index) => {
+                console.log(`Aba ${index}: classes="${tab.className}", data-action-value="${tab.dataset.actionValue}"`);
+            });
+        }
+        
         if (!codAcaoAtual || !dataAcaoAtual) {
-            alert('Por favor, preencha o tipo e a data da ação.');
+            alert(`Por favor, preencha o tipo e a data da ação. Debug: codAcaoAtual=${codAcaoAtual}, dataAcaoAtual=${dataAcaoAtual}, hasActiveTab=${!!activeTab}`);
             return;
         }
 
@@ -474,8 +507,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (result.sucesso) {
                         hiperdiaDom.closeRegisterModal();
                         fetchPacientesHiperdia();
-                        // Criar ação futura "Iniciar MRPA" para 30 dias (sem criar automaticamente Avaliar MRPA)
-                        await createFutureActionWithoutAutoNext(1, 30, "PENDENTE", "Iniciar MRPA após modificação do tratamento.", codAcaoAtual, dataAcaoAtual, currentPacienteForModal);
                         
                         // Mantém o modal da timeline aberto e o atualiza
                         abrirModalTimelineHiperdia(currentPacienteForModal);

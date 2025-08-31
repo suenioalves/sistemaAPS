@@ -1940,6 +1940,8 @@ def api_hiperdia_timeline(cod_cidadao):
                 nu.peso, nu.imc, nu.circunferencia_abdominal, nu.orientacoes_nutricionais,
                 mrg.data_mrg, mrg.g_jejum, mrg.g_apos_cafe, mrg.g_antes_almoco, mrg.g_apos_almoco, 
                 mrg.g_antes_jantar, mrg.g_ao_deitar, mrg.analise_mrg,
+                card.consulta_cardiologia, card.recomendacoes_cardiologia, 
+                card.profissional_responsavel as card_profissional, card.tipo_consulta,
                 next_ac.cod_acao AS next_action_cod,
                 next_ac.data_agendamento AS next_action_date
             FROM 
@@ -1958,6 +1960,8 @@ def api_hiperdia_timeline(cod_cidadao):
                 sistemaaps.tb_hiperdia_mrpa mrpa ON ac.cod_acompanhamento = mrpa.cod_acompanhamento
             LEFT JOIN
                 sistemaaps.tb_hiperdia_mrg mrg ON ac.cod_acompanhamento = mrg.cod_acompanhamento
+            LEFT JOIN
+                sistemaaps.tb_hiperdia_has_cardiologia card ON ac.cod_acompanhamento = card.cod_acompanhamento
             LEFT JOIN LATERAL (
                 SELECT ha_next.cod_acao, ha_next.data_agendamento
                 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha_next
@@ -2077,6 +2081,15 @@ def api_hiperdia_timeline(cod_cidadao):
                     'g_antes_jantar': safe_float_conversion(row['g_antes_jantar']),
                     'g_ao_deitar': safe_float_conversion(row['g_ao_deitar']),
                     'analise_mrg': row['analise_mrg']
+                }
+
+            # Se for um registro de cardiologia e houver dados, agrupa-os
+            if (row['cod_acao'] == 10 or row['cod_acao'] == 11) and row['consulta_cardiologia'] is not None:
+                evento['cardiologia_details'] = {
+                    'consulta_cardiologia': row['consulta_cardiologia'],
+                    'recomendacoes_cardiologia': row['recomendacoes_cardiologia'],
+                    'profissional_responsavel': row['card_profissional'],
+                    'tipo_consulta': row['tipo_consulta']
                 }
 
             eventos.append(evento)
@@ -2576,6 +2589,24 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 'medicamentos_novos': treatment_data.get('medicamentos_novos'),
                 'data_modificacao': data_realizacao_acao
             })
+            
+            # Após completar "Modificar tratamento", criar automaticamente "Iniciar MRPA" para 30 dias
+            print(f"[LOG] Criando ação futura 'Iniciar MRPA' automaticamente para 30 dias após modificação de tratamento")
+            cod_proxima_acao_pendente = 1 # Iniciar MRPA
+            data_agendamento_proxima = data_realizacao_acao + timedelta(days=30) # 30 dias
+            sql_insert_pendente_mrpa = '''
+                INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'MRPA de controle após modificação de tratamento (30 dias).', %(responsavel_pela_acao)s);
+            '''
+            cur.execute(sql_insert_pendente_mrpa, {
+                'cod_cidadao': cod_cidadao,
+                'cod_acao': cod_proxima_acao_pendente,
+                'data_agendamento': data_agendamento_proxima,
+                'cod_acao_origem': cod_acompanhamento_atualizado,
+                'responsavel_pela_acao': responsavel_pela_acao
+            })
+            print(f"[LOG] Ação futura 'Iniciar MRPA' criada automaticamente para 30 dias ({data_agendamento_proxima})")
 
         elif int(cod_acao_atual) == 2: # Avaliar MRPA
             print(f"[LOG] Processando Avaliar MRPA (cod_acao = 2)")
@@ -3855,6 +3886,28 @@ def api_registrar_acao_hiperdia():
                     print(f"[LOG] Ação 'Encaminhar Cardiologia' (cod_acompanhamento: {cod_acompanhamento_encaminhamento}) finalizada automaticamente")
                 else:
                     print(f"[LOG] Nenhuma ação 'Encaminhar Cardiologia' pendente encontrada para finalizar")
+
+            # Tratamento especial para "Modificar Tratamento"
+            elif int(cod_acao_atual) == 3: # Modificar Tratamento
+                print(f"[LOG] Processando Modificar Tratamento (cod_acao = 3)")
+                
+                # Após registrar "Modificar tratamento", criar automaticamente "Iniciar MRPA" para 30 dias
+                print(f"[LOG] Criando ação futura 'Iniciar MRPA' automaticamente para 30 dias após modificação de tratamento")
+                cod_proxima_acao_pendente = 1 # Iniciar MRPA
+                data_agendamento_proxima = data_realizacao_acao + timedelta(days=30) # 30 dias
+                sql_insert_pendente_mrpa = '''
+                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, cod_acao_origem, observacoes, responsavel_pela_acao)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, 'PENDENTE', %(data_agendamento)s, %(cod_acao_origem)s, 'MRPA de controle após modificação de tratamento (30 dias).', %(responsavel_pela_acao)s);
+                '''
+                cur.execute(sql_insert_pendente_mrpa, {
+                    'cod_cidadao': cod_cidadao,
+                    'cod_acao': cod_proxima_acao_pendente,
+                    'data_agendamento': data_agendamento_proxima,
+                    'cod_acao_origem': cod_acompanhamento_criado,
+                    'responsavel_pela_acao': responsavel_pela_acao
+                })
+                print(f"[LOG] Ação futura 'Iniciar MRPA' criada automaticamente para 30 dias ({data_agendamento_proxima})")
 
         conn.commit()
         print(f"[LOG] Commit realizado com sucesso - Ação {cod_acao_atual} registrada")
