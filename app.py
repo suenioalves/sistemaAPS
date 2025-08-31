@@ -5091,20 +5091,24 @@ def api_generate_prescriptions_pdf():
                 if num_medicamentos <= 2:  # 1-2 medicamentos
                     font_size = 14
                 elif num_medicamentos == 3:  # 3 medicamentos
-                    font_size = 12
+                    font_size = 14
                 elif num_medicamentos == 4:  # 4 medicamentos
-                    font_size = 10
+                    font_size = 12
                 elif num_medicamentos == 5:  # 5 medicamentos
-                    font_size = 8
-                else:  # 6+ medicamentos (usar menor fonte disponível)
-                    font_size = 8
+                    font_size = 12
+                elif num_medicamentos == 6:  # 6 medicamentos
+                    font_size = 11
+                elif num_medicamentos == 7:  # 7 medicamentos
+                    font_size = 10
+                else:  # 8+ medicamentos (diminui 1pt para cada aumento)
+                    font_size = max(6, 16 - num_medicamentos)  # 8pt para 8 med, 7pt para 9 med, etc. Mínimo 6pt
                 
                 print(f"DEBUG: {num_medicamentos} medicamentos, fonte {font_size}pt")
                 
                 # Definir quantidade de traços baseada no tamanho da fonte
-                if num_medicamentos <= 2:  # Fonte maior (14pt)
+                if num_medicamentos <= 3:  # Fonte maior (14pt)
                     tracos = "--------------------------------"  # 32 traços
-                else:  # Fonte menor (12pt, 10pt, 8pt)
+                else:  # Fonte menor (12pt, 11pt, 10pt, 8pt, 7pt, etc)
                     tracos = "---------------------------------------------"  # 45 traços
                 
                 # Gerar texto completo de medicamentos dinamicamente com espaçamento otimizado
@@ -5472,21 +5476,25 @@ def api_generate_prescription_pdf_individual():
         
         # Calcular tamanho da fonte baseado na quantidade de medicamentos
         num_medicamentos = len(medicamentos_lista)
-        if num_medicamentos <= 2:
+        if num_medicamentos <= 2:  # 1-2 medicamentos
             font_size = 14
-        elif num_medicamentos == 3:
+        elif num_medicamentos == 3:  # 3 medicamentos
+            font_size = 14
+        elif num_medicamentos == 4:  # 4 medicamentos
             font_size = 12
-        elif num_medicamentos == 4:
+        elif num_medicamentos == 5:  # 5 medicamentos
+            font_size = 12
+        elif num_medicamentos == 6:  # 6 medicamentos
+            font_size = 11
+        elif num_medicamentos == 7:  # 7 medicamentos
             font_size = 10
-        elif num_medicamentos == 5:
-            font_size = 8
-        else:
-            font_size = 8
+        else:  # 8+ medicamentos (diminui 1pt para cada aumento)
+            font_size = max(6, 16 - num_medicamentos)  # 8pt para 8 med, 7pt para 9 med, etc. Mínimo 6pt
         
         # Definir quantidade de traços baseada no tamanho da fonte
-        if num_medicamentos <= 2:  # Fonte maior (14pt)
+        if num_medicamentos <= 3:  # Fonte maior (14pt)
             tracos = "--------------------------------"  # 32 traços
-        else:  # Fonte menor (12pt, 10pt, 8pt)
+        else:  # Fonte menor (12pt, 11pt, 10pt, 8pt, 7pt, etc)
             tracos = "---------------------------------------------"  # 45 traços
         
         # Gerar texto completo de medicamentos dinamicamente
