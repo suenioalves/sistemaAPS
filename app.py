@@ -5034,11 +5034,12 @@ def api_generate_prescriptions_pdf():
                         frequencia,
                         data_inicio,
                         observacao,
-                        updated_at
+                        updated_at,
+                        created_at
                     FROM sistemaaps.tb_hiperdia_has_medicamentos
                     WHERE codcidadao = %(cod_paciente)s
                     AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
-                    ORDER BY nome_medicamento
+                    ORDER BY created_at DESC, nome_medicamento
                 """
                 
                 cur.execute(sql_medicamentos, {'cod_paciente': patient['cod_paciente']})
@@ -5131,7 +5132,7 @@ def api_generate_prescriptions_pdf():
                     'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
                     'sexo': paciente_dict.get('sexo', 'Não informado'),
                     'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
-                    'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
+                    'ultima_atualizacao': medicamentos[0]['created_at'].strftime('%d/%m/%Y') if medicamentos[0]['created_at'] else "Não disponível",
                     'medicamentos_texto': medicamentos_texto,
                     'font_size': font_size
                 }
@@ -5419,11 +5420,12 @@ def api_generate_prescription_pdf_individual():
                 frequencia,
                 data_inicio,
                 observacao,
-                updated_at
+                updated_at,
+                created_at
             FROM sistemaaps.tb_hiperdia_has_medicamentos
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
-            ORDER BY nome_medicamento
+            ORDER BY created_at DESC, nome_medicamento
         """
         
         cur.execute(sql_medicamentos, {'cod_paciente': patient['cod_paciente']})
@@ -5512,7 +5514,7 @@ def api_generate_prescription_pdf_individual():
             'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
             'sexo': paciente_dict.get('sexo', 'Não informado'),
             'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
-            'ultima_atualizacao': medicamentos[0]['updated_at'].strftime('%d/%m/%Y') if medicamentos[0]['updated_at'] else "Não disponível",
+            'ultima_atualizacao': medicamentos[0]['created_at'].strftime('%d/%m/%Y') if medicamentos[0]['created_at'] else "Não disponível",
             'medicamentos_texto': medicamentos_texto,
             'font_size': font_size
         }
