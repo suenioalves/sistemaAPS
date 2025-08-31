@@ -971,6 +971,55 @@ export const hiperdiaDom = {
                 nutritionDetailsHtml += '</div>';
             }
 
+            let cardiologiaDetailsHtml = '';
+            if (evento.cardiologia_details) {
+                const details = evento.cardiologia_details;
+                const cardiologiaId = `cardiologia-details-${evento.cod_acompanhamento}`;
+                
+                cardiologiaDetailsHtml = `
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center">
+                                <div class="w-5 h-5 flex items-center justify-center text-red-600 mr-2">
+                                    <i class="ri-heart-add-line"></i>
+                                </div>
+                                <p class="font-medium text-gray-700 text-sm">Consulta Cardiológica</p>
+                            </div>
+                            <button class="cardiologia-toggle-btn text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors" data-target="${cardiologiaId}">
+                                <span class="toggle-text">Expandir</span>
+                                <span class="toggle-icon ml-1"><i class="ri-arrow-down-s-line"></i></span>
+                            </button>
+                        </div>
+                        <div id="${cardiologiaId}" class="hidden">
+                            ${details.profissional_responsavel ? `
+                                <div class="mb-2">
+                                    <span class="text-gray-600 text-xs">Profissional:</span>
+                                    <p class="font-medium text-gray-800 text-xs">${details.profissional_responsavel}</p>
+                                </div>
+                            ` : ''}
+                            ${details.tipo_consulta ? `
+                                <div class="mb-2">
+                                    <span class="text-gray-600 text-xs">Tipo:</span>
+                                    <span class="font-medium text-gray-800 text-xs">${details.tipo_consulta}</span>
+                                </div>
+                            ` : ''}
+                            ${details.consulta_cardiologia ? `
+                                <div class="mb-2">
+                                    <span class="text-gray-600 text-xs">Relatório da Consulta:</span>
+                                    <p class="text-gray-800 text-xs whitespace-pre-wrap bg-gray-50 p-2 rounded">${details.consulta_cardiologia}</p>
+                                </div>
+                            ` : ''}
+                            ${details.recomendacoes_cardiologia ? `
+                                <div class="mb-2">
+                                    <span class="text-gray-600 text-xs">Recomendações:</span>
+                                    <p class="text-gray-800 text-xs whitespace-pre-wrap bg-blue-50 p-2 rounded">${details.recomendacoes_cardiologia}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
             let nextAccompanimentHtml = '';
             if (evento.next_accompaniment_details) {
                 const details = evento.next_accompaniment_details;
@@ -1098,6 +1147,7 @@ export const hiperdiaDom = {
                         ${treatmentDetailsHtml}
                         ${nextAccompanimentHtml}
                         ${nutritionDetailsHtml}
+                        ${cardiologiaDetailsHtml}
                         ${riskDetailsHtml}
                         ${examResultsHtml}
                     </div>
@@ -1129,6 +1179,45 @@ export const hiperdiaDom = {
 
         // Adicionar event listeners para os botões de expandir/recolher MRG
         document.querySelectorAll('.mrg-toggle-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const content = document.getElementById(targetId);
+                const toggleText = this.querySelector('.toggle-text');
+                const toggleIcon = this.querySelector('.toggle-icon i');
+                
+                if (content.classList.contains('hidden')) {
+                    // Expandir
+                    content.classList.remove('hidden');
+                    content.style.maxHeight = 'none';
+                    toggleText.textContent = 'Recolher';
+                    toggleIcon.className = 'ri-arrow-up-s-line';
+                    
+                    // Animação suave
+                    content.style.opacity = '0';
+                    content.style.transform = 'translateY(-10px)';
+                    requestAnimationFrame(() => {
+                        content.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        content.style.opacity = '1';
+                        content.style.transform = 'translateY(0)';
+                    });
+                } else {
+                    // Recolher
+                    content.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    content.style.opacity = '0';
+                    content.style.transform = 'translateY(-10px)';
+                    
+                    setTimeout(() => {
+                        content.classList.add('hidden');
+                        content.style.maxHeight = '0';
+                        toggleText.textContent = 'Expandir';
+                        toggleIcon.className = 'ri-arrow-down-s-line';
+                    }, 200);
+                }
+            });
+        });
+
+        // Adicionar event listeners para os botões de expandir/recolher cardiologia
+        document.querySelectorAll('.cardiologia-toggle-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const targetId = this.getAttribute('data-target');
                 const content = document.getElementById(targetId);
