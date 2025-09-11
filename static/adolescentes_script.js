@@ -1229,13 +1229,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Adicionar nome da adolescente
             if (ado.nome_paciente && ado.nome_paciente.trim() !== "") {
+                const prefixFilha = "Filha: ";
+                const nomeFilhaUpperCase = ado.nome_paciente.toUpperCase();
+                
+                // Calculate widths for precise centering
+                doc.setFont("helvetica", "normal"); // Set to normal for prefix width calculation
+                const prefixFilhaWidth = doc.getTextWidth(prefixFilha);
+                
+                doc.setFont("helvetica", "bold"); // Set to bold for name width calculation
+                const nomeFilhaWidth = doc.getTextWidth(nomeFilhaUpperCase);
+                
+                const totalFilhaWidth = prefixFilhaWidth + nomeFilhaWidth;
+                let currentXFilha = currentXStart + (informativoWidth - totalFilhaWidth) / 2;
+                
+                // Print "Filha:" in normal font (same as "Sra.")
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(9); // Fonte um pouco menor para o nome da filha
-                doc.setTextColor(102, 102, 102); // Cinza, #666666
-                const filhaText = `Filha: ${ado.nome_paciente}`;
-                // Tenta centralizar, mas se for muito longo, pode quebrar.
-                // Idealmente, teríamos uma lógica para truncar ou reduzir mais a fonte se necessário.
-                doc.text(filhaText, currentXStart + informativoWidth / 2, currentY, { align: 'center', maxWidth: contentAreaWidth });
+                doc.text(prefixFilha, currentXFilha, currentY);
+                currentXFilha += prefixFilhaWidth;
+                
+                // Print daughter's name in bold and uppercase (same as mother's name)
+                doc.setFont("helvetica", "bold");
+                doc.text(nomeFilhaUpperCase, currentXFilha, currentY);
+                
                 currentY += 5;
             }
             doc.setFontSize(10); // Resetar para o tamanho de fonte padrão do corpo
