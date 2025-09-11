@@ -3,7 +3,14 @@
     "allow": [
       "Bash(npx eslint:*)",
       "Bash(python:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(py:*)",
+      "Bash(where python)",
+      "Bash(envScriptspython.exe app.py)",
+      "Bash(./env/Scripts/python.exe app.py)",
+      "Bash(C:UsersPichauAppDataLocalProgramsPythonPython313python.exe app.py)"
     ],
     "deny": [],
     "ask": [],

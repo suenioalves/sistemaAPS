@@ -1224,15 +1224,138 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Função para gerar receituário
-    function handleGerarReceituario() {
+    async function handleGerarReceituario() {
         const checkboxes = document.querySelectorAll('input[name="paciente-checkbox-diabetes"]:checked');
         if (checkboxes.length === 0) {
             alert('Selecione pelo menos um paciente.');
             return;
         }
 
-        // Implementar geração de receituário para diabetes
-        console.log('Gerar receituário para diabetes:', checkboxes.length, 'pacientes');
+        // Coletar dados dos pacientes selecionados
+        const pacientesSelecionados = [];
+        checkboxes.forEach(checkbox => {
+            const row = checkbox.closest('tr');
+            if (row) {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    pacientesSelecionados.push({
+                        cod_paciente: parseInt(checkbox.value),
+                        nome_paciente: cells[1] ? cells[1].textContent.trim() : '',
+                        dt_nascimento: cells[2] ? cells[2].textContent.trim() : '',
+                        sexo: cells[3] ? cells[3].textContent.trim() : ''
+                    });
+                }
+            }
+        });
+
+        if (pacientesSelecionados.length === 0) {
+            alert('Erro ao coletar dados dos pacientes selecionados.');
+            return;
+        }
+
+        console.log('Pacientes selecionados para receituário:', pacientesSelecionados);
+
+        // Mostrar loading
+        const loadingMessage = document.createElement('div');
+        loadingMessage.id = 'loading-receituario-diabetes';
+        loadingMessage.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+            font-size: 18px;
+        `;
+        loadingMessage.innerHTML = `
+            <div style="text-align: center;">
+                <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+                <div>Gerando receituários de diabetes...</div>
+            </div>
+        `;
+        
+        // Adicionar CSS para animação de loading
+        if (!document.getElementById('loading-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'loading-spin-style';
+            style.innerHTML = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(loadingMessage);
+
+        try {
+            let response;
+            
+            if (pacientesSelecionados.length === 1) {
+                // Gerar receituário individual
+                response = await fetch('/api/diabetes/generate_prescription_pdf_individual', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ patient: pacientesSelecionados[0] })
+                });
+            } else {
+                // Gerar receituário em lote
+                response = await fetch('/api/diabetes/generate_prescriptions_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ patients: pacientesSelecionados })
+                });
+            }
+
+            if (response.ok) {
+                // Download do PDF
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // Nome do arquivo baseado na quantidade
+                if (pacientesSelecionados.length === 1) {
+                    const nomeFormatado = pacientesSelecionados[0].nome_paciente.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_');
+                    a.download = `receituario_diabetes_${nomeFormatado}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.pdf`;
+                } else {
+                    a.download = `receituarios_diabetes_${pacientesSelecionados.length}_pacientes_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.pdf`;
+                }
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                // Feedback de sucesso
+                alert(`Receituário${pacientesSelecionados.length > 1 ? 's' : ''} gerado${pacientesSelecionados.length > 1 ? 's' : ''} com sucesso!`);
+                
+                // Desmarcar checkboxes
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+            } else {
+                const errorData = await response.json();
+                console.error('Erro na resposta:', errorData);
+                alert(`Erro ao gerar receituário: ${errorData.erro || 'Erro desconhecido'}`);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao gerar receituário:', error);
+            alert(`Erro ao gerar receituário: ${error.message}`);
+        } finally {
+            // Remover loading
+            const loading = document.getElementById('loading-receituario-diabetes');
+            if (loading) {
+                document.body.removeChild(loading);
+            }
+        }
     }
 
     // --- Funcionalidades de Gerenciamento de Tratamento para Diabetes ---
@@ -1800,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const result = await response.json();
 
             if (result.sucesso) {
-                alert(`Insulina ${tipoInsulina} adicionada com sucesso!`);
+                alert(`${tipoInsulina} adicionada com sucesso!`);
                 
                 // Limpar formulário
                 document.getElementById('diabetes-tipoInsulina').value = '';
@@ -1865,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="w-5 h-5 flex items-center justify-center text-orange-600 mr-2">
                                         <i class="ri-medicine-bottle-fill"></i>
                                     </div>
-                                    <h6 class="font-medium text-gray-900">Insulina ${insulina.tipo_insulina}</h6>
+                                    <h6 class="font-medium text-gray-900">${insulina.tipo_insulina}</h6>
                                 </div>
                                 <p class="text-sm text-gray-600">
                                     ${insulina.doses_resumo || 'Dosagem não configurada'}

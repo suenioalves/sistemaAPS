@@ -1,7 +1,8 @@
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response, send_file
 import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
 import json
+import math
 from datetime import date, datetime, timedelta
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -15,6 +16,10 @@ import tempfile
 from docxtpl import DocxTemplate
 import os
 import re
+import shutil
+import time
+import unicodedata
+from pypdf import PdfWriter, PdfReader
 # Importação do docx2pdf será feita condicionalmente dentro da função
 
 # Global map for action types (Hiperdia)
@@ -62,6 +67,106 @@ def safe_float_conversion(value):
     except (ValueError, TypeError):
         print(f"Warning: Could not convert value '{value}' to float. Returning None.")
         return None
+
+# Função auxiliar para remover acentos
+def remove_acentos(texto):
+    """Remove acentos do texto"""
+    if not texto:
+        return texto
+    return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('ascii')
+
+# Funções para formatação de medicamentos de diabetes
+def formatar_medicamento_oral_diabetes(nome, dose, frequencia, posologia=None, observacoes=None):
+    """
+    Formatar medicamento oral conforme especificações:
+    - Calcular comprimidos mensais
+    - Distribuir horários automaticamente
+    """
+    
+    # Calcular quantidade mensal
+    comprimidos_mes = dose * frequencia * 30
+    quantidade_texto = f"{comprimidos_mes:02d} comprimidos"
+    
+    # Distribuir horários baseado na frequência
+    horarios_map = {
+        1: ["06:00"],
+        2: ["06:00", "18:00"], 
+        3: ["06:00", "14:00", "22:00"],
+        4: ["06:00", "12:00", "18:00", "22:00"]
+    }
+    
+    horarios = horarios_map.get(frequencia, ["06:00"])
+    
+    # Montar instruções
+    instrucoes = []
+    
+    # Instruções por horário individual
+    for horario in horarios:
+        instrucao = f"Tomar {dose:02d} comprimido{'s' if dose > 1 else ''} às {horario} horas"
+        instrucoes.append(instrucao)
+    
+    # Adicionar posologia se existir
+    if posologia and posologia.strip():
+        instrucoes.append(f"Posologia: {posologia}")
+    
+    # Adicionar observações se existir  
+    if observacoes and observacoes.strip():
+        instrucoes.append(f"Obs: {observacoes}")
+    
+    return {
+        'nome': nome,
+        'quantidade': quantidade_texto,
+        'instrucoes': instrucoes
+    }
+
+def formatar_insulina_diabetes(tipo_insulina, doses_estruturadas_json, observacoes=None):
+    """
+    Formatar insulina conforme especificações:
+    - Calcular canetas (300U por caneta)
+    - Aplicar regra "ao deitar" para último horário
+    """
+    
+    try:
+        doses = json.loads(doses_estruturadas_json) if isinstance(doses_estruturadas_json, str) else doses_estruturadas_json
+    except (json.JSONDecodeError, TypeError):
+        doses = []
+    
+    if not doses:
+        return None
+    
+    # Calcular unidades totais diárias
+    total_unidades_dia = sum(int(dose.get('dose', 0)) for dose in doses)
+    
+    # Calcular canetas (300U por caneta, para 30 dias)
+    unidades_mes = total_unidades_dia * 30
+    canetas_necessarias = math.ceil(unidades_mes / 300)
+    quantidade_texto = f"{canetas_necessarias:02d} caneta{'s' if canetas_necessarias > 1 else ''}"
+    
+    # Processar horários e aplicar regra "ao deitar"
+    instrucoes = []
+    doses_ordenadas = sorted(doses, key=lambda x: x.get('horario', '00:00'))
+    
+    for i, dose in enumerate(doses_ordenadas):
+        unidades = int(dose.get('dose', 0))
+        horario = dose.get('horario', '00:00')
+        
+        # Regra: último horário sempre "ao deitar subcutâneo"
+        if i == len(doses_ordenadas) - 1 and len(doses_ordenadas) > 1:
+            instrucao = f"Aplicar {unidades:02d} unidades ao deitar subcutâneo"
+        else:
+            instrucao = f"Aplicar {unidades:02d} unidades às {horario} subcutâneo"
+        
+        instrucoes.append(instrucao)
+    
+    # Adicionar observações se existir
+    if observacoes and observacoes.strip():
+        instrucoes.append(f"Obs: {observacoes}")
+    
+    return {
+        'nome': tipo_insulina,
+        'quantidade': quantidade_texto,
+        'instrucoes': instrucoes
+    }
  
 app = Flask(__name__)
 
@@ -4977,9 +5082,6 @@ def api_generate_prescriptions_pdf():
     from datetime import datetime
     import calendar
     
-    def remove_acentos(texto):
-        """Remove acentos do texto"""
-        return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('ascii')
     
     data = request.get_json()
     patients = data.get('patients', [])
@@ -5375,9 +5477,6 @@ def api_generate_prescription_pdf_individual():
     import os
     from datetime import datetime
     
-    def remove_acentos(texto):
-        """Remove acentos do texto"""
-        return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('ascii')
     
     data = request.get_json()
     patient = data.get('patient')
@@ -7477,7 +7576,7 @@ def api_diabetes_adicionar_insulina():
         print(f"Nova insulina adicionada: {tipo_insulina} para paciente {cod_cidadao}")
         return jsonify({
             "sucesso": True, 
-            "mensagem": f"Insulina {tipo_insulina} adicionada com sucesso",
+            "mensagem": f"{tipo_insulina} adicionada com sucesso",
             "cod_seq_insulina": cod_seq_insulina
         })
         
@@ -7700,6 +7799,570 @@ def api_diabetes_interromper_insulina(cod_seq_insulina):
             conn.rollback()
         print(f"Erro ao interromper insulina {cod_seq_insulina}: {e}")
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/generate_prescriptions_pdf', methods=['POST'])
+def api_diabetes_generate_prescriptions_pdf():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        data = request.json
+        patients = data.get('patients', [])
+        
+        if not patients:
+            return jsonify({"erro": "Nenhum paciente selecionado"}), 400
+        
+        # Diretório temporário para armazenar os PDFs individuais
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_files = []
+            
+            for patient in patients:
+                try:
+                    # Buscar dados do paciente
+                    sql_paciente = """
+                        SELECT cod_paciente, nome_paciente, dt_nascimento, sexo, cartao_sus
+                        FROM sistemaaps.mv_hiperdia_diabetes
+                        WHERE cod_paciente = %(cod_paciente)s
+                    """
+                    
+                    cur.execute(sql_paciente, {'cod_paciente': patient['cod_paciente']})
+                    paciente_dados = cur.fetchone()
+                    
+                    if not paciente_dados:
+                        continue
+                        
+                    paciente_dict = dict(paciente_dados)
+                    
+                    # Buscar medicamentos orais ativos
+                    sql_medicamentos = """
+                        SELECT 
+                            nome_medicamento,
+                            dose,
+                            frequencia,
+                            posologia,
+                            data_inicio,
+                            observacoes,
+                            created_at
+                        FROM sistemaaps.tb_hiperdia_dm_medicamentos
+                        WHERE codcidadao = %(cod_paciente)s
+                        AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+                        ORDER BY created_at DESC, nome_medicamento
+                    """
+                    
+                    cur.execute(sql_medicamentos, {'cod_paciente': patient['cod_paciente']})
+                    medicamentos = cur.fetchall()
+                    
+                    # Buscar insulinas ativas
+                    sql_insulinas = """
+                        SELECT 
+                            tipo_insulina,
+                            doses_estruturadas,
+                            data_inicio,
+                            observacoes,
+                            created_at
+                        FROM sistemaaps.tb_hiperdia_dm_insulina
+                        WHERE codcidadao = %(cod_paciente)s
+                        AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+                        ORDER BY created_at DESC, tipo_insulina
+                    """
+                    
+                    cur.execute(sql_insulinas, {'cod_paciente': patient['cod_paciente']})
+                    insulinas = cur.fetchall()
+                    
+                    if not medicamentos and not insulinas:
+                        continue
+                    
+                    # Combinar medicamentos e insulinas em uma lista usando as novas funções de formatação
+                    medicamentos_lista = []
+                    
+                    # Adicionar medicamentos orais usando função de formatação
+                    for med in medicamentos:
+                        resultado = formatar_medicamento_oral_diabetes(
+                            med['nome_medicamento'],
+                            med['dose'],
+                            med['frequencia'],
+                            med['posologia'],
+                            med['observacoes']
+                        )
+                        
+                        medicamentos_lista.append({
+                            'nome': resultado['nome'],
+                            'quantidade': resultado['quantidade'],
+                            'instrucoes': resultado['instrucoes'],
+                            'created_at': med['created_at']
+                        })
+                    
+                    # Adicionar insulinas usando função de formatação
+                    for ins in insulinas:
+                        try:
+                            resultado = formatar_insulina_diabetes(
+                                ins['tipo_insulina'],
+                                ins['doses_estruturadas'],
+                                ins['observacoes']
+                            )
+                            
+                            medicamentos_lista.append({
+                                'nome': resultado['nome'],
+                                'quantidade': resultado['quantidade'],
+                                'instrucoes': resultado['instrucoes'],
+                                'created_at': ins['created_at']
+                            })
+                            
+                        except Exception as e:
+                            print(f"Erro ao processar doses de insulina para paciente {patient['cod_paciente']}: {e}")
+                            continue
+                    
+                    if not medicamentos_lista:
+                        continue
+                        
+                    # Aplicar a mesma lógica de fonte do sistema de hipertensão
+                    num_medicamentos = len(medicamentos_lista)
+                    if num_medicamentos <= 2:
+                        font_size = 14
+                    elif num_medicamentos == 3:
+                        font_size = 14
+                    elif num_medicamentos == 4:
+                        font_size = 12
+                    elif num_medicamentos == 5:
+                        font_size = 12
+                    elif num_medicamentos == 6:
+                        font_size = 11
+                    elif num_medicamentos == 7:
+                        font_size = 10
+                    else:
+                        font_size = max(6, 16 - num_medicamentos)
+                    
+                    # Definir quantidade de traços baseada no tamanho da fonte
+                    if num_medicamentos <= 3:
+                        tracos = "--------------------------------"  # 32 traços
+                    else:
+                        tracos = "---------------------------------------------"  # 45 traços
+                    
+                    # Gerar texto completo de medicamentos dinamicamente
+                    medicamentos_texto = ""
+                    for idx, med in enumerate(medicamentos_lista, 1):
+                        medicamentos_texto += f"{idx}) {med['nome']} {tracos} {med['quantidade']} \n"
+                        
+                        for instrucao in med['instrucoes']:
+                            medicamentos_texto += f"{instrucao}\n"
+                        
+                        if idx < len(medicamentos_lista):
+                            medicamentos_texto += "\n"
+                    
+                    # Encontrar data mais recente (created_at mais recente)
+                    datas_created = []
+                    if medicamentos:
+                        datas_created.extend([med['created_at'] for med in medicamentos if med['created_at']])
+                    if insulinas:
+                        datas_created.extend([ins['created_at'] for ins in insulinas if ins['created_at']])
+                    
+                    data_mais_recente = max(datas_created) if datas_created else None
+                    
+                    print(f"DEBUG: {num_medicamentos} medicamentos/insulinas, fonte {font_size}pt")
+                    
+                    # Preparar contexto para o template
+                    context = {
+                        'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
+                        'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
+                        'sexo': paciente_dict.get('sexo', 'Não informado'),
+                        'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
+                        'ultima_atualizacao': data_mais_recente.strftime('%d/%m/%Y') if data_mais_recente else "Não disponível",
+                        'medicamentos_texto': medicamentos_texto,
+                        'font_size': font_size
+                    }
+                    
+                    # Processar template
+                    template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_diabetes.docx')
+                    temp_docx = os.path.join(temp_dir, f"receituario_diabetes_{patient['cod_paciente']}.docx")
+                    temp_pdf = os.path.join(temp_dir, f"receituario_diabetes_{patient['cod_paciente']}.pdf")
+                    
+                    # Verificar se o template específico de diabetes existe, senão usar o padrão
+                    if not os.path.exists(template_path):
+                        template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_dynamic.docx')
+                    
+                    # Processar template
+                    doc_template = DocxTemplate(template_path)
+                    doc_template.render(context)
+                    doc_template.save(temp_docx)
+                    
+                    # Aplicar formatação específica
+                    print(f"DEBUG: Aplicando formatação de fonte {font_size}pt e negrito...")
+                    from docx import Document
+                    from docx.shared import Pt
+                    doc = Document(temp_docx)
+                    for paragraph in doc.paragraphs:
+                        # Substituir "Hipertensão" por "Diabetes" em todo o documento
+                        for run in paragraph.runs:
+                            if 'Hipertensão' in run.text:
+                                run.text = run.text.replace('Hipertensão', 'Diabetes')
+                        
+                        if 'medicamentos_texto' in paragraph.text or any('medicamentos_texto' in run.text for run in paragraph.runs):
+                            for run in paragraph.runs:
+                                if 'medicamentos_texto' in run.text:
+                                    run.text = run.text.replace('{{ medicamentos_texto }}', medicamentos_texto)
+                                    run.font.size = Pt(font_size)
+                                    run.font.name = 'Arial'
+                                elif any(char.isdigit() and ')' in run.text for char in run.text[:3]):
+                                    run.font.size = Pt(font_size)
+                                    run.font.bold = True
+                                else:
+                                    run.font.size = Pt(font_size)
+                    
+                    doc.save(temp_docx)
+                    
+                    # Converter para PDF
+                    import pythoncom
+                    import win32com.client
+                    pythoncom.CoInitialize()
+                    word = None
+                    try:
+                        word = win32com.client.Dispatch("Word.Application")
+                        word.Visible = False
+                        doc_word = word.Documents.Open(temp_docx)
+                        doc_word.SaveAs(temp_pdf, 17)  # 17 = PDF format
+                        doc_word.Close()
+                        word.Quit()
+                    except Exception as e:
+                        print(f"Erro na conversão Word->PDF: {e}")
+                        if word:
+                            try:
+                                word.Quit()
+                            except:
+                                pass
+                    finally:
+                        pythoncom.CoUninitialize()
+                    
+                    # Aguardar e verificar se o arquivo está acessível
+                    max_retries = 5
+                    retry_delay = 0.3
+                    
+                    for attempt in range(max_retries):
+                        time.sleep(retry_delay)
+                        
+                        # Verificar se o arquivo existe e está acessível
+                        if os.path.exists(temp_pdf):
+                            try:
+                                # Tentar abrir o arquivo para verificar se está liberado
+                                with open(temp_pdf, 'rb') as test_file:
+                                    test_file.read(1024)  # Ler um pouco do arquivo
+                                print(f"PDF do paciente {patient['cod_paciente']} liberado após {attempt + 1} tentativas")
+                                pdf_files.append(temp_pdf)
+                                break
+                            except (PermissionError, OSError) as e:
+                                print(f"Paciente {patient['cod_paciente']} - Tentativa {attempt + 1}: Arquivo ainda bloqueado - {e}")
+                                if attempt == max_retries - 1:
+                                    print(f"Pulando paciente {patient['cod_paciente']} - arquivo não liberado")
+                        else:
+                            print(f"Paciente {patient['cod_paciente']} - Tentativa {attempt + 1}: PDF ainda não existe")
+                            if attempt == max_retries - 1:
+                                print(f"Pulando paciente {patient['cod_paciente']} - PDF não foi criado")
+                    
+                except Exception as e:
+                    print(f"Erro ao processar paciente {patient.get('cod_paciente', 'N/A')}: {e}")
+                    continue
+            
+            if not pdf_files:
+                return jsonify({"erro": "Nenhum receituário foi gerado com sucesso"}), 404
+            
+            # Combinar todos os PDFs em um único arquivo
+            combined_pdf_path = os.path.join(temp_dir, "receituarios_diabetes_combinados.pdf")
+            
+            with open(combined_pdf_path, 'wb') as combined_file:
+                writer = PdfWriter()
+                
+                for pdf_path in pdf_files:
+                    with open(pdf_path, 'rb') as pdf_file:
+                        reader = PdfReader(pdf_file)
+                        for page in reader.pages:
+                            writer.add_page(page)
+                
+                writer.write(combined_file)
+            
+            # Retornar PDF combinado
+            timestamp = datetime.now().strftime('%d%m%Y_%H%M%S')
+            return send_file(
+                combined_pdf_path,
+                as_attachment=True,
+                download_name=f"receituarios_diabetes_{timestamp}.pdf",
+                mimetype='application/pdf'
+            )
+            
+    except Exception as e:
+        print(f"Erro na API /api/diabetes/generate_prescriptions_pdf: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/generate_prescription_pdf_individual', methods=['POST'])
+def api_diabetes_generate_prescription_pdf_individual():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        data = request.json
+        patient = data.get('patient')
+        
+        if not patient or 'cod_paciente' not in patient:
+            return jsonify({"erro": "Dados do paciente inválidos"}), 400
+            
+        # Buscar dados do paciente
+        sql_paciente = """
+            SELECT cod_paciente, nome_paciente, dt_nascimento, sexo, cartao_sus
+            FROM sistemaaps.mv_hiperdia_diabetes
+            WHERE cod_paciente = %(cod_paciente)s
+        """
+        
+        cur.execute(sql_paciente, {'cod_paciente': patient['cod_paciente']})
+        paciente_dados = cur.fetchone()
+        
+        if not paciente_dados:
+            return jsonify({"erro": "Paciente não encontrado"}), 404
+            
+        paciente_dict = dict(paciente_dados)
+        
+        # Buscar medicamentos orais ativos
+        sql_medicamentos = """
+            SELECT 
+                nome_medicamento,
+                dose,
+                frequencia,
+                posologia,
+                data_inicio,
+                observacoes,
+                created_at
+            FROM sistemaaps.tb_hiperdia_dm_medicamentos
+            WHERE codcidadao = %(cod_paciente)s
+            AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+            ORDER BY created_at DESC, nome_medicamento
+        """
+        
+        cur.execute(sql_medicamentos, {'cod_paciente': patient['cod_paciente']})
+        medicamentos = cur.fetchall()
+        
+        # Buscar insulinas ativas
+        sql_insulinas = """
+            SELECT 
+                tipo_insulina,
+                doses_estruturadas,
+                data_inicio,
+                observacoes,
+                created_at
+            FROM sistemaaps.tb_hiperdia_dm_insulina
+            WHERE codcidadao = %(cod_paciente)s
+            AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+            ORDER BY created_at DESC, tipo_insulina
+        """
+        
+        cur.execute(sql_insulinas, {'cod_paciente': patient['cod_paciente']})
+        insulinas = cur.fetchall()
+        
+        if not medicamentos and not insulinas:
+            return jsonify({"erro": "Nenhum medicamento ou insulina ativo encontrado para este paciente"}), 404
+        
+        # Combinar medicamentos e insulinas em uma lista usando as novas funções de formatação
+        medicamentos_lista = []
+        
+        # Adicionar medicamentos orais com formatação correta
+        for med in medicamentos:
+            med_formatado = formatar_medicamento_oral_diabetes(
+                nome=med['nome_medicamento'],
+                dose=med['dose'] or 1,
+                frequencia=med['frequencia'] or 1,
+                posologia=med['posologia'],
+                observacoes=med['observacoes']
+            )
+            
+            # Adicionar created_at para cálculo da data
+            med_formatado['created_at'] = med['created_at']
+            medicamentos_lista.append(med_formatado)
+        
+        # Adicionar insulinas com formatação correta
+        for ins in insulinas:
+            ins_formatada = formatar_insulina_diabetes(
+                tipo_insulina=ins['tipo_insulina'],
+                doses_estruturadas_json=ins['doses_estruturadas'],
+                observacoes=ins['observacoes']
+            )
+            
+            if ins_formatada:
+                # Adicionar created_at para cálculo da data
+                ins_formatada['created_at'] = ins['created_at']
+                medicamentos_lista.append(ins_formatada)
+        
+        if not medicamentos_lista:
+            return jsonify({"erro": "Erro ao processar medicamentos e insulinas"}), 500
+        
+        # Aplicar a mesma lógica de fonte do sistema de hipertensão
+        num_medicamentos = len(medicamentos_lista)
+        if num_medicamentos <= 2:
+            font_size = 14
+        elif num_medicamentos == 3:
+            font_size = 14
+        elif num_medicamentos == 4:
+            font_size = 12
+        elif num_medicamentos == 5:
+            font_size = 12
+        elif num_medicamentos == 6:
+            font_size = 11
+        elif num_medicamentos == 7:
+            font_size = 10
+        else:
+            font_size = max(6, 16 - num_medicamentos)
+        
+        # Definir quantidade de traços baseada no tamanho da fonte
+        if num_medicamentos <= 3:
+            tracos = "--------------------------------"  # 32 traços
+        else:
+            tracos = "---------------------------------------------"  # 45 traços
+        
+        # Gerar texto completo de medicamentos dinamicamente
+        medicamentos_texto = ""
+        for idx, med in enumerate(medicamentos_lista, 1):
+            medicamentos_texto += f"{idx}) {med['nome']} {tracos} {med['quantidade']} \n"
+            
+            for instrucao in med['instrucoes']:
+                medicamentos_texto += f"{instrucao}\n"
+            
+            if idx < len(medicamentos_lista):
+                medicamentos_texto += "\n"
+        
+        # Encontrar data mais recente (created_at mais recente)
+        datas_created = []
+        if medicamentos:
+            datas_created.extend([med['created_at'] for med in medicamentos if med['created_at']])
+        if insulinas:
+            datas_created.extend([ins['created_at'] for ins in insulinas if ins['created_at']])
+        
+        data_mais_recente = max(datas_created) if datas_created else None
+        
+        # Preparar contexto para o template
+        context = {
+            'nome_paciente': remove_acentos(paciente_dict['nome_paciente'].upper()),
+            'data_nascimento': paciente_dict['dt_nascimento'].strftime('%d/%m/%Y') if paciente_dict['dt_nascimento'] else "xx/xx/xxxx",
+            'sexo': paciente_dict.get('sexo', 'Não informado'),
+            'cns': paciente_dict['cartao_sus'] if paciente_dict['cartao_sus'] else "CNS não registrado no PEC",
+            'ultima_atualizacao': data_mais_recente.strftime('%d/%m/%Y') if data_mais_recente else "Não disponível",
+            'medicamentos_texto': medicamentos_texto,
+            'font_size': font_size
+        }
+        
+        # Criar arquivo temporário
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_diabetes.docx')
+            temp_docx = os.path.join(temp_dir, f"receituario_diabetes_{patient['cod_paciente']}.docx")
+            temp_pdf = os.path.join(temp_dir, f"receituario_diabetes_{patient['cod_paciente']}.pdf")
+            
+            # Verificar se o template específico de diabetes existe, senão usar o padrão
+            if not os.path.exists(template_path):
+                template_path = os.path.join(os.path.dirname(__file__), 'modelos', 'template_receituario_dynamic.docx')
+            
+            # Processar template
+            doc_template = DocxTemplate(template_path)
+            doc_template.render(context)
+            doc_template.save(temp_docx)
+            
+            # Aplicar formatação específica
+            from docx import Document
+            from docx.shared import Pt
+            doc = Document(temp_docx)
+            for paragraph in doc.paragraphs:
+                # Substituir "Hipertensão" por "Diabetes" em todo o documento
+                for run in paragraph.runs:
+                    if 'Hipertensão' in run.text:
+                        run.text = run.text.replace('Hipertensão', 'Diabetes')
+                
+                if 'medicamentos_texto' in paragraph.text or any('medicamentos_texto' in run.text for run in paragraph.runs):
+                    for run in paragraph.runs:
+                        if 'medicamentos_texto' in run.text:
+                            run.text = run.text.replace('{{ medicamentos_texto }}', medicamentos_texto)
+                            run.font.size = Pt(font_size)
+                            run.font.name = 'Arial'
+                        elif any(char.isdigit() and ')' in run.text for char in run.text[:3]):
+                            run.font.size = Pt(font_size)
+                            run.font.bold = True
+                        else:
+                            run.font.size = Pt(font_size)
+            
+            doc.save(temp_docx)
+            
+            # Converter para PDF
+            import pythoncom
+            import win32com.client
+            pythoncom.CoInitialize()
+            word = None
+            try:
+                word = win32com.client.Dispatch("Word.Application")
+                word.Visible = False
+                doc_word = word.Documents.Open(temp_docx)
+                doc_word.SaveAs(temp_pdf, 17)  # 17 = PDF format
+                doc_word.Close()
+                word.Quit()
+            except Exception as e:
+                print(f"Erro na conversão Word->PDF: {e}")
+                if word:
+                    try:
+                        word.Quit()
+                    except:
+                        pass
+                raise e  # Re-raise para ser capturado pelo try/except externo
+            finally:
+                pythoncom.CoUninitialize()
+            
+            # Aguardar e verificar se o arquivo está acessível
+            max_retries = 10
+            retry_delay = 0.5
+            
+            for attempt in range(max_retries):
+                time.sleep(retry_delay)
+                
+                # Verificar se o arquivo existe e está acessível
+                if os.path.exists(temp_pdf):
+                    try:
+                        # Tentar abrir o arquivo para verificar se está liberado
+                        with open(temp_pdf, 'rb') as test_file:
+                            test_file.read(1024)  # Ler um pouco do arquivo
+                        print(f"Arquivo PDF liberado após {attempt + 1} tentativas")
+                        break
+                    except (PermissionError, OSError) as e:
+                        print(f"Tentativa {attempt + 1}: Arquivo ainda bloqueado - {e}")
+                        if attempt == max_retries - 1:
+                            raise Exception(f"Arquivo PDF não foi liberado após {max_retries} tentativas: {e}")
+                else:
+                    print(f"Tentativa {attempt + 1}: Arquivo PDF ainda não existe")
+                    if attempt == max_retries - 1:
+                        raise Exception("Arquivo PDF não foi criado")
+            
+            # Ler o arquivo PDF em memória para evitar problemas de acesso
+            final_pdf_name = f"receituario_diabetes_{remove_acentos(paciente_dict['nome_paciente'])}_{datetime.now().strftime('%d%m%Y')}.pdf"
+            
+            with open(temp_pdf, 'rb') as pdf_file:
+                pdf_data = pdf_file.read()
+            
+            print(f"Arquivo PDF lido em memória ({len(pdf_data)} bytes)")
+            
+            # Criar BytesIO para enviar
+            pdf_buffer = io.BytesIO(pdf_data)
+            pdf_buffer.seek(0)
+            
+            # Retornar PDF
+            return send_file(
+                pdf_buffer,
+                as_attachment=True,
+                download_name=final_pdf_name,
+                mimetype='application/pdf'
+            )
+            
+    except Exception as e:
+        print(f"Erro na API /api/diabetes/generate_prescription_pdf_individual: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()
