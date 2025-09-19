@@ -865,17 +865,32 @@ document.addEventListener('DOMContentLoaded', function () {
                     const glicemiaMediaStatus = getGlicemiaLabStatus(lab.glicemia_media, 'media');
                     const glicemiaJejumStatus = getGlicemiaLabStatus(lab.glicemia_jejum, 'jejum');
 
+                    const labTestsId = `lab-tests-${item.cod_acompanhamento}`;
+
                     labTestsHtml = `
                         <div class="mt-3 pt-3 border-t border-gray-200">
-                            <div class="flex items-center mb-3">
-                                <div class="w-5 h-5 flex items-center justify-center text-blue-600 mr-2">
-                                    <i class="ri-flask-line"></i>
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-blue-600 mr-2">
+                                        <i class="ri-flask-line"></i>
+                                    </div>
+                                    <h5 class="font-medium text-gray-700 text-sm">Exames Laboratoriais</h5>
+                                    ${lab.data_exame ? `<span class="ml-2 text-xs text-gray-500">(${new Date(lab.data_exame).toLocaleDateString('pt-BR')})</span>` : ''}
                                 </div>
-                                <h5 class="font-medium text-gray-700 text-sm">Exames Laboratoriais</h5>
-                                ${lab.data_exame ? `<span class="ml-2 text-xs text-gray-500">(${new Date(lab.data_exame).toLocaleDateString('pt-BR')})</span>` : ''}
+                                <button
+                                    class="lab-tests-toggle-btn flex items-center text-xs text-gray-500 hover:text-blue-600 transition-colors duration-200"
+                                    data-target="${labTestsId}"
+                                    title="Expandir/Recolher exames laboratoriais"
+                                >
+                                    <span class="toggle-text mr-1">Expandir</span>
+                                    <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
                             </div>
 
-                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div id="${labTestsId}" class="lab-tests-content hidden">
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div class="text-center">
                                         <div class="text-xs text-gray-600 mb-1">Hemoglobina Glicada</div>
@@ -911,6 +926,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </div>
                                 </div>
                                 ${lab.observacoes ? `<div class="mt-3 pt-2 border-t border-blue-300 text-xs text-gray-700">${lab.observacoes}</div>` : ''}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1133,8 +1149,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <p class="text-sm text-gray-600">${dataFormatada}</p>
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
-                                ${labTestsHtml}
                                 ${treatmentStatusHtml}
+                                ${labTestsHtml}
                                 ${mrgDetailsHtml}
                                 
                                 <!-- Botões de ação da timeline -->
@@ -1220,7 +1236,85 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
             });
-            
+
+            // Adicionar event listeners para os botões de expandir/recolher Exames Laboratoriais
+            document.querySelectorAll('.lab-tests-toggle-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const content = document.getElementById(targetId);
+                    const toggleText = this.querySelector('.toggle-text');
+                    const toggleIcon = this.querySelector('.toggle-icon i');
+
+                    if (content && content.classList.contains('hidden')) {
+                        // Expandir
+                        content.classList.remove('hidden');
+                        content.style.maxHeight = 'none';
+                        toggleText.textContent = 'Recolher';
+                        toggleIcon.className = 'ri-arrow-up-s-line';
+
+                        // Animação suave
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+                        requestAnimationFrame(() => {
+                            content.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            content.style.opacity = '1';
+                            content.style.transform = 'translateY(0)';
+                        });
+                    } else if (content) {
+                        // Recolher
+                        content.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+
+                        setTimeout(() => {
+                            content.classList.add('hidden');
+                            content.style.maxHeight = '0';
+                            toggleText.textContent = 'Expandir';
+                            toggleIcon.className = 'ri-arrow-down-s-line';
+                        }, 200);
+                    }
+                });
+            });
+
+            // Adicionar event listeners para os botões de expandir/recolher Avaliação do Tratamento
+            document.querySelectorAll('.evaluation-toggle-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const content = document.getElementById(targetId);
+                    const toggleText = this.querySelector('.toggle-text');
+                    const toggleIcon = this.querySelector('.toggle-icon i');
+
+                    if (content && content.classList.contains('hidden')) {
+                        // Expandir
+                        content.classList.remove('hidden');
+                        content.style.maxHeight = 'none';
+                        toggleText.textContent = 'Recolher';
+                        toggleIcon.className = 'ri-arrow-up-s-line';
+
+                        // Animação suave
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+                        requestAnimationFrame(() => {
+                            content.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                            content.style.opacity = '1';
+                            content.style.transform = 'translateY(0)';
+                        });
+                    } else if (content) {
+                        // Recolher
+                        content.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                        content.style.opacity = '0';
+                        content.style.transform = 'translateY(-10px)';
+
+                        setTimeout(() => {
+                            content.classList.add('hidden');
+                            content.style.maxHeight = '0';
+                            toggleText.textContent = 'Expandir';
+                            toggleIcon.className = 'ri-arrow-down-s-line';
+                        }, 200);
+                    }
+                });
+            });
+
             // Adicionar event listeners para os botões de ação da timeline
             document.querySelectorAll('.timeline-action-btn').forEach(button => {
                 button.addEventListener('click', async function() {
@@ -2805,28 +2899,43 @@ document.addEventListener('DOMContentLoaded', function () {
             labData.glicemia_jejum
         );
 
+        const evaluationId = `evaluation-details-${timelineItem.cod_acompanhamento}`;
+
         return `
             <div class="mt-3 pt-3 border-t border-gray-200">
-                <div class="flex items-center mb-3">
-                    <div class="w-5 h-5 flex items-center justify-center text-purple-600 mr-2">
-                        <i class="ri-stethoscope-line"></i>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <div class="w-5 h-5 flex items-center justify-center text-purple-600 mr-2">
+                            <i class="ri-stethoscope-line"></i>
+                        </div>
+                        <h5 class="font-medium text-gray-700 text-sm">Avaliação do Tratamento</h5>
                     </div>
-                    <h5 class="font-medium text-gray-700 text-sm">Avaliação do Tratamento</h5>
+                    <button
+                        class="evaluation-toggle-btn flex items-center text-xs text-gray-500 hover:text-purple-600 transition-colors duration-200"
+                        data-target="${evaluationId}"
+                        title="Expandir/Recolher detalhes da avaliação"
+                    >
+                        <span class="toggle-text mr-1">Expandir</span>
+                        <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                            <i class="ri-arrow-down-s-line"></i>
+                        </div>
+                    </button>
                 </div>
 
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <!-- Status Principal -->
-                    <div class="flex items-center justify-center mb-4">
+                <!-- Status da Avaliação (sempre visível) -->
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-2">
+                    <div class="flex items-center justify-center">
+                        <span class="text-3xl mr-3" title="Status do Controle">${evaluation.icon}</span>
                         <div class="text-center">
-                            <div class="flex items-center justify-center mb-2">
-                                <span class="text-4xl mr-2" title="Status do Controle">${evaluation.icon}</span>
-                                <div>
-                                    <div class="text-lg font-bold ${evaluation.color}">${evaluation.status}</div>
-                                    <div class="text-xs text-gray-600">Pontuação: ${evaluation.score}/7</div>
-                                </div>
-                            </div>
+                            <div class="text-lg font-bold ${evaluation.color}">${evaluation.status}</div>
+                            <div class="text-xs text-gray-600">Pontuação: ${evaluation.score}/7</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Detalhes da Avaliação (expansível) -->
+                <div id="${evaluationId}" class="evaluation-details-content hidden">
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
 
                     <!-- Observações da Avaliação do Tratamento -->
                     ${timelineItem.observacoes ? `
@@ -2897,6 +3006,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="text-xs text-gray-700">• MRG imediata</div>
                             `}
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
