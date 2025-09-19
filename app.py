@@ -2116,7 +2116,7 @@ def api_hiperdia_timeline(cod_cidadao):
                 'cod_acompanhamento': row['cod_acompanhamento'],
                 'cod_cidadao': row['cod_cidadao'],
                 'cod_acao': row['cod_acao'],
-                'dsc_acao': row['dsc_acao'],
+                'dsc_acao': TIPO_ACAO_MAP_PY.get(row['cod_acao'], row['dsc_acao']),
                 'status_acao': row['status_acao'],
                 'responsavel_pela_acao': row['responsavel_pela_acao'], # Adicionado aqui
                 'data_realizacao': row['data_realizacao'].strftime('%Y-%m-%d') if row['data_realizacao'] else None, # Adicionado aqui
