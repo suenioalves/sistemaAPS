@@ -37,6 +37,16 @@ TIPO_ACAO_MAP_PY = {
     11: "Registrar Cardiologia"
 }
 
+# Global map for diabetes action types (Hiperdia Diabetes)
+TIPO_ACAO_DIABETES_MAP_PY = {
+    1: "Agendar Novo Acompanhamento",
+    2: "Solicitar Hemoglobina Glicada, Glicemia Média e Glicemia de Jejum",
+    3: "Solicitar Mapeamento Residencial de Glicemias",
+    4: "Avaliar Tratamento",
+    5: "Modificar Tratamento",
+    6: "Finalizar Acompanhamento"
+}
+
 # Global map for Plafam action types
 TIPO_ACAO_PLAFAM_MAP_PY = {
     1: "Convite com o Agente",
@@ -638,6 +648,7 @@ def update_acompanhamento():
             '16': 16,    # Fora da área - Outra área
             '17': 17,    # Fora da área - Não reside na cidade
             '18': 18,    # Fora da área - Sem informação
+            '19': 19,    # Fora da área - Área indígena
             # Reset
             '0': None    # Resetar ações
         }
@@ -6038,7 +6049,7 @@ def api_diabetes_timeline(cod_paciente):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Buscar histórico de acompanhamento incluindo dados MRG
+        # Buscar histórico de acompanhamento incluindo dados MRG e exames
         query = """
         SELECT
                 a.cod_acompanhamento,
@@ -6051,56 +6062,108 @@ def api_diabetes_timeline(cod_paciente):
                 a.observacoes,
                 a.responsavel_pela_acao,
                 a.created_at,
-                mrg.data_mrg, 
-                mrg.g_jejum, 
-                mrg.g_apos_cafe, 
-                mrg.g_antes_almoco, 
+                mrg.data_mrg,
+                mrg.g_jejum,
+                mrg.g_apos_cafe,
+                mrg.g_antes_almoco,
                 mrg.g_apos_almoco,
-                mrg.g_antes_jantar, 
-                mrg.g_ao_deitar, 
-                mrg.analise_mrg
+                mrg.g_antes_jantar,
+                mrg.g_ao_deitar,
+                mrg.analise_mrg,
+                mrg.periodo_mapeamento,
+                mrg.dias_mapeamento,
+                ex.hemoglobina_glicada,
+                ex.glicemia_media,
+                ex.glicemia_jejum as exame_glicemia_jejum,
+                ex.data_exame,
+                ex.observacoes as observacoes_exame
             FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
+            LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
             WHERE a.cod_cidadao = %(cod_paciente)s
-            ORDER BY a.created_at DESC
+            ORDER BY a.created_at DESC, mrg.cod_mrg ASC
         """
         
         cur.execute(query, {'cod_paciente': cod_paciente})
         results = cur.fetchall()
         
-        # Processar timeline incluindo dados MRG
+        # Processar timeline agrupando dados por acompanhamento
         timeline = []
+        acompanhamentos = {}
+
         for row in results:
             evento = dict(row)
-            
-            # Se for uma avaliação de MRG e houver dados, agrupa-os
-            if evento['cod_acao'] == 11 and any([
-                evento['g_jejum'] is not None,
-                evento['g_apos_cafe'] is not None,
-                evento['g_antes_almoco'] is not None,
-                evento['g_apos_almoco'] is not None,
-                evento['g_antes_jantar'] is not None,
-                evento['g_ao_deitar'] is not None
-            ]):
-                evento['mrg_details'] = {
-                    'data_mrg': evento['data_mrg'].strftime('%Y-%m-%d') if evento['data_mrg'] else None,
-                    'g_jejum': evento['g_jejum'],
-                    'g_apos_cafe': evento['g_apos_cafe'],
-                    'g_antes_almoco': evento['g_antes_almoco'],
-                    'g_apos_almoco': evento['g_apos_almoco'],
-                    'g_antes_jantar': evento['g_antes_jantar'],
-                    'g_ao_deitar': evento['g_ao_deitar'],
-                    'analise_mrg': evento['analise_mrg']
+            cod_acompanhamento = evento['cod_acompanhamento']
+
+            # Se já existe o acompanhamento, agregar dados
+            if cod_acompanhamento in acompanhamentos:
+                acomp = acompanhamentos[cod_acompanhamento]
+
+                # Agregar mapeamentos MRG
+                if any([evento['g_jejum'] is not None, evento['g_apos_cafe'] is not None,
+                       evento['g_antes_almoco'] is not None, evento['g_apos_almoco'] is not None,
+                       evento['g_antes_jantar'] is not None, evento['g_ao_deitar'] is not None]):
+                    if 'mrg_mappings' not in acomp:
+                        acomp['mrg_mappings'] = []
+                    acomp['mrg_mappings'].append({
+                        'data_mrg': evento['data_mrg'].strftime('%Y-%m-%d') if evento['data_mrg'] else None,
+                        'periodo_mapeamento': evento['periodo_mapeamento'] or f'Período {len(acomp["mrg_mappings"]) + 1}',
+                        'dias_mapeamento': evento['dias_mapeamento'] or 7,
+                        'g_jejum': evento['g_jejum'],
+                        'g_apos_cafe': evento['g_apos_cafe'],
+                        'g_antes_almoco': evento['g_antes_almoco'],
+                        'g_apos_almoco': evento['g_apos_almoco'],
+                        'g_antes_jantar': evento['g_antes_jantar'],
+                        'g_ao_deitar': evento['g_ao_deitar'],
+                        'analise_mrg': evento['analise_mrg']
+                    })
+            else:
+                # Novo acompanhamento
+                acompanhamentos[cod_acompanhamento] = {
+                    'cod_acompanhamento': evento['cod_acompanhamento'],
+                    'cod_acao': evento['cod_acao'],
+                    'dsc_acao': evento['dsc_acao'],
+                    'dsc_detalhada': evento['dsc_detalhada'],
+                    'status_acao': evento['status_acao'],
+                    'data_agendamento': evento['data_agendamento'],
+                    'data_realizacao': evento['data_realizacao'],
+                    'observacoes': evento['observacoes'],
+                    'responsavel_pela_acao': evento['responsavel_pela_acao'],
+                    'created_at': evento['created_at']
                 }
-            
-            # Remover campos MRG do objeto principal
-            for field in ['data_mrg', 'g_jejum', 'g_apos_cafe', 'g_antes_almoco', 
-                         'g_apos_almoco', 'g_antes_jantar', 'g_ao_deitar', 'analise_mrg']:
-                if field in evento:
-                    del evento[field]
-            
-            timeline.append(evento)
+
+                # Adicionar dados de exames laboratoriais se existirem
+                if any([evento['hemoglobina_glicada'] is not None, evento['glicemia_media'] is not None,
+                       evento['exame_glicemia_jejum'] is not None]):
+                    acompanhamentos[cod_acompanhamento]['lab_tests'] = {
+                        'hemoglobina_glicada': evento['hemoglobina_glicada'],
+                        'glicemia_media': evento['glicemia_media'],
+                        'glicemia_jejum': evento['exame_glicemia_jejum'],
+                        'data_exame': evento['data_exame'].strftime('%Y-%m-%d') if evento['data_exame'] else None,
+                        'observacoes': evento['observacoes_exame']
+                    }
+
+                # Adicionar primeiro mapeamento MRG se existir
+                if any([evento['g_jejum'] is not None, evento['g_apos_cafe'] is not None,
+                       evento['g_antes_almoco'] is not None, evento['g_apos_almoco'] is not None,
+                       evento['g_antes_jantar'] is not None, evento['g_ao_deitar'] is not None]):
+                    acompanhamentos[cod_acompanhamento]['mrg_mappings'] = [{
+                        'data_mrg': evento['data_mrg'].strftime('%Y-%m-%d') if evento['data_mrg'] else None,
+                        'periodo_mapeamento': evento['periodo_mapeamento'] or 'Período 1',
+                        'dias_mapeamento': evento['dias_mapeamento'] or 7,
+                        'g_jejum': evento['g_jejum'],
+                        'g_apos_cafe': evento['g_apos_cafe'],
+                        'g_antes_almoco': evento['g_antes_almoco'],
+                        'g_apos_almoco': evento['g_apos_almoco'],
+                        'g_antes_jantar': evento['g_antes_jantar'],
+                        'g_ao_deitar': evento['g_ao_deitar'],
+                        'analise_mrg': evento['analise_mrg']
+                    }]
+
+        # Converter para lista ordenada
+        timeline = list(acompanhamentos.values())
+        timeline.sort(key=lambda x: x['created_at'], reverse=True)
         
         return jsonify({
             "timeline": timeline
@@ -6152,8 +6215,9 @@ def api_diabetes_registrar_acao():
         
         cod_acompanhamento = cur.fetchone()[0]
         
-        # Se for ação de Avaliar MRG (cod_acao 11), inserir dados da MRG
-        if int(data['cod_acao_atual']) == 11 and 'mrg_data' in data:
+        # Tipo 3 agora é apenas solicitação, não insere dados de MRG
+        # Dados de MRG são inseridos apenas no tipo 4 (Avaliar Tratamento)
+        if False:  # Desabilitado - tipo 3 agora é apenas solicitação
             mrg_query = """
                 INSERT INTO sistemaaps.tb_hiperdia_mrg 
                 (cod_acompanhamento, data_mrg, g_jejum, g_apos_cafe, g_antes_almoco, g_apos_almoco, g_antes_jantar, g_ao_deitar, analise_mrg)
@@ -8363,6 +8427,105 @@ def api_diabetes_generate_prescription_pdf_individual():
     except Exception as e:
         print(f"Erro na API /api/diabetes/generate_prescription_pdf_individual: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/avaliar_tratamento', methods=['POST'])
+def api_diabetes_avaliar_tratamento():
+    """API para avaliar tratamento de diabético com exames e múltiplos mapeamentos"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Inserir ação de acompanhamento principal
+        acao_query = """
+            INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
+            (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+            VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_agendamento)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+            RETURNING cod_acompanhamento
+        """
+
+        status_acao = 'REALIZADA'  # Avaliação já foi realizada
+        data_realizacao = data.get('data_agendamento')
+
+        cur.execute(acao_query, {
+            'cod_cidadao': data['cod_cidadao'],
+            'cod_acao': data['cod_acao'],
+            'status_acao': status_acao,
+            'data_agendamento': data.get('data_agendamento'),
+            'data_realizacao': data_realizacao,
+            'observacoes': data.get('observacoes'),
+            'responsavel_pela_acao': data.get('responsavel_pela_acao')
+        })
+
+        cod_acompanhamento = cur.fetchone()[0]
+
+        # Inserir dados de exames laboratoriais se fornecidos
+        if 'exames' in data and data['exames']:
+            exames = data['exames']
+            if any([exames.get('hemoglobina_glicada'), exames.get('glicemia_media'), exames.get('glicemia_jejum')]):
+                exames_query = """
+                    INSERT INTO sistemaaps.tb_hiperdia_dm_exames
+                    (cod_acompanhamento, hemoglobina_glicada, glicemia_media, glicemia_jejum, data_exame)
+                    VALUES (%(cod_acompanhamento)s, %(hemoglobina_glicada)s, %(glicemia_media)s, %(glicemia_jejum)s, %(data_exame)s)
+                """
+
+                cur.execute(exames_query, {
+                    'cod_acompanhamento': cod_acompanhamento,
+                    'hemoglobina_glicada': exames.get('hemoglobina_glicada'),
+                    'glicemia_media': exames.get('glicemia_media'),
+                    'glicemia_jejum': exames.get('glicemia_jejum'),
+                    'data_exame': exames.get('data_exame')
+                })
+
+        # Inserir múltiplos mapeamentos residenciais se fornecidos
+        if 'mapeamentos' in data and data['mapeamentos']:
+            mrg_query = """
+                INSERT INTO sistemaaps.tb_hiperdia_mrg
+                (cod_acompanhamento, data_mrg, g_jejum, g_apos_cafe, g_antes_almoco, g_apos_almoco, g_antes_jantar, g_ao_deitar, periodo_mapeamento, dias_mapeamento)
+                VALUES (%(cod_acompanhamento)s, %(data_mrg)s, %(g_jejum)s, %(g_apos_cafe)s, %(g_antes_almoco)s, %(g_apos_almoco)s, %(g_antes_jantar)s, %(g_ao_deitar)s, %(periodo_mapeamento)s, %(dias_mapeamento)s)
+            """
+
+            for mapeamento in data['mapeamentos']:
+                cur.execute(mrg_query, {
+                    'cod_acompanhamento': cod_acompanhamento,
+                    'data_mrg': mapeamento.get('data_mrg'),
+                    'g_jejum': mapeamento.get('g_jejum'),
+                    'g_apos_cafe': mapeamento.get('g_apos_cafe'),
+                    'g_antes_almoco': mapeamento.get('g_antes_almoco'),
+                    'g_apos_almoco': mapeamento.get('g_apos_almoco'),
+                    'g_antes_jantar': mapeamento.get('g_antes_jantar'),
+                    'g_ao_deitar': mapeamento.get('g_ao_deitar'),
+                    'periodo_mapeamento': mapeamento.get('periodo', 'Período 1'),
+                    'dias_mapeamento': mapeamento.get('dias_mapeamento', 7)
+                })
+
+        # Atualizar status do controle do paciente se fornecido
+        if 'status_controle' in data and data['status_controle']:
+            # Aqui você pode adicionar lógica para atualizar o status geral do paciente
+            # Por exemplo, atualizar uma tabela de status ou adicionar em observações
+            pass
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "cod_acompanhamento": cod_acompanhamento,
+            "message": "Avaliação de tratamento salva com sucesso"
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao salvar avaliação de tratamento: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

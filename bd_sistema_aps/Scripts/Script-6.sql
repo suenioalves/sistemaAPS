@@ -1,0 +1,3 @@
+  GRANT USAGE ON SCHEMA sistemaaps TO postgres;
+  GRANT SELECT ON ALL TABLES IN SCHEMA sistemaaps TO postgres;
+  GRANT SELECT ON ALL TABLES IN SCHEMA sistemaaps TO PUBLIC;

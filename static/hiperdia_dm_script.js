@@ -49,8 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
         observacoesTextarea: document.getElementById('observacoes-diabetes'),
         responsavelInput: document.getElementById('responsavel-diabetes'),
         saveActionBtn: document.getElementById('save-action-btn-diabetes'),
-        cancelActionBtn: document.getElementById('cancel-action-btn-diabetes'),
-        mrgFields: document.getElementById('mrg-fields-diabetes')
+        cancelActionBtn: document.getElementById('cancel-action-btn-diabetes')
     };
 
     // Inicializar elementos do DOM adaptados para diabetes - CHAMADA APÓS DEFINIÇÃO DE ELEMENTS
@@ -132,13 +131,16 @@ document.addEventListener('DOMContentLoaded', function () {
         elements.codAcaoSelect.addEventListener('change', function() {
             const codAcao = parseInt(this.value);
             
-            // Ocultar todos os campos específicos
-            elements.mrgFields.classList.add('hidden');
-            
+            // Fechar todos os modais secundários primeiro
+            const evaluateModal = document.getElementById('evaluate-treatment-modal-diabetes');
+            if (evaluateModal) evaluateModal.classList.add('hidden');
+
+            // Não há mais campos específicos para ocultar
+
             // Mostrar campos baseado na ação
-            if (codAcao === 11) { // Avaliar Mapeamento Residencial de Glicemias
-                elements.mrgFields.classList.remove('hidden');
-            } else if (codAcao === 3) { // Modificar tratamento
+            if (codAcao === 4) { // Avaliar Tratamento
+                openEvaluateTreatmentModal();
+            } else if (codAcao === 5) { // Modificar tratamento
                 // Modificar tratamento agora apenas registra a ação na timeline
                 // O tratamento real será modificado através do modal de tratamento separadamente
             }
@@ -802,34 +804,218 @@ document.addEventListener('DOMContentLoaded', function () {
                 const dataFormatada = dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida';
                 const statusClass = (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
                 
-                // Processar dados MRG se existirem
+                // Processar dados de Exames Laboratoriais e MRG se existirem
+                let labTestsHtml = '';
                 let mrgDetailsHtml = '';
-                if (item.mrg_details) {
-                    const details = item.mrg_details;
-                    const mrgId = `mrg-details-${item.cod_acompanhamento}`;
-                    
-                    // Função para determinar cor e símbolo baseado nas metas SBD 2023-2024
-                    const getGlicemiaStatus = (value, tipo) => {
-                        if (value === null || value === undefined) return { color: 'text-gray-500', symbol: '⚪', status: 'N/A' };
-                        
+                let treatmentStatusHtml = '';
+
+                // Função para determinar cor e símbolo baseado nas metas SBD 2023-2024
+                const getGlicemiaStatus = (value, tipo) => {
+                    if (value === null || value === undefined) return { color: 'text-gray-500', symbol: '⚪', status: 'N/A' };
+
+                    const val = parseFloat(value);
+
+                    // Metas SBD 2023-2024:
+                    // Jejum/Pré-prandial: 80-130 mg/dL
+                    // Pós-prandial: < 180 mg/dL
+
+                    if (tipo === 'pre-prandial') {
+                        // Jejum e antes das refeições
+                        if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+                        if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                        return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                    } else {
+                        // Pós-prandial (após refeições e ao deitar)
+                        if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+                        if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                        return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                    }
+                };
+
+                // Gerar visualização de Exames Laboratoriais para ação tipo 4
+                if (item.cod_acao === 4 && item.lab_tests) {
+                    const lab = item.lab_tests;
+
+                    // Função para determinar cor da HbA1c
+                    const getHbA1cStatus = (value) => {
+                        if (value === null || value === undefined) return { color: 'text-gray-500', icon: '⚪', status: 'N/A' };
                         const val = parseFloat(value);
-                        
-                        // Metas SBD 2023-2024:
-                        // Jejum/Pré-prandial: 80-130 mg/dL
-                        // Pós-prandial: < 180 mg/dL
-                        
-                        if (tipo === 'pre-prandial') {
-                            // Jejum e antes das refeições
-                            if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
-                            if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
-                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        if (val < 7.0) return { color: 'text-green-600', icon: '🟢', status: 'Meta (<7%)' };
+                        if (val <= 8.0) return { color: 'text-yellow-600', icon: '🟡', status: 'Aceitável (7-8%)' };
+                        return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>8%)' };
+                    };
+
+                    // Função para determinar cor da glicemia
+                    const getGlicemiaLabStatus = (value, tipo) => {
+                        if (value === null || value === undefined) return { color: 'text-gray-500', icon: '⚪', status: 'N/A' };
+                        const val = parseFloat(value);
+
+                        if (tipo === 'jejum') {
+                            if (val < 80) return { color: 'text-red-600', icon: '🔴', status: 'Baixa (<80)' };
+                            if (val <= 130) return { color: 'text-green-600', icon: '🟢', status: 'Meta (80-130)' };
+                            return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>130)' };
                         } else {
-                            // Pós-prandial (após refeições e ao deitar)
-                            if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
-                            if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
-                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                            if (val < 80) return { color: 'text-red-600', icon: '🔴', status: 'Baixa (<80)' };
+                            if (val <= 140) return { color: 'text-green-600', icon: '🟢', status: 'Adequada (≤140)' };
+                            return { color: 'text-yellow-600', icon: '🟡', status: 'Elevada (>140)' };
                         }
                     };
+
+                    const hbA1cStatus = getHbA1cStatus(lab.hemoglobina_glicada);
+                    const glicemiaMediaStatus = getGlicemiaLabStatus(lab.glicemia_media, 'media');
+                    const glicemiaJejumStatus = getGlicemiaLabStatus(lab.glicemia_jejum, 'jejum');
+
+                    labTestsHtml = `
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="flex items-center mb-3">
+                                <div class="w-5 h-5 flex items-center justify-center text-blue-600 mr-2">
+                                    <i class="ri-flask-line"></i>
+                                </div>
+                                <h5 class="font-medium text-gray-700 text-sm">Exames Laboratoriais</h5>
+                                ${lab.data_exame ? `<span class="ml-2 text-xs text-gray-500">(${new Date(lab.data_exame).toLocaleDateString('pt-BR')})</span>` : ''}
+                            </div>
+
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-600 mb-1">Hemoglobina Glicada</div>
+                                        <div class="flex items-center justify-center mb-1">
+                                            <span class="text-2xl mr-1" title="${hbA1cStatus.status}">${hbA1cStatus.icon}</span>
+                                            <span class="text-lg font-bold ${hbA1cStatus.color}">
+                                                ${lab.hemoglobina_glicada ? lab.hemoglobina_glicada + '%' : 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div class="text-xs ${hbA1cStatus.color}">${hbA1cStatus.status}</div>
+                                    </div>
+
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-600 mb-1">Glicemia Média</div>
+                                        <div class="flex items-center justify-center mb-1">
+                                            <span class="text-2xl mr-1" title="${glicemiaMediaStatus.status}">${glicemiaMediaStatus.icon}</span>
+                                            <span class="text-lg font-bold ${glicemiaMediaStatus.color}">
+                                                ${lab.glicemia_media ? lab.glicemia_media + ' mg/dL' : 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div class="text-xs ${glicemiaMediaStatus.color}">${glicemiaMediaStatus.status}</div>
+                                    </div>
+
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-600 mb-1">Glicemia de Jejum</div>
+                                        <div class="flex items-center justify-center mb-1">
+                                            <span class="text-2xl mr-1" title="${glicemiaJejumStatus.status}">${glicemiaJejumStatus.icon}</span>
+                                            <span class="text-lg font-bold ${glicemiaJejumStatus.color}">
+                                                ${lab.glicemia_jejum ? lab.glicemia_jejum + ' mg/dL' : 'N/A'}
+                                            </span>
+                                        </div>
+                                        <div class="text-xs ${glicemiaJejumStatus.color}">${glicemiaJejumStatus.status}</div>
+                                    </div>
+                                </div>
+                                ${lab.observacoes ? `<div class="mt-3 pt-2 border-t border-blue-300 text-xs text-gray-700">${lab.observacoes}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    // Adicionar seção de avaliação do tratamento com base nos resultados dos exames
+                    treatmentStatusHtml = generateTreatmentEvaluationStatus(lab, item);
+                }
+
+                // Processar múltiplos mapeamentos MRG para ação tipo 4
+                if (item.cod_acao === 4 && item.mrg_mappings && item.mrg_mappings.length > 0) {
+                    const mrgId = `mrg-details-${item.cod_acompanhamento}`;
+
+                    let mappingsHtml = '';
+                    item.mrg_mappings.forEach((mapping, index) => {
+                        const glicemiaItems = [
+                            { label: 'Jejum', field: 'g_jejum', tipo: 'pre-prandial' },
+                            { label: 'Após Café', field: 'g_apos_cafe', tipo: 'pos-prandial' },
+                            { label: 'Antes Almoço', field: 'g_antes_almoco', tipo: 'pre-prandial' },
+                            { label: 'Após Almoço', field: 'g_apos_almoco', tipo: 'pos-prandial' },
+                            { label: 'Antes Jantar', field: 'g_antes_jantar', tipo: 'pre-prandial' },
+                            { label: 'Ao Deitar', field: 'g_ao_deitar', tipo: 'pos-prandial' }
+                        ].map(item => {
+                            const value = mapping[item.field];
+                            const status = getGlicemiaStatus(value, item.tipo);
+                            return {
+                                label: item.label,
+                                value: value !== null && value !== undefined ? value + ' mg/dL' : 'N/A',
+                                color: status.color,
+                                symbol: status.symbol,
+                                status: status.status
+                            };
+                        });
+
+                        mappingsHtml += `
+                            <div class="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="font-medium text-gray-800">${mapping.periodo_mapeamento}</h6>
+                                    <div class="text-xs text-gray-600">
+                                        ${mapping.data_mrg ? new Date(mapping.data_mrg).toLocaleDateString('pt-BR') : 'N/A'}
+                                        • ${mapping.dias_mapeamento} dias
+                                    </div>
+                                </div>
+
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-xs border-collapse border border-green-300">
+                                        <thead>
+                                            <tr class="bg-green-100">
+                                                ${glicemiaItems.map(item => `
+                                                    <th class="border border-green-300 px-2 py-1 text-center font-medium text-gray-700">
+                                                        ${item.label}
+                                                    </th>
+                                                `).join('')}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="bg-white">
+                                                ${glicemiaItems.map(item => `
+                                                    <td class="border border-green-300 px-2 py-2 text-center">
+                                                        <div class="flex flex-col items-center">
+                                                            <span class="text-sm font-bold ${item.color}">
+                                                                ${item.value}
+                                                            </span>
+                                                            <span class="text-lg" title="${item.status}">${item.symbol}</span>
+                                                        </div>
+                                                    </td>
+                                                `).join('')}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                ${mapping.analise_mrg ? `<div class="mt-2 text-xs text-gray-700">${mapping.analise_mrg}</div>` : ''}
+                            </div>
+                        `;
+                    });
+
+                    mrgDetailsHtml = `
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-green-600 mr-2">
+                                        <i class="ri-pulse-line"></i>
+                                    </div>
+                                    <h5 class="font-medium text-gray-700 text-sm">Mapeamentos Residenciais de Glicemia</h5>
+                                    <span class="ml-2 text-xs text-gray-500">(${item.mrg_mappings.length} período${item.mrg_mappings.length > 1 ? 's' : ''})</span>
+                                </div>
+                                <button
+                                    class="mrg-toggle-btn flex items-center text-xs text-gray-500 hover:text-green-600 transition-colors duration-200"
+                                    data-target="${mrgId}"
+                                    title="Expandir/Recolher detalhes da MRG"
+                                >
+                                    <span class="toggle-text mr-1">Expandir</span>
+                                    <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <div id="${mrgId}" class="mrg-details-content hidden">
+                                ${mappingsHtml}
+                            </div>
+                        </div>
+                    `;
+                } else if (item.mrg_details) {
+                    const details = item.mrg_details;
+                    const mrgId = `mrg-details-${item.cod_acompanhamento}`;
 
                     // Construir dados das glicemias com cores baseadas nas metas SBD
                     const glicemiaItems = [
@@ -947,6 +1133,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <p class="text-sm text-gray-600">${dataFormatada}</p>
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
+                                ${labTestsHtml}
+                                ${treatmentStatusHtml}
                                 ${mrgDetailsHtml}
                                 
                                 <!-- Botões de ação da timeline -->
@@ -1139,7 +1327,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // Função para resetar formulário de ação
     function resetActionForm() {
         elements.actionForm.reset();
-        elements.mrgFields.classList.add('hidden');
     }
 
     // Função para salvar ação
@@ -2308,6 +2495,413 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     };
+
+    // Funções para novos modais de ação
+
+
+    // Função para abrir modal de avaliação de tratamento
+    function openEvaluateTreatmentModal() {
+        // NÃO esconder o modal principal - manter disponível para mudança de tipo de ação
+        const evaluateModal = document.getElementById('evaluate-treatment-modal-diabetes');
+        evaluateModal.classList.remove('hidden');
+
+        // Definir data atual
+        document.getElementById('eval-assessment-date-diabetes').value = new Date().toISOString().split('T')[0];
+
+        // Event listeners para o modal (verificar se já existem para evitar duplicação)
+        const closeBtn = document.getElementById('close-evaluate-treatment-modal-diabetes');
+        const cancelBtn = document.getElementById('cancel-evaluate-treatment-btn-diabetes');
+        const saveBtn = document.getElementById('save-evaluate-treatment-btn-diabetes');
+        const addMappingBtn = document.getElementById('add-mapping-btn-diabetes');
+
+        // Remover listeners anteriores se existirem
+        closeBtn.onclick = null;
+        cancelBtn.onclick = null;
+        saveBtn.onclick = null;
+        addMappingBtn.onclick = null;
+
+        closeBtn.onclick = () => {
+            evaluateModal.classList.add('hidden');
+            elements.registerModal.classList.add('hidden'); // Fechar também o modal principal
+            clearEvaluateTreatmentModal();
+            resetActionForm(); // Limpar o formulário principal
+        };
+
+        cancelBtn.onclick = () => {
+            evaluateModal.classList.add('hidden');
+            elements.registerModal.classList.add('hidden'); // Fechar também o modal principal
+            clearEvaluateTreatmentModal();
+            resetActionForm(); // Limpar o formulário principal
+        };
+
+        saveBtn.onclick = handleSaveEvaluateTreatmentAction;
+        addMappingBtn.onclick = addMappingPeriod;
+
+        // Adicionar primeiro período de mapeamento
+        addMappingPeriod();
+    }
+
+    // Função para adicionar período de mapeamento
+    function addMappingPeriod() {
+        const container = document.getElementById('mappings-container-diabetes');
+        const periodCount = container.children.length + 1;
+
+        const mappingDiv = document.createElement('div');
+        mappingDiv.className = 'bg-white border border-green-200 rounded-lg p-4';
+        mappingDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-3">
+                <h5 class="font-medium text-gray-900">Período ${periodCount}</h5>
+                <button type="button" class="text-red-600 hover:text-red-700 text-sm remove-mapping-btn">
+                    <i class="ri-delete-bin-line mr-1"></i>Remover
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Data do Mapeamento</label>
+                    <input type="date" class="mapping-date w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Dias Mapeados</label>
+                    <input type="number" value="7" class="mapping-days w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Jejum (mg/dL)</label>
+                    <input type="number" class="mapping-jejum w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Após Café (mg/dL)</label>
+                    <input type="number" class="mapping-cafe w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Antes Almoço (mg/dL)</label>
+                    <input type="number" class="mapping-antes-almoco w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Após Almoço (mg/dL)</label>
+                    <input type="number" class="mapping-apos-almoco w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Antes Jantar (mg/dL)</label>
+                    <input type="number" class="mapping-antes-jantar w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Ao Deitar (mg/dL)</label>
+                    <input type="number" class="mapping-deitar w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-green-500">
+                </div>
+            </div>
+        `;
+
+        container.appendChild(mappingDiv);
+
+        // Event listener para remover período
+        mappingDiv.querySelector('.remove-mapping-btn').addEventListener('click', () => {
+            if (container.children.length > 1) {
+                mappingDiv.remove();
+                // Renumerar períodos
+                Array.from(container.children).forEach((child, index) => {
+                    child.querySelector('h5').textContent = `Período ${index + 1}`;
+                });
+            } else {
+                alert('Deve haver pelo menos um período de mapeamento.');
+            }
+        });
+    }
+
+    // Função para salvar avaliação de tratamento
+    async function handleSaveEvaluateTreatmentAction() {
+        const hemoglobina = document.getElementById('eval-hemoglobina-diabetes').value;
+        const glicemiaMedia = document.getElementById('eval-glicemia-media-diabetes').value;
+        const glicemiaJejum = document.getElementById('eval-glicemia-jejum-diabetes').value;
+        const dataExames = document.getElementById('eval-exams-date-diabetes').value;
+        const statusControle = document.getElementById('eval-control-status-diabetes').value;
+        const dataAvaliacao = document.getElementById('eval-assessment-date-diabetes').value;
+        const observacoes = document.getElementById('eval-observations-diabetes').value;
+        const responsavel = document.getElementById('eval-responsible-diabetes').value;
+
+        if (!dataAvaliacao || !responsavel) {
+            alert('Por favor, preencha os campos obrigatórios.');
+            return;
+        }
+
+        if (!currentPacienteForModal) {
+            alert('Erro: paciente não selecionado.');
+            return;
+        }
+
+        // Coletar dados dos mapeamentos
+        const mappings = [];
+        const mappingContainers = document.querySelectorAll('#mappings-container-diabetes > div');
+        mappingContainers.forEach((container, index) => {
+            const data = container.querySelector('.mapping-date').value;
+            const dias = container.querySelector('.mapping-days').value;
+            const jejum = container.querySelector('.mapping-jejum').value;
+            const cafe = container.querySelector('.mapping-cafe').value;
+            const antesAlmoco = container.querySelector('.mapping-antes-almoco').value;
+            const aposAlmoco = container.querySelector('.mapping-apos-almoco').value;
+            const antesJantar = container.querySelector('.mapping-antes-jantar').value;
+            const deitar = container.querySelector('.mapping-deitar').value;
+
+            if (data && dias) {
+                mappings.push({
+                    periodo: `Período ${index + 1}`,
+                    data_mrg: data,
+                    dias_mapeamento: parseInt(dias),
+                    g_jejum: jejum ? parseInt(jejum) : null,
+                    g_apos_cafe: cafe ? parseInt(cafe) : null,
+                    g_antes_almoco: antesAlmoco ? parseInt(antesAlmoco) : null,
+                    g_apos_almoco: aposAlmoco ? parseInt(aposAlmoco) : null,
+                    g_antes_jantar: antesJantar ? parseInt(antesJantar) : null,
+                    g_ao_deitar: deitar ? parseInt(deitar) : null
+                });
+            }
+        });
+
+        try {
+            const response = await fetch('/api/diabetes/avaliar_tratamento', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cod_cidadao: currentPacienteForModal.cod_paciente,
+                    cod_acao: 4,
+                    data_agendamento: dataAvaliacao,
+                    observacoes: observacoes || 'Avaliação de tratamento com dados laboratoriais e mapeamentos',
+                    responsavel_pela_acao: responsavel,
+                    status_controle: statusControle,
+                    exames: {
+                        hemoglobina_glicada: hemoglobina ? parseFloat(hemoglobina) : null,
+                        glicemia_media: glicemiaMedia ? parseInt(glicemiaMedia) : null,
+                        glicemia_jejum: glicemiaJejum ? parseInt(glicemiaJejum) : null,
+                        data_exame: dataExames
+                    },
+                    mapeamentos: mappings
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert('Avaliação de tratamento salva com sucesso!');
+                document.getElementById('evaluate-treatment-modal-diabetes').classList.add('hidden');
+                elements.registerModal.classList.add('hidden'); // Fechar também o modal principal
+                clearEvaluateTreatmentModal();
+                resetActionForm(); // Limpar o formulário principal
+                loadTimelineDiabetes(currentPacienteForModal.cod_paciente);
+            } else {
+                alert('Erro ao salvar avaliação: ' + (result.message || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao salvar avaliação:', error);
+            alert('Erro ao salvar avaliação. Tente novamente.');
+        }
+    }
+
+    // Função para limpar modal de avaliação de tratamento
+    function clearEvaluateTreatmentModal() {
+        // Limpar campos de exames
+        document.getElementById('eval-hemoglobina-diabetes').value = '';
+        document.getElementById('eval-glicemia-media-diabetes').value = '';
+        document.getElementById('eval-glicemia-jejum-diabetes').value = '';
+        document.getElementById('eval-exams-date-diabetes').value = '';
+
+        // Limpar campos de avaliação
+        document.getElementById('eval-control-status-diabetes').value = '';
+        document.getElementById('eval-assessment-date-diabetes').value = '';
+        document.getElementById('eval-observations-diabetes').value = '';
+        document.getElementById('eval-responsible-diabetes').value = '';
+
+        // Limpar container de mapeamentos
+        const mappingsContainer = document.getElementById('mappings-container-diabetes');
+        mappingsContainer.innerHTML = '';
+    }
+
+    // Função para gerar avaliação do status do tratamento com base nos exames laboratoriais
+    function generateTreatmentEvaluationStatus(labData, timelineItem) {
+        if (!labData || !timelineItem) return '';
+
+        // Avaliar status do controle diabético baseado nas diretrizes SBD 2023-2024
+        const evaluateDiabeticControl = (hbA1c, glicemiaMedia, glicemiaJejum) => {
+            let score = 0;
+            let criteriaMet = [];
+            let criteriaFailed = [];
+
+            // Critérios baseados nas metas SBD 2023-2024
+            if (hbA1c !== null && hbA1c !== undefined) {
+                if (parseFloat(hbA1c) < 7.0) {
+                    score += 3;
+                    criteriaMet.push('HbA1c na meta (<7%)');
+                } else if (parseFloat(hbA1c) <= 8.0) {
+                    score += 1;
+                    criteriaMet.push('HbA1c aceitável (7-8%)');
+                } else {
+                    criteriaFailed.push('HbA1c elevada (>8%)');
+                }
+            }
+
+            if (glicemiaJejum !== null && glicemiaJejum !== undefined) {
+                const valor = parseFloat(glicemiaJejum);
+                if (valor >= 80 && valor <= 130) {
+                    score += 2;
+                    criteriaMet.push('Glicemia de jejum na meta (80-130 mg/dL)');
+                } else if (valor < 80) {
+                    criteriaFailed.push('Hipoglicemia de jejum (<80 mg/dL)');
+                } else {
+                    criteriaFailed.push('Glicemia de jejum elevada (>130 mg/dL)');
+                }
+            }
+
+            if (glicemiaMedia !== null && glicemiaMedia !== undefined) {
+                const valor = parseFloat(glicemiaMedia);
+                if (valor <= 140) {
+                    score += 2;
+                    criteriaMet.push('Glicemia média adequada (≤140 mg/dL)');
+                } else {
+                    criteriaFailed.push('Glicemia média elevada (>140 mg/dL)');
+                }
+            }
+
+            // Determinar status com base na pontuação
+            let status, color, icon, recommendation;
+            if (score >= 6) {
+                status = 'CONTROLADO';
+                color = 'text-green-600';
+                icon = '🟢';
+                recommendation = 'Diabetes bem controlada. Manter tratamento atual e acompanhamento regular.';
+            } else if (score >= 3) {
+                status = 'EM TRATAMENTO';
+                color = 'text-yellow-600';
+                icon = '🟡';
+                recommendation = 'Controle parcial. Considerar ajustes no tratamento e monitorização mais frequente.';
+            } else {
+                status = 'DESCOMPENSADO';
+                color = 'text-red-600';
+                icon = '🔴';
+                recommendation = 'Diabetes descompensada. Revisão urgente do tratamento e acompanhamento intensivo necessário.';
+            }
+
+            return {
+                status,
+                color,
+                icon,
+                score,
+                recommendation,
+                criteriaMet,
+                criteriaFailed
+            };
+        };
+
+        const evaluation = evaluateDiabeticControl(
+            labData.hemoglobina_glicada,
+            labData.glicemia_media,
+            labData.glicemia_jejum
+        );
+
+        return `
+            <div class="mt-3 pt-3 border-t border-gray-200">
+                <div class="flex items-center mb-3">
+                    <div class="w-5 h-5 flex items-center justify-center text-purple-600 mr-2">
+                        <i class="ri-stethoscope-line"></i>
+                    </div>
+                    <h5 class="font-medium text-gray-700 text-sm">Avaliação do Tratamento</h5>
+                </div>
+
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <!-- Status Principal -->
+                    <div class="flex items-center justify-center mb-4">
+                        <div class="text-center">
+                            <div class="flex items-center justify-center mb-2">
+                                <span class="text-4xl mr-2" title="Status do Controle">${evaluation.icon}</span>
+                                <div>
+                                    <div class="text-lg font-bold ${evaluation.color}">${evaluation.status}</div>
+                                    <div class="text-xs text-gray-600">Pontuação: ${evaluation.score}/7</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observações da Avaliação do Tratamento -->
+                    ${timelineItem.observacoes ? `
+                        <div class="mb-4 p-3 bg-blue-50 border border-blue-300 rounded-lg">
+                            <div class="text-xs text-blue-700 font-medium mb-2">
+                                <i class="ri-file-text-line mr-1"></i>Observações da Avaliação do Tratamento:
+                            </div>
+                            <div class="text-sm text-blue-800 whitespace-pre-wrap">${timelineItem.observacoes}</div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Recomendação -->
+                    <div class="mb-4 p-3 bg-white border border-purple-300 rounded-lg">
+                        <div class="text-xs text-gray-600 mb-1">
+                            <i class="ri-lightbulb-line mr-1"></i>Recomendação Clínica:
+                        </div>
+                        <div class="text-sm text-gray-800 font-medium">${evaluation.recommendation}</div>
+                    </div>
+
+                    <!-- Critérios Atendidos -->
+                    ${evaluation.criteriaMet.length > 0 ? `
+                        <div class="mb-3">
+                            <div class="text-xs text-green-700 font-medium mb-2">
+                                <i class="ri-check-line mr-1"></i>Critérios Atendidos:
+                            </div>
+                            <div class="bg-green-100 border border-green-300 rounded p-2">
+                                ${evaluation.criteriaMet.map(criteria =>
+                                    `<div class="text-xs text-green-800">• ${criteria}</div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Critérios Não Atendidos -->
+                    ${evaluation.criteriaFailed.length > 0 ? `
+                        <div class="mb-3">
+                            <div class="text-xs text-red-700 font-medium mb-2">
+                                <i class="ri-alert-line mr-1"></i>Necessita Atenção:
+                            </div>
+                            <div class="bg-red-100 border border-red-300 rounded p-2">
+                                ${evaluation.criteriaFailed.map(criteria =>
+                                    `<div class="text-xs text-red-800">• ${criteria}</div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Próximas Ações Sugeridas -->
+                    <div class="mt-3 pt-2 border-t border-purple-300">
+                        <div class="text-xs text-gray-600 mb-2">
+                            <i class="ri-roadmap-line mr-1"></i>Próximas Ações Recomendadas:
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded p-2">
+                            ${evaluation.status === 'CONTROLADO' ? `
+                                <div class="text-xs text-gray-700">• Manter medicação atual</div>
+                                <div class="text-xs text-gray-700">• Retorno em 3-6 meses</div>
+                                <div class="text-xs text-gray-700">• Reforçar orientações de estilo de vida</div>
+                            ` : evaluation.status === 'EM TRATAMENTO' ? `
+                                <div class="text-xs text-gray-700">• Considerar ajuste de medicação</div>
+                                <div class="text-xs text-gray-700">• Retorno em 1-3 meses</div>
+                                <div class="text-xs text-gray-700">• Intensificar orientações dietéticas</div>
+                                <div class="text-xs text-gray-700">• Solicitar nova MRG em 2-4 semanas</div>
+                            ` : `
+                                <div class="text-xs text-gray-700">• Revisão urgente da medicação</div>
+                                <div class="text-xs text-gray-700">• Retorno em 2-4 semanas</div>
+                                <div class="text-xs text-gray-700">• Encaminhamento para endocrinologista</div>
+                                <div class="text-xs text-gray-700">• Acompanhamento intensivo</div>
+                                <div class="text-xs text-gray-700">• MRG imediata</div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     // Inicialização
     fetchEquipesMicroareasDiabetes();

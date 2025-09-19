@@ -10,7 +10,8 @@
       "Bash(where python)",
       "Bash(envScriptspython.exe app.py)",
       "Bash(./env/Scripts/python.exe app.py)",
-      "Bash(C:UsersPichauAppDataLocalProgramsPythonPython313python.exe app.py)"
+      "Bash(C:UsersPichauAppDataLocalProgramsPythonPython313python.exe app.py)",
+      "Read(//c/Users/Pichau/Desktop/**)"
     ],
     "deny": [],
     "ask": [],

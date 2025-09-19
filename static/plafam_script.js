@@ -925,6 +925,7 @@ const statusMap = {
     '16': { text: 'Fora da área - Outra área', class: 'status-outra-area' },
     '17': { text: 'Fora da área - Não reside na cidade', class: 'status-outra-area' },
     '18': { text: 'Fora da área - Sem informação', class: 'status-outra-area' },
+    '19': { text: 'Fora da área - Área indígena', class: 'status-outra-area' },
     // Reset
     '0': { text: '', class: '' } // Resetar ação
 };
@@ -1083,6 +1084,7 @@ function getAcompanhamentoCellContent(paciente, status) {
                                 <a href="#" class="submenu-option" data-action="16">Outra área</a>
                                 <a href="#" class="submenu-option" data-action="17">Não reside na cidade</a>
                                 <a href="#" class="submenu-option" data-action="18">Sem informações</a>
+                                <a href="#" class="submenu-option" data-action="19">Área indígena</a>
                             </div>
                         </div>
                         
