@@ -117,9 +117,21 @@ document.addEventListener('DOMContentLoaded', function () {
             hiperdiaDom.updateCard(elements.revisaoCard, 'Erro'); // Corrected: elements.revisaoCard
         });
 
-        // Cards de Compensados e Descompensados (lógica a ser implementada se houver API)
-        hiperdiaDom.updateCard(elements.compensadosCard, 'N/A');
-        hiperdiaDom.updateCard(elements.descompensadosCard, 'N/A');
+        // Card: Hipertensos Controlados
+        hiperdiaApi.fetchHipertensosControlados(params).then(data => {
+            hiperdiaDom.updateCard(elements.compensadosCard, data.total_pacientes);
+        }).catch((error) => {
+            console.error('Erro ao buscar hipertensos controlados:', error);
+            hiperdiaDom.updateCard(elements.compensadosCard, 'Erro');
+        });
+
+        // Card: Hipertensos Descompensados
+        hiperdiaApi.fetchHipertensosDescompensados(params).then(data => {
+            hiperdiaDom.updateCard(elements.descompensadosCard, data.total_pacientes);
+        }).catch((error) => {
+            console.error('Erro ao buscar hipertensos descompensados:', error);
+            hiperdiaDom.updateCard(elements.descompensadosCard, 'Erro');
+        });
     }
 
     function fetchPacientesHiperdia() {
@@ -1700,10 +1712,50 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Função para atualizar status e refrescar tabela e cards
+    function updateStatusFilterAndRefresh(newStatus, activeButton) {
+        currentStatusFilter = newStatus;
+        currentPage = 1;
+        fetchPacientesHiperdia();
+        updateSummaryCards();
+        hiperdiaDom.updateStatusFilterButtons(activeButton);
+    }
+
     // --- Inicialização ---
     hiperdiaDom.setupDropdown(elements.equipeButton, elements.equipeDropdown);
     hiperdiaDom.setupDropdown(elements.microareaButton, elements.microareaDropdown);
     hiperdiaDom.setupExportMenu();
+
+    // Setup dos event listeners para os cards clicáveis
+    if (elements.compensadosCard) {
+        elements.compensadosCard.parentElement.style.cursor = 'pointer';
+        elements.compensadosCard.parentElement.addEventListener('click', () => {
+            const controlledButton = document.querySelector('.hiperdia-status-tab-btn[data-status-filter="Controlado"]');
+            if (controlledButton) {
+                updateStatusFilterAndRefresh('Controlado', controlledButton);
+            }
+        });
+    }
+
+    if (elements.descompensadosCard) {
+        elements.descompensadosCard.parentElement.style.cursor = 'pointer';
+        elements.descompensadosCard.parentElement.addEventListener('click', () => {
+            const decompensatedButton = document.querySelector('.hiperdia-status-tab-btn[data-status-filter="Descompensado"]');
+            if (decompensatedButton) {
+                updateStatusFilterAndRefresh('Descompensado', decompensatedButton);
+            }
+        });
+    }
+
+    // Setup dos event listeners para os botões de filtro de status
+    if (elements.statusFilterButtons) {
+        elements.statusFilterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const statusFilter = button.dataset.statusFilter;
+                updateStatusFilterAndRefresh(statusFilter, button);
+            });
+        });
+    }
 
     fetchEquipesMicroareasHiperdia();
     fetchPacientesHiperdia();

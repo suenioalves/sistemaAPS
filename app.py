@@ -1791,6 +1791,12 @@ def build_hiperdia_has_filters(args):
         where_clauses.append("UPPER(m.nome_paciente) LIKE UPPER(%(search)s)")
         query_params['search'] = f"%{search_term}%"
 
+    # Filtro por status MRPA (Controlado/Descompensado)
+    if status_filter == 'Controlado':
+        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)")
+    elif status_filter == 'Descompensado':
+        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)")
+
     # Mapeamento de ordenação
     sort_mapping = {
         'nome_asc': 'm.nome_paciente ASC',
@@ -2023,6 +2029,74 @@ def api_get_hipertensos_mrpa_pendente():
 
     except Exception as e:
         app.logger.exception(f"Erro na API /api/get_hipertensos_acoes_pendentes: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/get_hipertensos_controlados')
+def api_get_hipertensos_controlados():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
+        # Condição para hipertensos controlados (status_mrpa = 1)
+        controlados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)"
+
+        # Adiciona a condição de controlados à lista de condições existentes
+        where_clauses.append(controlados_condition)
+
+        # Constrói a string final da cláusula WHERE
+        final_where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        # Conta pacientes distintos para não contar o mesmo paciente várias vezes
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + base_query + final_where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        app.logger.exception(f"Erro na API /api/get_hipertensos_controlados: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/get_hipertensos_descompensados')
+def api_get_hipertensos_descompensados():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
+        # Condição para hipertensos descompensados (status_mrpa = 0)
+        descompensados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)"
+
+        # Adiciona a condição de descompensados à lista de condições existentes
+        where_clauses.append(descompensados_condition)
+
+        # Constrói a string final da cláusula WHERE
+        final_where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        # Conta pacientes distintos para não contar o mesmo paciente várias vezes
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + base_query + final_where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        app.logger.exception(f"Erro na API /api/get_hipertensos_descompensados: {e}")
         return jsonify({"erro": f"Erro no servidor: {e}"}), 500
     finally:
         if cur: cur.close()

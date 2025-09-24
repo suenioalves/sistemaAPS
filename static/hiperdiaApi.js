@@ -47,6 +47,34 @@ export const hiperdiaApi = {
     },
 
     /**
+     * Busca o total de hipertensos controlados com base nos filtros.
+     * @param {object} params - Parâmetros de filtro (equipe, microarea).
+     * @returns {Promise<object>} Objeto com o total de pacientes controlados.
+     */
+    fetchHipertensosControlados: async (params) => {
+        const urlParams = new URLSearchParams(params).toString();
+        const response = await fetch(`${API_BASE_URL}/api/get_hipertensos_controlados?${urlParams}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Busca o total de hipertensos descompensados com base nos filtros.
+     * @param {object} params - Parâmetros de filtro (equipe, microarea).
+     * @returns {Promise<object>} Objeto com o total de pacientes descompensados.
+     */
+    fetchHipertensosDescompensados: async (params) => {
+        const urlParams = new URLSearchParams(params).toString();
+        const response = await fetch(`${API_BASE_URL}/api/get_hipertensos_descompensados?${urlParams}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
      * Busca a lista de equipes e microáreas para os filtros.
      * @returns {Promise<Array<object>>} Lista de equipes com microáreas e agentes.
      */
