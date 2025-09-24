@@ -202,7 +202,7 @@ export const hiperdiaDom = {
      * @param {Array<object>} pacientes - Lista de pacientes.
      * @param {object} situacaoProblemaMap - Mapa de situação problema para display.
      */
-    renderPacientesTable: (pacientes, situacaoProblemaMap) => {
+    renderPacientesTable: (pacientes, statusDisplayMap, determinePatientStatusFn) => {
         if (!_elements.tabelaPacientesBody) return; // Corrected: _elements.tabelaPacientesBody
         _elements.tabelaPacientesBody.innerHTML = ''; // Corrected: _elements.tabelaPacientesBody
 
@@ -217,7 +217,8 @@ export const hiperdiaDom = {
                     proximaAcaoDisplay = `${paciente.proxima_acao_descricao} <br> <span class="text-xs" style="color: #b45309;">(${paciente.proxima_acao_data_formatada || 'Data não definida'})</span>`;
                 }
 
-                const situacaoDisplay = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';
+                const patientStatus = determinePatientStatusFn ? determinePatientStatusFn(paciente) : 'sem_status';
+                const situacaoDisplay = statusDisplayMap[patientStatus] || statusDisplayMap['sem_status'] || 'N/A';
                 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -465,8 +466,30 @@ export const hiperdiaDom = {
         _elements.timelineModalMicroarea.textContent = paciente.microarea || 'N/A';
         _elements.timelineModalEquipe.textContent = paciente.nome_equipe || 'N/A';
 
-        const situacaoProblemaMap = { 0: 'Ativo', 1: 'Compensado' };
-        _elements.timelineModalStatus.textContent = situacaoProblemaMap[paciente.situacao_problema] || 'N/A';
+        // Determine patient status based on MRPA and monitoring
+        let patientStatus = 'sem_status';
+        if (paciente.status_mrpa === 1) {
+            patientStatus = 'controlado';
+        } else if (paciente.status_mrpa === 0) {
+            patientStatus = 'descompensado';
+        } else if (paciente.tem_monitoramento_ativo === true) {
+            patientStatus = 'em_analise';
+        } else if (paciente.situacao_problema === 0) {
+            patientStatus = 'ativo';
+        } else if (paciente.situacao_problema === 1) {
+            patientStatus = 'compensado';
+        }
+
+        const statusTextMap = {
+            'controlado': 'Controlado',
+            'descompensado': 'Descompensado',
+            'em_analise': 'Em análise',
+            'ativo': 'Ativo',
+            'compensado': 'Compensado',
+            'sem_status': 'N/A'
+        };
+
+        _elements.timelineModalStatus.textContent = statusTextMap[patientStatus] || 'N/A';
         _elements.timelineModalUltimaPA.textContent = 'N/A'; // Dados não disponíveis na view atual
         _elements.timelineModalRiscoCV.textContent = 'N/A'; // Dados não disponíveis na view atual
         _elements.timelinePeriodFilterButtons = document.querySelectorAll('.timeline-period-filter-btn');

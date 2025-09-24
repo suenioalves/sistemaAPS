@@ -1833,7 +1833,9 @@ def api_pacientes_hiperdia_has():
             pa_futura.cod_acao AS tipo_proxima_acao_ordenacao,
             tratamento.tratamento_atual,
             ultima_mrpa.mrpa_atual,
-            exames.exames_atuais
+            exames.exames_atuais,
+            ultimo_status_mrpa.status_mrpa,
+            monitoramento.tem_monitoramento_ativo
         """
         from_join_clause = """
         FROM sistemaaps.mv_hiperdia_hipertensao m
@@ -1870,6 +1872,21 @@ def api_pacientes_hiperdia_has():
             ORDER BY mrpa.data_mrpa DESC
             LIMIT 1
         ) ultima_mrpa ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT mrpa.status_mrpa
+            FROM sistemaaps.tb_hiperdia_mrpa mrpa
+            JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
+            WHERE ac.cod_cidadao = m.cod_paciente
+            ORDER BY mrpa.data_mrpa DESC
+            LIMIT 1
+        ) ultimo_status_mrpa ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END AS tem_monitoramento_ativo
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento ac
+            WHERE ac.cod_cidadao = m.cod_paciente
+              AND ac.status_acao = 'PENDENTE'
+              AND ac.cod_acao IN (1, 2, 3, 4)
+        ) monitoramento ON TRUE
         LEFT JOIN LATERAL (
             SELECT STRING_AGG(ex.nome_procedimento || ': ' || ex.resultado_exame, '<br>' ORDER BY ex.data_exame DESC) AS exames_atuais
             FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY co_proced ORDER BY data_exame DESC) as rn FROM sistemaaps.mv_hiperdia_exames WHERE co_seq_cidadao = m.cod_paciente AND co_proced IN (4500, 4507, 199)) ex

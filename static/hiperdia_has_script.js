@@ -20,10 +20,40 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentLimit = 10; // Itens por página
     let currentSort = 'nome_asc'; // Exemplo: 'nome_asc', 'idade_desc'
 
-    // Mapa de situação problema para display na tabela
-    const situacaoProblemaMap = {
-        0: '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>', // Ativo
-        1: '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Compensado</span>' // Compensado
+    // Função para determinar o status do paciente baseado no MRPA e monitoramento
+    function determinePatientStatus(paciente) {
+        // 1. Verificar se tem status_mrpa (avaliação MRPA concluída)
+        if (paciente.status_mrpa === 1) {
+            return 'controlado';
+        }
+        if (paciente.status_mrpa === 0) {
+            return 'descompensado';
+        }
+
+        // 2. Verificar se tem monitoramento ativo (ações pendentes 1,2,3,4)
+        if (paciente.tem_monitoramento_ativo === true) {
+            return 'em_analise';
+        }
+
+        // 3. Status padrão baseado na situação problema original
+        if (paciente.situacao_problema === 0) {
+            return 'ativo';
+        }
+        if (paciente.situacao_problema === 1) {
+            return 'compensado';
+        }
+
+        return 'sem_status';
+    }
+
+    // Mapa de display de status atualizado
+    const statusDisplayMap = {
+        'controlado': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Controlado</span>',
+        'descompensado': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Descompensado</span>',
+        'em_analise': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Em análise</span>',
+        'ativo': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Ativo</span>',
+        'compensado': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Compensado</span>',
+        'sem_status': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">--</span>'
     };
 
     // --- Funções de API (Fetch) ---
@@ -150,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return hiperdiaApi.fetchPacientesHiperdia(params)
             .then(data => {
                 currentFetchedPacientes = data.pacientes || [];
-                hiperdiaDom.renderPacientesTable(currentFetchedPacientes, situacaoProblemaMap);
+                hiperdiaDom.renderPacientesTable(currentFetchedPacientes, statusDisplayMap, determinePatientStatus);
                 renderPaginacaoHiperdia(data.total, data.page, data.limit, data.pages);
                 hiperdiaDom.updateAcompanhamentoTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
                 hiperdiaDom.updateTimelineTitle(equipeSelecionadaAtual, microareaSelecionadaAtual, todasEquipesComMicroareas);
