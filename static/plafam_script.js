@@ -467,32 +467,38 @@ function generateInvitePDF(pacientesSelecionados) {
     doc.output('dataurlnewwindow');
 }
 
-// Função para calcular próxima aplicação
-function calcularProximaAplicacao(paciente) {
-    if (!paciente.data_aplicacao || paciente.gestante) return '';
-    
+// Função auxiliar para calcular próxima aplicação como Date (para ordenação)
+function calcularProximaAplicacaoDate(paciente) {
+    if (!paciente.data_aplicacao || paciente.gestante) return null;
+
     try {
         const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
-        if (isNaN(dataAplicacao.getTime())) return '';
-        
+        if (isNaN(dataAplicacao.getTime())) return null;
+
         const metodoLower = paciente.metodo ? paciente.metodo.toLowerCase() : '';
         let diasIntervalo = 0;
-        
+
         if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
             diasIntervalo = 30;
         } else if (metodoLower.includes('trimestral')) {
             diasIntervalo = 90;
         } else {
-            return ''; // Métodos de longa duração não têm próxima aplicação definida
+            return null; // Métodos de longa duração não têm próxima aplicação definida
         }
-        
+
         const proximaAplicacao = new Date(dataAplicacao);
         proximaAplicacao.setDate(proximaAplicacao.getDate() + diasIntervalo);
-        
-        return proximaAplicacao.toLocaleDateString('pt-BR');
+
+        return proximaAplicacao;
     } catch (error) {
-        return '';
+        return null;
     }
+}
+
+// Função para calcular próxima aplicação
+function calcularProximaAplicacao(paciente) {
+    const proximaAplicacaoDate = calcularProximaAplicacaoDate(paciente);
+    return proximaAplicacaoDate ? proximaAplicacaoDate.toLocaleDateString('pt-BR') : '';
 }
 
 // Função para exportar dados (Excel, CSV, PDF) - busca TODOS os registros via API
@@ -896,7 +902,13 @@ function getProximaAcaoContent(paciente) {
     if (idade >= 14 && idade <= 18) {
         return '';
     }
-    // Implementar lógica de próxima ação se necessário
+
+    // Calcular e exibir a próxima dose se aplicável
+    const proximaDose = calcularProximaAplicacao(paciente);
+    if (proximaDose) {
+        return `Próxima dose: ${proximaDose}`;
+    }
+
     return 'N/A';
 }
 
@@ -1668,16 +1680,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.error('Erro ao buscar pacientes:', data.erro);
                     return;
                 }
-                
+
                 allPacientes = data.pacientes || [];
+
+                // Ordenar por data da próxima dose quando filtro de aplicações estiver ativo
+                if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
+                    console.log('Ordenando pacientes por data da próxima dose (ascendente)');
+                    allPacientes.sort((a, b) => {
+                        const proximaA = calcularProximaAplicacaoDate(a);
+                        const proximaB = calcularProximaAplicacaoDate(b);
+
+                        // Pacientes sem próxima aplicação vão para o final
+                        if (!proximaA && !proximaB) return 0;
+                        if (!proximaA) return 1;
+                        if (!proximaB) return -1;
+
+                        return proximaA - proximaB; // Ordem ascendente (mais próximas primeiro)
+                    });
+                }
+
                 const totalPages = Math.ceil((data.total || 0) / 20);
-                
+
                 // Se estamos no modo plano semanal, não sobrescrever a paginação
                 if (isPlanoSemanalActive && window.planoSemanalData) {
                     console.log('Modo plano semanal ativo - mantendo paginação customizada');
                     return;
                 }
-                
+
                 renderPacientes(allPacientes);
                 renderPagination(data.total || 0, currentPage, 20, totalPages);
             })
