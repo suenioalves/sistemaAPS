@@ -2120,6 +2120,121 @@ def api_get_hipertensos_descompensados():
         if conn: conn.close()
 
 
+@app.route('/api/get_hipertensos_em_avaliacao')
+def api_get_hipertensos_em_avaliacao():
+    """
+    Conta hipertensos em avaliação (ações pendentes: Iniciar MRPA (1), Avaliar MRPA (2), Solicitar Exames (4), Avaliar Exames (5))
+    Um paciente pode estar controlado/descompensado E ter ações pendentes, então pode ser contado em múltiplos cards
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
+        # Condição para hipertensos em avaliação (ações pendentes 1, 2, 4, 5)
+        em_avaliacao_condition = """EXISTS (
+            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
+            WHERE ha.cod_cidadao = m.cod_paciente
+            AND ha.status_acao = 'PENDENTE'
+            AND ha.cod_acao IN (1, 2, 4, 5)
+        )"""
+
+        where_clauses.append(em_avaliacao_condition)
+
+        final_where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + base_query + final_where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        app.logger.exception(f"Erro na API /api/get_hipertensos_em_avaliacao: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/get_hipertensos_aguardando_exames')
+def api_get_hipertensos_aguardando_exames():
+    """
+    Conta hipertensos aguardando exames (ações pendentes: Solicitar Exames (4) ou Avaliar Exames (5))
+    Um paciente pode estar controlado/descompensado E aguardando exames
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
+        # Condição para hipertensos aguardando exames (ações pendentes 4, 5)
+        aguardando_exames_condition = """EXISTS (
+            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
+            WHERE ha.cod_cidadao = m.cod_paciente
+            AND ha.status_acao = 'PENDENTE'
+            AND ha.cod_acao IN (4, 5)
+        )"""
+
+        where_clauses.append(aguardando_exames_condition)
+
+        final_where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + base_query + final_where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        app.logger.exception(f"Erro na API /api/get_hipertensos_aguardando_exames: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/get_hipertensos_sem_avaliacao')
+def api_get_hipertensos_sem_avaliacao():
+    """
+    Conta hipertensos sem avaliação (sem nenhuma ação de MRPA registrada - nem controlado nem descompensado)
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
+        # Condição para hipertensos sem avaliação (sem status_mrpa definido)
+        sem_avaliacao_condition = """NOT EXISTS (
+            SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa
+            JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
+            WHERE ac.cod_cidadao = m.cod_paciente
+        )"""
+
+        where_clauses.append(sem_avaliacao_condition)
+
+        final_where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        base_query = "FROM sistemaaps.mv_hiperdia_hipertensao m"
+        count_query = "SELECT COUNT(DISTINCT m.cod_paciente) " + base_query + final_where_clause
+        cur.execute(count_query, query_params)
+        total_pacientes = cur.fetchone()[0] or 0
+
+        return jsonify({'total_pacientes': total_pacientes})
+
+    except Exception as e:
+        app.logger.exception(f"Erro na API /api/get_hipertensos_sem_avaliacao: {e}")
+        return jsonify({"erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
 @app.route('/api/hiperdia/timeline/<int:cod_cidadao>')
 def api_hiperdia_timeline(cod_cidadao):
     conn = None

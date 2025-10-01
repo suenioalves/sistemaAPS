@@ -133,18 +133,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Card: Total de Hipertensos
         hiperdiaApi.fetchTotalHipertensos(params).then(data => {
-            hiperdiaDom.updateCard(elements.hipertensosCard, data.total_pacientes); // Corrected: elements.hipertensosCard
+            hiperdiaDom.updateCard(elements.hipertensosCard, data.total_pacientes);
         }).catch((error) => {
             console.error('Erro ao buscar total de hipertensos:', error);
-            hiperdiaDom.updateCard(elements.hipertensosCard, 'Erro'); // Corrected: elements.hipertensosCard
-        });
-
-        // Card: Ações Pendentes/Revisão
-        hiperdiaApi.fetchHipertensosMRPAPendente(params).then(data => {
-            hiperdiaDom.updateCard(elements.revisaoCard, data.total_pacientes); // Corrected: elements.revisaoCard
-        }).catch((error) => {
-            console.error('Erro ao buscar hipertensos com ações pendentes:', error);
-            hiperdiaDom.updateCard(elements.revisaoCard, 'Erro'); // Corrected: elements.revisaoCard
+            hiperdiaDom.updateCard(elements.hipertensosCard, 'Erro');
         });
 
         // Card: Hipertensos Controlados
@@ -161,6 +153,30 @@ document.addEventListener('DOMContentLoaded', function () {
         }).catch((error) => {
             console.error('Erro ao buscar hipertensos descompensados:', error);
             hiperdiaDom.updateCard(elements.descompensadosCard, 'Erro');
+        });
+
+        // Card: Hipertensos em Avaliação
+        hiperdiaApi.fetchHipertensosEmAvaliacao(params).then(data => {
+            hiperdiaDom.updateCard(elements.emAvaliacaoCard, data.total_pacientes);
+        }).catch((error) => {
+            console.error('Erro ao buscar hipertensos em avaliação:', error);
+            hiperdiaDom.updateCard(elements.emAvaliacaoCard, 'Erro');
+        });
+
+        // Card: Aguardando Exames
+        hiperdiaApi.fetchHipertensosAguardandoExames(params).then(data => {
+            hiperdiaDom.updateCard(elements.aguardandoExamesCard, data.total_pacientes);
+        }).catch((error) => {
+            console.error('Erro ao buscar hipertensos aguardando exames:', error);
+            hiperdiaDom.updateCard(elements.aguardandoExamesCard, 'Erro');
+        });
+
+        // Card: Sem Avaliação
+        hiperdiaApi.fetchHipertensosSemAvaliacao(params).then(data => {
+            hiperdiaDom.updateCard(elements.semAvaliacaoCard, data.total_pacientes);
+        }).catch((error) => {
+            console.error('Erro ao buscar hipertensos sem avaliação:', error);
+            hiperdiaDom.updateCard(elements.semAvaliacaoCard, 'Erro');
         });
     }
 

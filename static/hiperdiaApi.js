@@ -75,6 +75,48 @@ export const hiperdiaApi = {
     },
 
     /**
+     * Busca o total de hipertensos em avaliação com base nos filtros.
+     * @param {object} params - Parâmetros de filtro (equipe, microarea).
+     * @returns {Promise<object>} Objeto com o total de pacientes em avaliação.
+     */
+    fetchHipertensosEmAvaliacao: async (params) => {
+        const urlParams = new URLSearchParams(params).toString();
+        const response = await fetch(`${API_BASE_URL}/api/get_hipertensos_em_avaliacao?${urlParams}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Busca o total de hipertensos aguardando exames com base nos filtros.
+     * @param {object} params - Parâmetros de filtro (equipe, microarea).
+     * @returns {Promise<object>} Objeto com o total de pacientes aguardando exames.
+     */
+    fetchHipertensosAguardandoExames: async (params) => {
+        const urlParams = new URLSearchParams(params).toString();
+        const response = await fetch(`${API_BASE_URL}/api/get_hipertensos_aguardando_exames?${urlParams}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
+     * Busca o total de hipertensos sem avaliação com base nos filtros.
+     * @param {object} params - Parâmetros de filtro (equipe, microarea).
+     * @returns {Promise<object>} Objeto com o total de pacientes sem avaliação.
+     */
+    fetchHipertensosSemAvaliacao: async (params) => {
+        const urlParams = new URLSearchParams(params).toString();
+        const response = await fetch(`${API_BASE_URL}/api/get_hipertensos_sem_avaliacao?${urlParams}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    },
+
+    /**
      * Busca a lista de equipes e microáreas para os filtros.
      * @returns {Promise<Array<object>>} Lista de equipes com microáreas e agentes.
      */
