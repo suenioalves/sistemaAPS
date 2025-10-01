@@ -472,7 +472,25 @@ function calcularProximaAplicacaoDate(paciente) {
     if (!paciente.data_aplicacao || paciente.gestante) return null;
 
     try {
-        const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+        let dataAplicacao;
+
+        // Verificar se a data está no formato DD/MM/YYYY ou YYYY-MM-DD
+        if (paciente.data_aplicacao.includes('/')) {
+            // Formato DD/MM/YYYY - converter para Date
+            const partes = paciente.data_aplicacao.split('/');
+            if (partes.length === 3) {
+                const dia = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1; // Mês começa em 0
+                const ano = parseInt(partes[2], 10);
+                dataAplicacao = new Date(ano, mes, dia);
+            } else {
+                return null;
+            }
+        } else {
+            // Formato YYYY-MM-DD
+            dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+        }
+
         if (isNaN(dataAplicacao.getTime())) return null;
 
         const metodoLower = paciente.metodo ? paciente.metodo.toLowerCase() : '';
@@ -491,6 +509,7 @@ function calcularProximaAplicacaoDate(paciente) {
 
         return proximaAplicacao;
     } catch (error) {
+        console.error('Erro ao calcular próxima aplicação:', error, paciente.data_aplicacao);
         return null;
     }
 }
@@ -800,9 +819,24 @@ function getPlafamMetodoStatusContent(paciente) {
         metodoClass = 'text-yellow-700 font-bold';
         containerClass = 'border-2 border-yellow-500 rounded-full px-3 py-1 inline-block bg-yellow-50';
     } else if (paciente.data_aplicacao) {
-        const dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
-        
-        if (isNaN(dataAplicacao.getTime())) {
+        let dataAplicacao;
+
+        // Verificar se a data está no formato DD/MM/YYYY ou YYYY-MM-DD
+        if (paciente.data_aplicacao.includes('/')) {
+            // Formato DD/MM/YYYY - converter para Date
+            const partes = paciente.data_aplicacao.split('/');
+            if (partes.length === 3) {
+                const dia = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1; // Mês começa em 0
+                const ano = parseInt(partes[2], 10);
+                dataAplicacao = new Date(ano, mes, dia);
+            }
+        } else {
+            // Formato YYYY-MM-DD
+            dataAplicacao = new Date(paciente.data_aplicacao + 'T00:00:00');
+        }
+
+        if (!dataAplicacao || isNaN(dataAplicacao.getTime())) {
             statusTexto = 'Data de aplicação inválida.';
             statusClass = 'text-red-500 font-semibold';
         } else {
@@ -1434,14 +1468,21 @@ document.addEventListener('DOMContentLoaded', function () {
             button.addEventListener('click', function () {
                 if (this.disabled || this.dataset.page === undefined) return; // Ignora reticências e botões desabilitados
                 currentPage = parseInt(this.dataset.page);
-                // Usar função unificada que preserva filtros e ordenação
-                fetchPacientesUnificado({ 
-                    searchTerm: currentSearchTerm, 
-                    sortValue: currentSortValue, 
-                    includeFilters: Object.keys(activeFilters).length > 0,
-                    includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
-                    includeActionFilters: Object.keys(activeActionFilters).length > 0
-                });
+
+                // Se paginação client-side estiver ativa, usar renderClientSidePage
+                if (clientSidePaginationActive) {
+                    console.log('Usando paginação client-side para página', currentPage);
+                    renderClientSidePage(currentPage);
+                } else {
+                    // Usar função unificada que preserva filtros e ordenação
+                    fetchPacientesUnificado({
+                        searchTerm: currentSearchTerm,
+                        sortValue: currentSortValue,
+                        includeFilters: Object.keys(activeFilters).length > 0,
+                        includeAplicacoes: Object.keys(activeAplicacoesFilter).length > 0,
+                        includeActionFilters: Object.keys(activeActionFilters).length > 0
+                    });
+                }
             });
         });
     }
@@ -1605,43 +1646,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     
-    // Função melhorada para buscar pacientes que unifica busca, filtros e ordenação
-    function fetchPacientesUnificado(options = {}) {
-        // Reset weekly plan mode when fetching new data
-        if (isPlanoSemanalActive) {
-            resetPlanoSemanalMode();
-        }
-        
-        const { 
-            searchTerm = '', 
-            sortValue = '', 
+    // Variável global para armazenar todos os pacientes quando filtro de aplicações estiver ativo
+    let allPacientesSorted = [];
+    let clientSidePaginationActive = false;
+
+    // Função para buscar TODOS os pacientes e ordenar por próxima dose (paginação no cliente)
+    function fetchAllPacientesAndSort(options = {}) {
+        const {
+            searchTerm = '',
+            sortValue = '',
             includeFilters = false,
-            includeAplicacoes = false,
-            includeActionFilters = false 
+            includeActionFilters = false
         } = options;
-        
-        console.log('fetchPacientesUnificado chamada com:', { searchTerm, sortValue, includeFilters });
-        
+
+        console.log('fetchAllPacientesAndSort - Buscando todos os pacientes para ordenação');
+
         const params = new URLSearchParams({
             equipe: equipeSelecionadaAtual,
             microarea: agenteSelecionadoAtual,
-            page: currentPage,
-            limit: 20,
-            status_timeline: currentStatusFilter
+            status_timeline: currentStatusFilter,
+            // Não enviar page/limit - queremos TODOS os dados
         });
-        
+
         // Adicionar busca se fornecida ou usar global
         const finalSearchTerm = searchTerm || currentSearchTerm;
         if (finalSearchTerm) {
             params.append('search', finalSearchTerm);
         }
-        
-        // Adicionar ordenação se fornecida ou usar global
-        const finalSortValue = sortValue || currentSortValue;
-        if (finalSortValue) {
-            params.append('sort_by', finalSortValue);
-        }
-        
+
         // Adicionar filtros se solicitado
         if (includeFilters) {
             const filterDropdown = document.getElementById('filter-dropdown');
@@ -1649,29 +1681,155 @@ document.addEventListener('DOMContentLoaded', function () {
                 const metodos = Array.from(filterDropdown.querySelectorAll('input[name="metodo"]:checked')).map(cb => cb.value);
                 const faixasEtarias = Array.from(filterDropdown.querySelectorAll('input[name="faixa_etaria"]:checked')).map(cb => cb.value);
                 const status = Array.from(filterDropdown.querySelectorAll('input[name="status"]:checked')).map(cb => cb.value);
-                
+
                 metodos.forEach(metodo => params.append('metodo', metodo));
                 faixasEtarias.forEach(faixa => params.append('faixa_etaria', faixa));
                 status.forEach(st => params.append('status', st));
             }
         }
-        
+
         // Aplicar filtros de ações se solicitado
         if (includeActionFilters && activeActionFilters.acao) {
             activeActionFilters.acao.forEach(acao => {
                 params.append('acao_filter', acao);
             });
         }
-        
-        // Adicionar filtros de aplicações se solicitado
-        if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
+
+        // Adicionar filtros de aplicações
+        if (activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
             params.append('aplicacao_data_inicial', activeAplicacoesFilter.dataInicial);
             params.append('aplicacao_data_final', activeAplicacoesFilter.dataFinal);
             params.append('aplicacao_metodo', activeAplicacoesFilter.metodo);
         }
-        
+
+        console.log('Parâmetros da requisição (todos os dados):', params.toString());
+
+        fetch('/api/export_plafam?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                console.log('Resposta da API (todos os pacientes):', data.length, 'pacientes');
+
+                if (!data || data.length === 0) {
+                    allPacientesSorted = [];
+                    clientSidePaginationActive = true;
+                    renderPacientes([]);
+                    renderPagination(0, 1, 20, 0);
+                    return;
+                }
+
+                // Ordenar todos os pacientes por data da próxima dose
+                console.log('Ordenando', data.length, 'pacientes por data da próxima dose (ascendente)');
+                allPacientesSorted = data.sort((a, b) => {
+                    const proximaA = calcularProximaAplicacaoDate(a);
+                    const proximaB = calcularProximaAplicacaoDate(b);
+
+                    // Pacientes sem próxima aplicação vão para o final
+                    if (!proximaA && !proximaB) return 0;
+                    if (!proximaA) return 1;
+                    if (!proximaB) return -1;
+
+                    return proximaA - proximaB; // Ordem ascendente (mais próximas primeiro)
+                });
+
+                // Ativar modo de paginação client-side
+                clientSidePaginationActive = true;
+
+                // Renderizar primeira página
+                renderClientSidePage(currentPage);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar todos os pacientes:', error);
+                clientSidePaginationActive = false;
+            });
+    }
+
+    // Função para renderizar uma página específica dos dados ordenados no cliente
+    function renderClientSidePage(page) {
+        if (!clientSidePaginationActive || !allPacientesSorted) {
+            console.error('Modo client-side pagination não está ativo');
+            return;
+        }
+
+        const pageSize = 20;
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageData = allPacientesSorted.slice(startIndex, endIndex);
+
+        console.log(`Renderizando página ${page} (client-side): ${pageData.length} pacientes`);
+        console.log(`Índices: ${startIndex} a ${endIndex} de ${allPacientesSorted.length} total`);
+
+        renderPacientes(pageData);
+
+        const totalPages = Math.ceil(allPacientesSorted.length / pageSize);
+        renderPagination(allPacientesSorted.length, page, pageSize, totalPages);
+    }
+
+    // Função melhorada para buscar pacientes que unifica busca, filtros e ordenação
+    function fetchPacientesUnificado(options = {}) {
+        // Reset weekly plan mode when fetching new data
+        if (isPlanoSemanalActive) {
+            resetPlanoSemanalMode();
+        }
+
+        const {
+            searchTerm = '',
+            sortValue = '',
+            includeFilters = false,
+            includeAplicacoes = false,
+            includeActionFilters = false
+        } = options;
+
+        console.log('fetchPacientesUnificado chamada com:', { searchTerm, sortValue, includeFilters, includeAplicacoes });
+
+        // Se o filtro de aplicações estiver ativo, buscar TODOS os dados e paginar no cliente
+        if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
+            fetchAllPacientesAndSort(options);
+            return;
+        }
+
+        const params = new URLSearchParams({
+            equipe: equipeSelecionadaAtual,
+            microarea: agenteSelecionadoAtual,
+            page: currentPage,
+            limit: 20,
+            status_timeline: currentStatusFilter
+        });
+
+        // Adicionar busca se fornecida ou usar global
+        const finalSearchTerm = searchTerm || currentSearchTerm;
+        if (finalSearchTerm) {
+            params.append('search', finalSearchTerm);
+        }
+
+        // Adicionar ordenação se fornecida ou usar global
+        const finalSortValue = sortValue || currentSortValue;
+        if (finalSortValue) {
+            params.append('sort_by', finalSortValue);
+        }
+
+        // Adicionar filtros se solicitado
+        if (includeFilters) {
+            const filterDropdown = document.getElementById('filter-dropdown');
+            if (filterDropdown) {
+                const metodos = Array.from(filterDropdown.querySelectorAll('input[name="metodo"]:checked')).map(cb => cb.value);
+                const faixasEtarias = Array.from(filterDropdown.querySelectorAll('input[name="faixa_etaria"]:checked')).map(cb => cb.value);
+                const status = Array.from(filterDropdown.querySelectorAll('input[name="status"]:checked')).map(cb => cb.value);
+
+                metodos.forEach(metodo => params.append('metodo', metodo));
+                faixasEtarias.forEach(faixa => params.append('faixa_etaria', faixa));
+                status.forEach(st => params.append('status', st));
+            }
+        }
+
+        // Aplicar filtros de ações se solicitado
+        if (includeActionFilters && activeActionFilters.acao) {
+            activeActionFilters.acao.forEach(acao => {
+                params.append('acao_filter', acao);
+            });
+        }
+
         console.log('Parâmetros da requisição:', params.toString());
-        
+
         fetch('/api/pacientes_plafam?' + params.toString())
             .then(response => response.json())
             .then(data => {
@@ -1682,23 +1840,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 allPacientes = data.pacientes || [];
-
-                // Ordenar por data da próxima dose quando filtro de aplicações estiver ativo
-                if (includeAplicacoes && activeAplicacoesFilter.dataInicial && activeAplicacoesFilter.dataFinal) {
-                    console.log('Ordenando pacientes por data da próxima dose (ascendente)');
-                    allPacientes.sort((a, b) => {
-                        const proximaA = calcularProximaAplicacaoDate(a);
-                        const proximaB = calcularProximaAplicacaoDate(b);
-
-                        // Pacientes sem próxima aplicação vão para o final
-                        if (!proximaA && !proximaB) return 0;
-                        if (!proximaA) return 1;
-                        if (!proximaB) return -1;
-
-                        return proximaA - proximaB; // Ordem ascendente (mais próximas primeiro)
-                    });
-                }
-
                 const totalPages = Math.ceil((data.total || 0) / 20);
 
                 // Se estamos no modo plano semanal, não sobrescrever a paginação
@@ -2054,8 +2195,11 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('metodo-aplicacao-select').value = 'trimestral';
             // Limpar filtro ativo
             activeAplicacoesFilter = {};
+            // Desativar paginação client-side
+            clientSidePaginationActive = false;
+            allPacientesSorted = [];
             currentPage = 1;
-            fetchPacientesUnificado({ 
+            fetchPacientesUnificado({
                 includeAplicacoes: false,
                 includeFilters: Object.keys(activeFilters).length > 0,
                 includeActionFilters: Object.keys(activeActionFilters).length > 0

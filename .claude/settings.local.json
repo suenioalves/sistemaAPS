@@ -11,7 +11,8 @@
       "Bash(envScriptspython.exe app.py)",
       "Bash(./env/Scripts/python.exe app.py)",
       "Bash(C:UsersPichauAppDataLocalProgramsPythonPython313python.exe app.py)",
-      "Read(//c/Users/Pichau/Desktop/**)"
+      "Read(//c/Users/Pichau/Desktop/**)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": [],
