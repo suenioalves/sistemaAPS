@@ -272,19 +272,28 @@ console.log('plafam_analise.js carregado');
     hideSkel(['skel-mix']);
   }
 
-  // Mapa de códigos de ação para nomes (1-11)
+  // Mapa de códigos de ação para nomes (0-19)
   const statusActionMap = {
+    '0': 'Nenhuma ação até o momento',
     '1': 'Convite com o agente',
     '2': 'Convite entregue ao cliente',
     '3': 'Deseja iniciar (após convite)',
-    '4': 'Deseja iniciar (após consulta)',
-    '5': 'Já em uso de um método',
-    '6': 'Cliente não encontrado',
-    '7': 'Método particular',
-    '8': 'Reavaliar em 6 meses',
-    '9': 'Reavaliar em 1 ano',
-    '10': 'Outra área ou não reside',
-    '11': 'Resetar ações'
+    '4': 'Deseja iniciar (via consulta)',
+    '5': 'Já em uso - Mensal',
+    '6': 'Já em uso - Vasectomia',
+    '7': 'Já em uso - Trimestral',
+    '8': 'Já em uso - DIU',
+    '9': 'Já em uso - Implante',
+    '10': 'Já em uso - Laqueadura',
+    '11': 'Já em uso - Histerectomia (esposo)',
+    '12': 'Já em uso - Outros',
+    '13': 'Cliente não encontrado',
+    '14': 'Reavaliar em 6 meses',
+    '15': 'Reavaliar em 1 ano',
+    '16': 'Fora da área - Outra área',
+    '17': 'Fora da área - Não reside na cidade',
+    '18': 'Fora da área - Sem informação',
+    '19': 'Fora da área - Área indígena'
   };
 
   async function atualizarAcoesTimeseries(){
