@@ -954,6 +954,15 @@ function getAcompanhamentoCellContent(paciente, status) {
         console.log('Gestante detectada, não exibindo menu de ações');
         return '';
     }
+
+    // Não exibir menus de ações para método laqueadura
+    if (paciente.metodo) {
+        const metodoLower = paciente.metodo.toLowerCase();
+        if (metodoLower.includes('laqueadura')) {
+            console.log('Laqueadura detectada, não exibindo menu de ações');
+            return '';
+        }
+    }
     
     // Verificar se o paciente faz parte do plano semanal (mas ainda mostrar menu completo)
     const isPlanoSemanalPatient = typeof isPlanoSemanalActive !== 'undefined' && isPlanoSemanalActive && typeof planoSemanalPacientes !== 'undefined' && planoSemanalPacientes.has(paciente.cod_paciente.toString());
