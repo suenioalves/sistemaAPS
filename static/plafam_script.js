@@ -931,19 +931,202 @@ function getMetodoContent(paciente) {
 }
 
 function getProximaAcaoContent(paciente) {
-    // Não exibir próxima ação para adolescentes (14-18 anos) - Planejamento Familiar Especial
-    const idade = paciente.idade_calculada;
-    if (idade >= 14 && idade <= 18) {
+    const statusAcomp = paciente.status_acompanhamento;
+    const dataAcomp = paciente.data_acompanhamento;
+
+    // Se não tem status de acompanhamento, tentar exibir próxima dose
+    if (!statusAcomp || statusAcomp === '0' || statusAcomp === 0) {
+        const proximaDose = calcularProximaAplicacao(paciente);
+        if (proximaDose) {
+            return `Próxima dose: ${proximaDose}`;
+        }
+        return 'N/A';
+    }
+
+    // Mapear ação baseada no status de acompanhamento
+    const statusStr = String(statusAcomp);
+
+    switch(statusStr) {
+        case '1': // Convite com o agente
+            return 'Entregar ao Cliente';
+
+        case '2': // Convite entregue ao cliente
+            return 'Aguardando consulta';
+
+        case '3': // Deseja iniciar (após convite)
+        case '4': // Deseja iniciar (via consulta)
+            return 'Iniciar método (agendar)';
+
+        case '5': // Já em uso - Mensal
+            return 'Registrar no PEC<br>(Mensal)';
+
+        case '6': // Já em uso - Trimestral
+            return 'Registrar no PEC<br>(Trimestral)';
+
+        case '7': // Já em uso - Pílula
+            return 'Registrar no PEC<br>(Pílula)';
+
+        case '8': // Já em uso - DIU
+            return 'Registrar no PEC<br>(DIU)';
+
+        case '9': // Já em uso - Implante
+            return 'Registrar no PEC<br>(Implante)';
+
+        case '10': // Já em uso - Laqueadura/Histerectomia
+            return 'Registrar no PEC<br>(Laqueadura/Histerectomia)';
+
+        case '11': // Já em uso - Vasectomia
+            return 'Registrar no PEC<br>(Vasectomia)';
+
+        case '12': // Já em uso - Outros
+            return 'Registrar no PEC<br>(Outros)';
+
+        case '13': // Cliente não encontrado
+            if (dataAcomp) {
+                const dataReagendamento = calcularDataReagendamento(dataAcomp, 30);
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (30 dias)';
+
+        case '14': // Reavaliar em 6 meses
+            if (dataAcomp) {
+                const dataReagendamento = calcularDataReagendamento(dataAcomp, 180); // 6 meses
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (6 meses)';
+
+        case '15': // Reavaliar em 1 ano
+            if (dataAcomp) {
+                const dataReagendamento = calcularDataReagendamento(dataAcomp, 365); // 1 ano
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (1 ano)';
+
+        case '16': // Fora da área - Outra área
+        case '17': // Fora da área - Não reside na cidade
+        case '18': // Fora da área - Sem informação
+        case '19': // Fora da área - Área indígena
+            return 'Fora da área';
+
+        default:
+            // Se não encontrou status específico, tentar exibir próxima dose
+            const proximaDose = calcularProximaAplicacao(paciente);
+            if (proximaDose) {
+                return `Próxima dose: ${proximaDose}`;
+            }
+            return 'N/A';
+    }
+}
+
+// Função para calcular o texto da próxima ação baseado no status (para atualização dinâmica)
+function calcularProximaAcaoTexto(actionStatus, dataAcompanhamento) {
+    const statusStr = String(actionStatus);
+
+    switch(statusStr) {
+        case '1': // Convite com o agente
+            return 'Entregar ao Cliente';
+
+        case '2': // Convite entregue ao cliente
+            return 'Aguardando consulta';
+
+        case '3': // Deseja iniciar (após convite)
+        case '4': // Deseja iniciar (via consulta)
+            return 'Iniciar método (agendar)';
+
+        case '5': // Já em uso - Mensal
+            return 'Registrar no PEC<br>(Mensal)';
+
+        case '6': // Já em uso - Trimestral
+            return 'Registrar no PEC<br>(Trimestral)';
+
+        case '7': // Já em uso - Pílula
+            return 'Registrar no PEC<br>(Pílula)';
+
+        case '8': // Já em uso - DIU
+            return 'Registrar no PEC<br>(DIU)';
+
+        case '9': // Já em uso - Implante
+            return 'Registrar no PEC<br>(Implante)';
+
+        case '10': // Já em uso - Laqueadura/Histerectomia
+            return 'Registrar no PEC<br>(Laqueadura/Histerectomia)';
+
+        case '11': // Já em uso - Vasectomia
+            return 'Registrar no PEC<br>(Vasectomia)';
+
+        case '12': // Já em uso - Outros
+            return 'Registrar no PEC<br>(Outros)';
+
+        case '13': // Cliente não encontrado
+            if (dataAcompanhamento) {
+                const dataReagendamento = calcularDataReagendamento(dataAcompanhamento, 30);
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (30 dias)';
+
+        case '14': // Reavaliar em 6 meses
+            if (dataAcompanhamento) {
+                const dataReagendamento = calcularDataReagendamento(dataAcompanhamento, 180);
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (6 meses)';
+
+        case '15': // Reavaliar em 1 ano
+            if (dataAcompanhamento) {
+                const dataReagendamento = calcularDataReagendamento(dataAcompanhamento, 365);
+                return `Reagendar (${dataReagendamento})`;
+            }
+            return 'Reagendar (1 ano)';
+
+        case '16': // Fora da área - Outra área
+        case '17': // Fora da área - Não reside na cidade
+        case '18': // Fora da área - Sem informação
+        case '19': // Fora da área - Área indígena
+            return 'Fora da área';
+
+        case '0': // Reset
+        case 'null':
+            return 'N/A';
+
+        default:
+            return 'N/A';
+    }
+}
+
+// Função auxiliar para calcular data de reagendamento
+function calcularDataReagendamento(dataAcompanhamento, dias) {
+    if (!dataAcompanhamento) return '';
+
+    try {
+        let dataBase;
+
+        // Verificar se a data está no formato DD/MM/YYYY ou YYYY-MM-DD
+        if (dataAcompanhamento.includes('/')) {
+            // Formato DD/MM/YYYY
+            const partes = dataAcompanhamento.split('/');
+            if (partes.length === 3) {
+                const dia = parseInt(partes[0], 10);
+                const mes = parseInt(partes[1], 10) - 1;
+                const ano = parseInt(partes[2], 10);
+                dataBase = new Date(ano, mes, dia);
+            } else {
+                return '';
+            }
+        } else {
+            // Formato YYYY-MM-DD
+            dataBase = new Date(dataAcompanhamento + 'T00:00:00');
+        }
+
+        if (isNaN(dataBase.getTime())) return '';
+
+        const dataReagendamento = new Date(dataBase);
+        dataReagendamento.setDate(dataReagendamento.getDate() + dias);
+
+        return dataReagendamento.toLocaleDateString('pt-BR');
+    } catch (error) {
+        console.error('Erro ao calcular data de reagendamento:', error);
         return '';
     }
-
-    // Calcular e exibir a próxima dose se aplicável
-    const proximaDose = calcularProximaAplicacao(paciente);
-    if (proximaDose) {
-        return `Próxima dose: ${proximaDose}`;
-    }
-
-    return 'N/A';
 }
 
 // Mapa de status de acompanhamento
@@ -954,14 +1137,14 @@ const statusMap = {
     // Deseja iniciar
     '3': { text: 'Deseja iniciar (após convite)', class: 'status-deseja-iniciar' },
     '4': { text: 'Deseja iniciar (via consulta)', class: 'status-deseja-iniciar' },
-    // Já em uso - Métodos específicos
+    // Já em uso - Métodos específicos (correspondendo ao menu HTML)
     '5': { text: 'Já em uso - Mensal', class: 'status-ja-usa-metodo' },
-    '6': { text: 'Já em uso - Vasectomia', class: 'status-ja-usa-metodo' },
-    '7': { text: 'Já em uso - Trimestral', class: 'status-ja-usa-metodo' },
+    '6': { text: 'Já em uso - Trimestral', class: 'status-ja-usa-metodo' },
+    '7': { text: 'Já em uso - Pílula', class: 'status-ja-usa-metodo' },
     '8': { text: 'Já em uso - DIU', class: 'status-ja-usa-metodo' },
     '9': { text: 'Já em uso - Implante', class: 'status-ja-usa-metodo' },
-    '10': { text: 'Já em uso - Laqueadura', class: 'status-ja-usa-metodo' },
-    '11': { text: 'Já em uso - Histerectomia (esposo)', class: 'status-ja-usa-metodo' },
+    '10': { text: 'Já em uso - Laq./Hist.', class: 'status-ja-usa-metodo' },
+    '11': { text: 'Já em uso - Vasectomia', class: 'status-ja-usa-metodo' },
     '12': { text: 'Já em uso - Outros', class: 'status-ja-usa-metodo' },
     // Outros status
     '13': { text: 'Cliente não encontrado', class: 'status-nao-encontrado' },
@@ -2036,12 +2219,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.sucesso) {
+                            // Atualizar badge de status na coluna Ações
                             if (actionStatus === '0' || actionStatus === 'null') {
                                 statusContainer.innerHTML = '';
                             } else {
                                 console.log('Debug - actionStatus:', actionStatus);
                                 console.log('Debug - statusMap[actionStatus]:', statusMap[actionStatus]);
-                                
+
                                 if (statusMap[actionStatus]) {
                                     const { text, class: badgeClass } = statusMap[actionStatus];
                                     const dataAtual = new Date().toLocaleDateString('pt-BR');
@@ -2050,6 +2234,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                     console.error('Status não encontrado no statusMap:', actionStatus);
                                     statusContainer.innerHTML = `<span class="acompanhamento-status-badge">Ação selecionada (${new Date().toLocaleDateString('pt-BR')})</span>`;
                                 }
+                            }
+
+                            // Atualizar coluna "Próxima Ação" dinamicamente
+                            const proximaAcaoCell = row.cells[3]; // Coluna "Próxima Ação" é a 4ª coluna (índice 3)
+                            if (proximaAcaoCell) {
+                                const novaProximaAcao = calcularProximaAcaoTexto(actionStatus, data.data_acompanhamento);
+                                proximaAcaoCell.innerHTML = `<div class="text-sm text-gray-500">${novaProximaAcao}</div>`;
+                                console.log('Coluna Próxima Ação atualizada:', novaProximaAcao);
                             }
                         } else {
                             alert('Falha ao atualizar o status: ' + data.erro);
