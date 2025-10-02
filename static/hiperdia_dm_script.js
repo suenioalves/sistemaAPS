@@ -568,7 +568,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return '<div class="text-xs text-gray-500 italic">Nenhuma ação registrada</div>';
         }
 
-        const nomeAcao = paciente.acao_atual_nome;
+        // Substituir texto longo por versão curta
+        let nomeAcao = paciente.acao_atual_nome;
+        nomeAcao = nomeAcao.replace('Solicitar Mapeamento Residencial de Glicemias', 'Solicitar Glicemias');
+
         const status = paciente.acao_atual_status;
         const dataAgendamento = paciente.acao_atual_data_agendamento;
         const dataRealizacao = paciente.acao_atual_data_realizacao;
@@ -579,7 +582,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         switch (status) {
             case 'AGUARDANDO':
-                displayText = `${nomeAcao} - Aguardando`;
+                displayText = `${nomeAcao}`;
                 colorClass = 'text-yellow-600';
                 data = dataAgendamento ? `(${new Date(dataAgendamento).toLocaleDateString('pt-BR')})` : '';
                 break;
