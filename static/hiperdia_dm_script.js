@@ -397,15 +397,16 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             // API específica para diabetes
             const response = await fetch(`/api/pacientes_hiperdia_dm?${params.toString()}`);
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const data = await response.json();
-            
+
             currentFetchedPacientes = data.pacientes || [];
             populatePacientesTable(data.pacientes || []);
+            renderPaginationDiabetes(data.total || 0, currentPage, currentLimit);
             setTableLoaded();
         } catch (error) {
             console.error('Erro ao buscar pacientes diabéticos:', error);
@@ -516,6 +517,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     </tbody>
                 </table>
             </div>
+
+            <!-- Paginação -->
+            <div id="pagination-container-diabetes" class="mt-4"></div>
         `;
 
         elements.pacientesLista.innerHTML = tableHTML;
@@ -537,6 +541,101 @@ document.addEventListener('DOMContentLoaded', function () {
             age--;
         }
         return age;
+    }
+
+    // Função para renderizar paginação
+    function renderPaginationDiabetes(total, page, limit) {
+        const paginationContainer = document.getElementById('pagination-container-diabetes');
+        if (!paginationContainer) return;
+
+        const totalPages = Math.ceil(total / limit);
+
+        if (totalPages <= 1) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
+
+        let paginationHTML = `
+            <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                <!-- Info e seletor de limite -->
+                <div class="flex flex-1 items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <p class="text-sm text-gray-700">
+                            Mostrando <span class="font-medium">${((page - 1) * limit) + 1}</span> a
+                            <span class="font-medium">${Math.min(page * limit, total)}</span> de
+                            <span class="font-medium">${total}</span> pacientes
+                        </p>
+                        <div class="flex items-center space-x-2">
+                            <label for="limit-selector-diabetes" class="text-sm text-gray-700">Por página:</label>
+                            <select id="limit-selector-diabetes" class="rounded border-gray-300 text-sm focus:border-amber-500 focus:ring-amber-500">
+                                <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                                <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
+                                <option value="30" ${limit === 30 ? 'selected' : ''}>30</option>
+                                <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                                <option value="100" ${limit === 100 ? 'selected' : ''}>100</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Botões de navegação -->
+                    <div class="flex space-x-1">
+                        <button data-page="1" class="page-btn-diabetes px-3 py-1 border border-gray-300 text-sm rounded-md hover:bg-gray-100 ${page === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${page === 1 ? 'disabled' : ''}>
+                            Primeiro
+                        </button>
+                        <button data-page="${page - 1}" class="page-btn-diabetes px-3 py-1 border border-gray-300 text-sm rounded-md hover:bg-gray-100 ${page === 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${page === 1 ? 'disabled' : ''}>
+                            Anterior
+                        </button>
+        `;
+
+        // Gerar botões de páginas
+        const maxButtons = 5;
+        let startPage = Math.max(1, page - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHTML += `
+                <button data-page="${i}" class="page-btn-diabetes px-3 py-1 border border-gray-300 text-sm rounded-md ${i === page ? 'bg-amber-500 text-white font-semibold' : 'hover:bg-gray-100'}">
+                    ${i}
+                </button>
+            `;
+        }
+
+        paginationHTML += `
+                        <button data-page="${page + 1}" class="page-btn-diabetes px-3 py-1 border border-gray-300 text-sm rounded-md hover:bg-gray-100 ${page === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${page === totalPages ? 'disabled' : ''}>
+                            Próximo
+                        </button>
+                        <button data-page="${totalPages}" class="page-btn-diabetes px-3 py-1 border border-gray-300 text-sm rounded-md hover:bg-gray-100 ${page === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" ${page === totalPages ? 'disabled' : ''}>
+                            Último
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        paginationContainer.innerHTML = paginationHTML;
+
+        // Event listeners para botões de página
+        document.querySelectorAll('.page-btn-diabetes').forEach(button => {
+            button.addEventListener('click', function() {
+                if (this.disabled) return;
+                currentPage = parseInt(this.dataset.page);
+                fetchPacientesDiabetes();
+            });
+        });
+
+        // Event listener para seletor de limite
+        const limitSelector = document.getElementById('limit-selector-diabetes');
+        if (limitSelector) {
+            limitSelector.addEventListener('change', function() {
+                currentLimit = parseInt(this.value);
+                currentPage = 1; // Voltar para primeira página ao mudar limite
+                fetchPacientesDiabetes();
+            });
+        }
     }
 
     // Função para obter classe de status específica para diabetes com nova lógica avançada
