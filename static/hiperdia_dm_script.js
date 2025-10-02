@@ -564,42 +564,91 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Função para exibir a ação atual do paciente
     function getAcaoAtualDisplay(paciente) {
-        if (!paciente.acao_atual_nome) {
+        // Tentar ambos os formatos de campo (pode vir como acao_atual_* ou dsc_acao/status_acao/data_*)
+        const nomeAcaoOriginal = paciente.acao_atual_nome || paciente.dsc_acao;
+
+        if (!nomeAcaoOriginal) {
             return '<div class="text-xs text-gray-500 italic">Nenhuma ação registrada</div>';
         }
 
         // Substituir texto longo por versão curta
-        let nomeAcao = paciente.acao_atual_nome;
+        let nomeAcao = nomeAcaoOriginal;
         nomeAcao = nomeAcao.replace('Solicitar Mapeamento Residencial de Glicemias', 'Solicitar Glicemias');
 
-        const status = paciente.acao_atual_status;
-        const dataAgendamento = paciente.acao_atual_data_agendamento;
-        const dataRealizacao = paciente.acao_atual_data_realizacao;
+        // Substituir "Agendar Novo Acompanhamento" por "Hiperdia para"
+        const isAgendarAcompanhamento = nomeAcao.includes('Agendar Novo Acompanhamento');
+        if (isAgendarAcompanhamento) {
+            nomeAcao = 'Hiperdia para';
+        }
+
+        const status = paciente.acao_atual_status || paciente.status_acao;
+        const dataAgendamento = paciente.acao_atual_data_agendamento || paciente.data_agendamento;
+        const dataRealizacao = paciente.acao_atual_data_realizacao || paciente.data_realizacao;
 
         let displayText = '';
         let colorClass = '';
         let data = '';
 
+        // Função auxiliar para formatar data com validação
+        const formatarData = (dataStr) => {
+            if (!dataStr) return '';
+
+            try {
+                // Se a data já está formatada em pt-BR (DD/MM/YYYY), retornar com parênteses
+                if (typeof dataStr === 'string' && dataStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    return `(${dataStr})`;
+                }
+
+                let dataObj;
+
+                // Se a data vem no formato RFC 2822 (ex: "Thu, 02 Oct 2025 00:00:00 GMT")
+                if (typeof dataStr === 'string' && dataStr.includes('GMT')) {
+                    dataObj = new Date(dataStr);
+                    // Extrair apenas a parte da data em UTC e criar nova data local
+                    const year = dataObj.getUTCFullYear();
+                    const month = dataObj.getUTCMonth();
+                    const day = dataObj.getUTCDate();
+                    dataObj = new Date(year, month, day);
+                }
+                // Se a data tem formato ISO com 'T'
+                else if (typeof dataStr === 'string' && dataStr.includes('T')) {
+                    dataObj = new Date(dataStr);
+                }
+                // Formato YYYY-MM-DD
+                else {
+                    dataObj = new Date(dataStr + 'T00:00:00');
+                }
+
+                if (isNaN(dataObj.getTime())) return '';
+
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+                return `(${dataFormatada})`;
+            } catch (error) {
+                console.error('Erro ao formatar data:', dataStr, error);
+                return '';
+            }
+        };
+
         switch (status) {
             case 'AGUARDANDO':
                 displayText = `${nomeAcao}`;
                 colorClass = 'text-yellow-600';
-                data = dataAgendamento ? `(${new Date(dataAgendamento).toLocaleDateString('pt-BR')})` : '';
+                data = formatarData(dataAgendamento);
                 break;
             case 'REALIZADA':
                 displayText = `${nomeAcao} - Realizado`;
                 colorClass = 'text-green-600';
-                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                data = formatarData(dataRealizacao);
                 break;
             case 'CANCELADA':
                 displayText = `${nomeAcao} - Cancelado`;
                 colorClass = 'text-red-600';
-                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                data = formatarData(dataRealizacao);
                 break;
             case 'FINALIZADO':
                 displayText = `${nomeAcao} - Finalizado`;
                 colorClass = 'text-green-600 font-semibold';
-                data = dataRealizacao ? `(${new Date(dataRealizacao).toLocaleDateString('pt-BR')})` : '';
+                data = formatarData(dataRealizacao);
                 break;
             default:
                 displayText = `${nomeAcao} - ${status}`;
@@ -804,7 +853,34 @@ document.addEventListener('DOMContentLoaded', function () {
             let timelineHTML = '';
             timeline.forEach(item => {
                 const dataDisplay = item.data_realizacao || item.data_agendamento;
-                const dataFormatada = dataDisplay ? new Date(dataDisplay).toLocaleDateString('pt-BR') : 'Data não definida';
+
+                // Formatar data corretamente tratando formato RFC 2822 (GMT)
+                let dataFormatada = 'Data não definida';
+                if (dataDisplay) {
+                    try {
+                        let dataObj;
+                        // Se a data vem no formato RFC 2822 com GMT
+                        if (typeof dataDisplay === 'string' && dataDisplay.includes('GMT')) {
+                            dataObj = new Date(dataDisplay);
+                            // Extrair valores UTC e criar data local
+                            const year = dataObj.getUTCFullYear();
+                            const month = dataObj.getUTCMonth();
+                            const day = dataObj.getUTCDate();
+                            dataObj = new Date(year, month, day);
+                        } else if (typeof dataDisplay === 'string' && dataDisplay.includes('T')) {
+                            dataObj = new Date(dataDisplay);
+                        } else {
+                            dataObj = new Date(dataDisplay + 'T00:00:00');
+                        }
+
+                        if (!isNaN(dataObj.getTime())) {
+                            dataFormatada = dataObj.toLocaleDateString('pt-BR');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao formatar data timeline:', dataDisplay, error);
+                    }
+                }
+
                 const statusClass = (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
                 
                 // Processar dados de Exames Laboratoriais e MRG se existirem
