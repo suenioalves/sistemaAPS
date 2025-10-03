@@ -130,12 +130,20 @@ document.addEventListener('DOMContentLoaded', function () {
         // Mostrar/ocultar campos específicos baseado na ação selecionada
         elements.codAcaoSelect.addEventListener('change', function() {
             const codAcao = parseInt(this.value);
-            
+
             // Fechar todos os modais secundários primeiro
             const evaluateModal = document.getElementById('evaluate-treatment-modal-diabetes');
             if (evaluateModal) evaluateModal.classList.add('hidden');
 
-            // Não há mais campos específicos para ocultar
+            // Card informativo para "Agendar Novo Acompanhamento"
+            const cardInfoAgendar = document.getElementById('card-info-agendar-diabetes');
+            if (cardInfoAgendar) {
+                if (codAcao === 1) { // Agendar Novo Acompanhamento
+                    cardInfoAgendar.classList.remove('hidden');
+                } else {
+                    cardInfoAgendar.classList.add('hidden');
+                }
+            }
 
             // Mostrar campos baseado na ação
             if (codAcao === 4) { // Avaliar Tratamento
@@ -735,7 +743,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 data = formatarData(dataAgendamento);
                 break;
             case 'REALIZADA':
-                displayText = `${nomeAcao} - Realizado`;
+                // Se for "Agendar Novo Acompanhamento" realizado, mostrar "Acompanhamento iniciado..."
+                if (isAgendarAcompanhamento) {
+                    displayText = 'Acompanhamento iniciado...';
+                } else {
+                    displayText = `${nomeAcao} - Realizado`;
+                }
                 colorClass = 'text-green-600';
                 data = formatarData(dataRealizacao);
                 break;
@@ -745,7 +758,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 data = formatarData(dataRealizacao);
                 break;
             case 'FINALIZADO':
-                displayText = `${nomeAcao} - Finalizado`;
+                // Se for "Agendar Novo Acompanhamento" finalizado, mostrar "Acompanhamento iniciado..."
+                if (isAgendarAcompanhamento) {
+                    displayText = 'Acompanhamento iniciado...';
+                } else {
+                    displayText = `${nomeAcao} - Finalizado`;
+                }
                 colorClass = 'text-green-600 font-semibold';
                 data = formatarData(dataRealizacao);
                 break;
@@ -1319,18 +1337,43 @@ document.addEventListener('DOMContentLoaded', function () {
                         break;
                 }
                 
+                // Card informativo para "Agendar Novo Acompanhamento" (cod_acao = 1)
+                const cardInfoAgendarTimeline = item.cod_acao === 1 ? `
+                    <div class="mt-3 bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r-md">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="ri-information-line text-blue-600 text-lg"></i>
+                            </div>
+                            <div class="ml-2 flex-1">
+                                <h5 class="text-xs font-semibold text-blue-800 mb-1">Ações do Novo Acompanhamento:</h5>
+                                <ul class="list-disc list-inside text-xs text-blue-700 space-y-0.5">
+                                    <li>Mapear Glicemias</li>
+                                    <li>Solicitar exames - Hemoglobina Glicada, Glicemia de Jejum, Outros</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                ` : '';
+
+                // Determinar texto da ação
+                let acaoTexto = item.dsc_acao;
+                if (item.cod_acao === 1 && (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO')) {
+                    acaoTexto = 'Acompanhamento iniciado...';
+                }
+
                 timelineHTML += `
                     <div class="border-l-4 border-amber-500 pl-4 pb-4 mb-4">
                         <div class="flex justify-between items-start">
                             <div class="w-full">
-                                <h4 class="font-medium text-gray-900">${item.dsc_acao}</h4>
+                                <h4 class="font-medium text-gray-900">${acaoTexto}</h4>
                                 <p class="text-sm text-gray-600">${dataFormatada}</p>
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
+                                ${cardInfoAgendarTimeline}
                                 ${treatmentStatusHtml}
                                 ${labTestsHtml}
                                 ${mrgDetailsHtml}
-                                
+
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
                                     ${(item.status_acao !== 'REALIZADA' && item.status_acao !== 'FINALIZADO') ? `

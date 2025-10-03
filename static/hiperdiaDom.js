@@ -1083,8 +1083,8 @@ export const hiperdiaDom = {
                 iconClass = 'ri-calendar-check-line'; // Keep calendar icon
                 iconColorClass = 'bg-blue-100 text-blue-600'; // Change to blue
             } else if (evento.cod_acao === 1 && evento.status_acao === 'REALIZADA') {
-                adjustedActionText = "Solicitar MRPA";
-                adjustedStatusDisplay = "(Realizada)";
+                adjustedActionText = "MRPA Solicitado";
+                adjustedStatusDisplay = "";
                 iconClass = 'ri-file-add-line';
                 iconColorClass = 'bg-green-600 text-white';
             } else if (evento.cod_acao === 1 && evento.status_acao === 'CANCELADA') {

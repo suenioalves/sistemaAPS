@@ -3648,15 +3648,18 @@ def api_registrar_acao_hiperdia():
                     
                     # 2. Criar "Iniciar MRPA" como REALIZADA com a data de hoje
                     print(f"[LOG] Criando ação 'Iniciar MRPA' como REALIZADA")
+                    # Usar observação do usuário se fornecida, senão usar texto padrão
+                    observacao_iniciar_mrpa = observacoes_atuais if observacoes_atuais and observacoes_atuais.strip() else 'Iniciar MRPA para monitorização da pressão arterial.'
                     sql_insert_iniciar_mrpa_realizada = """
                         INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
                         (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                        VALUES (%(cod_cidadao)s, 1, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, 'Iniciar MRPA para monitorização da pressão arterial.', %(responsavel_pela_acao)s)
+                        VALUES (%(cod_cidadao)s, 1, 'REALIZADA', %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
                         RETURNING cod_acompanhamento;
                     """
                     cur.execute(sql_insert_iniciar_mrpa_realizada, {
                         'cod_cidadao': cod_cidadao,
                         'data_realizacao': data_realizacao_acao,
+                        'observacoes': observacao_iniciar_mrpa,
                         'responsavel_pela_acao': responsavel_pela_acao
                     })
                     cod_acompanhamento_criado = cur.fetchone()[0]
