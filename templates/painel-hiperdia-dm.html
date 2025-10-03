@@ -12,7 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
-    <link rel="stylesheet" href="/static/style.css"> 
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script type="module" src="{{ url_for('static', filename='hiperdia_dm_script.js') }}" defer></script>
 </head>
 
@@ -256,6 +258,14 @@
                                     <i class="ri-file-text-line"></i>
                                 </div>
                                 <span>Gerar Receituário</span>
+                            </div>
+                        </button>
+                        <button id="gerar-relatorio-diabetes" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 flex items-center justify-center mr-2">
+                                    <i class="ri-file-chart-line"></i>
+                                </div>
+                                <span>Gerar Relatório</span>
                             </div>
                         </button>
                     </div>
@@ -824,6 +834,70 @@
                         <button type="button" id="save-evaluate-treatment-btn-diabetes" class="bg-amber-600 text-white py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-amber-600/20 hover:bg-amber-700">Salvar Avaliação</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Opções de Relatório -->
+    <div id="modal-opcoes-relatorio-diabetes" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="ri-file-chart-line text-blue-600 text-xl"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                Gerar Relatório de Pacientes
+                            </h3>
+                            <div class="mt-4 space-y-3">
+                                <p class="text-sm text-gray-500 mb-4">
+                                    Selecione quais pacientes deseja incluir no relatório:
+                                </p>
+                                <button id="btn-relatorio-selecionados" class="w-full flex items-center justify-between p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="ri-checkbox-multiple-line text-blue-600 text-xl mr-3"></i>
+                                        <div class="text-left">
+                                            <div class="font-medium text-gray-900">Pacientes Selecionados</div>
+                                            <div class="text-xs text-gray-500">Apenas os pacientes marcados com checkbox</div>
+                                        </div>
+                                    </div>
+                                    <i class="ri-arrow-right-line text-gray-400"></i>
+                                </button>
+                                <button id="btn-relatorio-pagina-atual" class="w-full flex items-center justify-between p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="ri-file-list-3-line text-blue-600 text-xl mr-3"></i>
+                                        <div class="text-left">
+                                            <div class="font-medium text-gray-900">Página Atual</div>
+                                            <div class="text-xs text-gray-500">Todos os pacientes desta página</div>
+                                        </div>
+                                    </div>
+                                    <i class="ri-arrow-right-line text-gray-400"></i>
+                                </button>
+                                <button id="btn-relatorio-todos" class="w-full flex items-center justify-between p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors">
+                                    <div class="flex items-center">
+                                        <i class="ri-file-list-2-line text-blue-600 text-xl mr-3"></i>
+                                        <div class="text-left">
+                                            <div class="font-medium text-gray-900">Todos os Pacientes</div>
+                                            <div class="text-xs text-gray-500">Incluir todos os pacientes (todas as páginas)</div>
+                                        </div>
+                                    </div>
+                                    <i class="ri-arrow-right-line text-gray-400"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="btn-cancelar-relatorio-diabetes" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
             </div>
         </div>
     </div>

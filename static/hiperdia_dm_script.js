@@ -35,6 +35,12 @@ document.addEventListener('DOMContentLoaded', function () {
         selecionarTodos: document.getElementById('selecionar-todos-diabetes'),
         desmarcarTodos: document.getElementById('desmarcar-todos-diabetes'),
         gerarReceituario: document.getElementById('gerar-receituario-diabetes'),
+        gerarRelatorio: document.getElementById('gerar-relatorio-diabetes'),
+        modalOpcoesRelatorio: document.getElementById('modal-opcoes-relatorio-diabetes'),
+        btnRelatorioSelecionados: document.getElementById('btn-relatorio-selecionados'),
+        btnRelatorioPaginaAtual: document.getElementById('btn-relatorio-pagina-atual'),
+        btnRelatorioTodos: document.getElementById('btn-relatorio-todos'),
+        btnCancelarRelatorio: document.getElementById('btn-cancelar-relatorio-diabetes'),
         timelineModal: document.getElementById('timeline-modal-diabetes'),
         timelineModalTitle: document.getElementById('timeline-modal-title-diabetes'),
         closeTimelineModal: document.getElementById('close-timeline-modal-diabetes'),
@@ -96,6 +102,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Gerar receituário
         elements.gerarReceituario.addEventListener('click', handleGerarReceituario);
+
+        // Gerar relatório
+        elements.gerarRelatorio.addEventListener('click', () => {
+            elements.modalOpcoesRelatorio.classList.remove('hidden');
+        });
+
+        elements.btnCancelarRelatorio.addEventListener('click', () => {
+            elements.modalOpcoesRelatorio.classList.add('hidden');
+        });
+
+        elements.btnRelatorioSelecionados.addEventListener('click', () => {
+            elements.modalOpcoesRelatorio.classList.add('hidden');
+            gerarRelatorioPDF('selecionados');
+        });
+
+        elements.btnRelatorioPaginaAtual.addEventListener('click', () => {
+            elements.modalOpcoesRelatorio.classList.add('hidden');
+            gerarRelatorioPDF('pagina-atual');
+        });
+
+        elements.btnRelatorioTodos.addEventListener('click', () => {
+            elements.modalOpcoesRelatorio.classList.add('hidden');
+            gerarRelatorioPDF('todos');
+        });
 
         // Modal timeline
         elements.closeTimelineModal.addEventListener('click', () => {
@@ -682,8 +712,12 @@ document.addEventListener('DOMContentLoaded', function () {
         let nomeAcao = nomeAcaoOriginal;
         nomeAcao = nomeAcao.replace('Solicitar Mapeamento Residencial de Glicemias', 'Solicitar Glicemias');
 
-        // Substituir "Agendar Novo Acompanhamento" por "Hiperdia para"
+        // Identificar tipos de ação
         const isAgendarAcompanhamento = nomeAcao.includes('Agendar Novo Acompanhamento');
+        const isSolicitarExames = nomeAcaoOriginal.includes('Solicitar Hemoglobina Glicada');
+        const isSolicitarMapeamento = nomeAcaoOriginal.includes('Solicitar Mapeamento Residencial de Glicemias');
+
+        // Substituir "Agendar Novo Acompanhamento" por "Hiperdia para"
         if (isAgendarAcompanhamento) {
             nomeAcao = 'Hiperdia para';
         }
@@ -743,9 +777,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 data = formatarData(dataAgendamento);
                 break;
             case 'REALIZADA':
-                // Se for "Agendar Novo Acompanhamento" realizado, mostrar "Acompanhamento iniciado..."
+                // Definir texto baseado no tipo de ação
                 if (isAgendarAcompanhamento) {
                     displayText = 'Acompanhamento iniciado...';
+                } else if (isSolicitarExames) {
+                    displayText = 'Exames Solicitados';
+                } else if (isSolicitarMapeamento) {
+                    displayText = 'Mapeamento Residencial de Glicemias iniciado';
                 } else {
                     displayText = `${nomeAcao} - Realizado`;
                 }
@@ -758,9 +796,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 data = formatarData(dataRealizacao);
                 break;
             case 'FINALIZADO':
-                // Se for "Agendar Novo Acompanhamento" finalizado, mostrar "Acompanhamento iniciado..."
+                // Definir texto baseado no tipo de ação
                 if (isAgendarAcompanhamento) {
                     displayText = 'Acompanhamento iniciado...';
+                } else if (isSolicitarExames) {
+                    displayText = 'Exames Solicitados';
+                } else if (isSolicitarMapeamento) {
+                    displayText = 'Mapeamento Residencial de Glicemias iniciado';
                 } else {
                     displayText = `${nomeAcao} - Finalizado`;
                 }
@@ -1357,8 +1399,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Determinar texto da ação
                 let acaoTexto = item.dsc_acao;
-                if (item.cod_acao === 1 && (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO')) {
-                    acaoTexto = 'Acompanhamento iniciado...';
+                if (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') {
+                    if (item.cod_acao === 1) {
+                        acaoTexto = 'Acompanhamento iniciado...';
+                    } else if (item.cod_acao === 2) {
+                        acaoTexto = 'Exames Solicitados';
+                    } else if (item.cod_acao === 3) {
+                        acaoTexto = 'Mapeamento Residencial de Glicemias iniciado';
+                    }
                 }
 
                 timelineHTML += `
@@ -3232,6 +3280,223 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </div>
         `;
+    }
+
+    // Função para gerar relatório PDF
+    async function gerarRelatorioPDF(tipo) {
+        try {
+            let pacientes = [];
+
+            // Determinar quais pacientes incluir no relatório
+            if (tipo === 'selecionados') {
+                const checkboxes = document.querySelectorAll('input[name="paciente-checkbox-diabetes"]:checked');
+                if (checkboxes.length === 0) {
+                    alert('Nenhum paciente selecionado. Por favor, selecione ao menos um paciente.');
+                    return;
+                }
+                pacientes = currentFetchedPacientes.filter(p =>
+                    Array.from(checkboxes).some(cb => parseInt(cb.value) === p.cod_paciente)
+                );
+            } else if (tipo === 'pagina-atual') {
+                pacientes = currentFetchedPacientes;
+            } else if (tipo === 'todos') {
+                // Buscar todos os pacientes da API
+                const params = new URLSearchParams({
+                    equipe: equipeSelecionadaAtual,
+                    microarea: microareaSelecionadaAtual,
+                    status: currentStatusFilter,
+                    search: currentSearchTerm,
+                    limit: 999999 // Pegar todos
+                });
+                const response = await fetch(`/api/pacientes_hiperdia_dm?${params}`);
+                const data = await response.json();
+                pacientes = data.pacientes || [];
+            }
+
+            if (pacientes.length === 0) {
+                alert('Nenhum paciente encontrado para gerar o relatório.');
+                return;
+            }
+
+            // Ordenar pacientes por equipe e depois por microárea
+            pacientes.sort((a, b) => {
+                const equipeA = a.nome_equipe || '';
+                const equipeB = b.nome_equipe || '';
+                const microareaA = parseInt(a.microarea) || 0;
+                const microareaB = parseInt(b.microarea) || 0;
+
+                if (equipeA !== equipeB) {
+                    return equipeA.localeCompare(equipeB);
+                }
+                return microareaA - microareaB;
+            });
+
+            // Agrupar pacientes por equipe
+            const pacientesPorEquipe = {};
+            pacientes.forEach(p => {
+                const equipe = p.nome_equipe || 'Sem Equipe';
+                if (!pacientesPorEquipe[equipe]) {
+                    pacientesPorEquipe[equipe] = [];
+                }
+                pacientesPorEquipe[equipe].push(p);
+            });
+
+            // Gerar PDF usando jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+
+            // Configurações
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 10;
+
+            // Cabeçalho
+            function adicionarCabecalho(doc, pageNumber, totalPages, nomeEquipe = null) {
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('RELATÓRIO DE PACIENTES DIABÉTICOS', pageWidth / 2, 15, { align: 'center' });
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                const dataAtual = new Date().toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                doc.text(`Data: ${dataAtual}`, margin, 22);
+
+                if (nomeEquipe) {
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(`Equipe: ${nomeEquipe}`, margin, 26);
+                    doc.setFont('helvetica', 'normal');
+                } else {
+                    doc.text(`Equipe: ${equipeSelecionadaAtual}`, margin, 26);
+                }
+
+                doc.text(`Microárea: ${microareaSelecionadaAtual}`, margin, 30);
+                doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, 22, { align: 'right' });
+                doc.text(`Total de pacientes: ${pacientes.length}`, pageWidth - margin, 26, { align: 'right' });
+            }
+
+            // Variável para controlar se é a primeira tabela
+            let primeiraTabela = true;
+
+            // Gerar uma tabela para cada equipe
+            for (const [nomeEquipe, pacientesEquipe] of Object.entries(pacientesPorEquipe)) {
+                // Adicionar nova página se não for a primeira tabela
+                if (!primeiraTabela) {
+                    doc.addPage();
+                }
+                primeiraTabela = false;
+
+                // Preparar dados da tabela
+                const tableData = pacientesEquipe.map((p, index) => {
+                    // Calcular idade
+                    const idade = calculateAge(p.dt_nascimento);
+                    const cnsOuCpf = p.cartao_sus || p.cpf || 'N/A';
+                    const equipe = p.nome_equipe || 'N/A';
+                    const microarea = p.microarea || 'N/A';
+                    const agente = p.nome_agente || 'A definir';
+
+                    // Medicamentos atuais (limitar tamanho)
+                    let medicamentos = p.tratamento_atual || 'Nenhum';
+                    if (medicamentos && medicamentos !== 'Nenhum') {
+                        // Remover tags HTML
+                        medicamentos = medicamentos.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                        // Limitar tamanho
+                        if (medicamentos.length > 80) {
+                            medicamentos = medicamentos.substring(0, 77) + '...';
+                        }
+                    }
+
+                    // Status do acompanhamento
+                    let status = 'N/A';
+                    if (p.acao_atual_nome) {
+                        const statusAcao = p.acao_atual_status || '';
+                        if (statusAcao === 'AGUARDANDO') {
+                            status = p.acao_atual_nome;
+                        } else if (statusAcao === 'REALIZADA') {
+                            status = `${p.acao_atual_nome} - Realizado`;
+                        }
+                    } else {
+                        status = 'Sem ação registrada';
+                    }
+                    // Limitar tamanho do status
+                    if (status.length > 50) {
+                        status = status.substring(0, 47) + '...';
+                    }
+
+                    return [
+                        index + 1,
+                        p.nome_paciente || 'N/A',
+                        cnsOuCpf,
+                        idade,
+                        equipe,
+                        microarea,
+                        agente,
+                        medicamentos,
+                        status
+                    ];
+                });
+
+                // Gerar tabela com autoTable
+                let startY = 35;
+
+                doc.autoTable({
+                    head: [['#', 'Nome', 'CNS/CPF', 'Idade', 'Equipe', 'Microárea', 'Agente', 'Medicamentos Atuais', 'Status Acompanhamento']],
+                    body: tableData,
+                    startY: startY,
+                    margin: { top: 35, left: margin, right: margin, bottom: 15 },
+                    styles: {
+                        fontSize: 7,
+                        cellPadding: 2,
+                        overflow: 'linebreak',
+                        lineColor: [200, 200, 200],
+                        lineWidth: 0.1
+                    },
+                    headStyles: {
+                        fillColor: [245, 158, 11], // amber-500
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                        fontSize: 8
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 8 },   // #
+                        1: { cellWidth: 45 },  // Nome
+                        2: { cellWidth: 28 },  // CNS/CPF
+                        3: { cellWidth: 12 },  // Idade
+                        4: { cellWidth: 25 },  // Equipe
+                        5: { cellWidth: 18 },  // Microárea
+                        6: { cellWidth: 30 },  // Agente
+                        7: { cellWidth: 50 },  // Medicamentos
+                        8: { cellWidth: 45 }   // Status
+                    },
+                    alternateRowStyles: {
+                        fillColor: [249, 250, 251]
+                    },
+                    didDrawPage: function(data) {
+                        // Adicionar cabeçalho em cada página
+                        const currentPage = doc.internal.getCurrentPageInfo().pageNumber;
+                        adicionarCabecalho(doc, currentPage, doc.internal.getNumberOfPages(), nomeEquipe);
+
+                        // Rodapé
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'italic');
+                        doc.text('Sistema APS - HIPERDIA Diabéticos', pageWidth / 2, pageHeight - 7, { align: 'center' });
+                    }
+                });
+            }
+
+            // Salvar PDF
+            const nomeArquivo = `Relatorio_Diabetes_${new Date().toISOString().slice(0, 10)}.pdf`;
+            doc.save(nomeArquivo);
+
+        } catch (error) {
+            console.error('Erro ao gerar relatório PDF:', error);
+            alert('Erro ao gerar relatório. Por favor, tente novamente.');
+        }
     }
 
     // Inicialização
