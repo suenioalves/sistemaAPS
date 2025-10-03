@@ -6076,7 +6076,7 @@ def api_pacientes_hiperdia_dm():
                     a.data_realizacao,
                     a.created_at
                 FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
-                LEFT JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+                LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
                 WHERE a.cod_cidadao = d.cod_paciente
                 ORDER BY a.created_at DESC
                 LIMIT 1
@@ -6150,7 +6150,7 @@ def api_pacientes_hiperdia_dm():
                     a.data_realizacao,
                     a.created_at
                 FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
-                LEFT JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+                LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
                 WHERE a.cod_cidadao = d.cod_paciente
                 ORDER BY a.created_at DESC
                 LIMIT 1
@@ -6289,11 +6289,12 @@ def api_diabetes_timeline(cod_paciente):
                 st.cod_subtarefa,
                 st.ordem as subtarefa_ordem,
                 st.descricao as subtarefa_descricao,
+                st.obrigatoria as subtarefa_obrigatoria,
                 st.concluida as subtarefa_concluida,
                 st.data_conclusao as subtarefa_data_conclusao,
                 st.observacoes as subtarefa_observacoes
             FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
-            JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
+            JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st ON a.cod_acompanhamento = st.cod_acompanhamento
@@ -6345,6 +6346,7 @@ def api_diabetes_timeline(cod_paciente):
                             'cod_subtarefa': evento['cod_subtarefa'],
                             'ordem': evento['subtarefa_ordem'],
                             'descricao': evento['subtarefa_descricao'],
+                            'obrigatoria': evento['subtarefa_obrigatoria'],
                             'concluida': evento['subtarefa_concluida'],
                             'data_conclusao': evento['subtarefa_data_conclusao'].strftime('%Y-%m-%d') if evento['subtarefa_data_conclusao'] else None,
                             'observacoes': evento['subtarefa_observacoes']
@@ -6398,6 +6400,7 @@ def api_diabetes_timeline(cod_paciente):
                         'cod_subtarefa': evento['cod_subtarefa'],
                         'ordem': evento['subtarefa_ordem'],
                         'descricao': evento['subtarefa_descricao'],
+                        'obrigatoria': evento['subtarefa_obrigatoria'],
                         'concluida': evento['subtarefa_concluida'],
                         'data_conclusao': evento['subtarefa_data_conclusao'].strftime('%Y-%m-%d') if evento['subtarefa_data_conclusao'] else None,
                         'observacoes': evento['subtarefa_observacoes']
@@ -6493,8 +6496,8 @@ def api_diabetes_registrar_acao():
             # Inserir subtarefas para a ação cod_acao = 2 usando o template
             query_subtarefas = """
                 INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
-                (cod_acompanhamento, ordem, descricao, concluida)
-                SELECT %(cod_acompanhamento)s, ordem, descricao, FALSE
+                (cod_acompanhamento, ordem, descricao, obrigatoria, concluida)
+                SELECT %(cod_acompanhamento)s, ordem, descricao, obrigatoria, FALSE
                 FROM sistemaaps.vw_subtarefas_template
                 WHERE cod_acao = 2
                 ORDER BY ordem

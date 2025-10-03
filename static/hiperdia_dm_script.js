@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentSearchTerm = '';
     let currentStatusFilter = 'Todos';
     let currentLimit = 10;
+    let subtarefaListenerAdded = false; // Flag para controlar se listener já foi adicionado
 
     // Elementos do DOM específicos para diabetes - MOVIDO PARA ANTES DA FUNÇÃO
     const elements = {
@@ -1399,7 +1400,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Card de subtarefas dinâmico (busca do array de subtarefas)
                 let cardSubtarefasTimeline = '';
-                console.log('Item cod_acao:', item.cod_acao, 'Subtarefas:', item.subtarefas);
                 if (item.subtarefas && item.subtarefas.length > 0) {
                     const subtarefasHtml = item.subtarefas.map(st => `
                         <label class="flex items-start cursor-pointer group">
@@ -1407,6 +1407,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 type="checkbox"
                                 class="subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 focus:ring-offset-0"
                                 data-cod-subtarefa="${st.cod_subtarefa}"
+                                data-obrigatoria="${st.obrigatoria}"
                                 ${st.concluida ? 'checked' : ''}
                                 ${item.status_acao === 'CANCELADA' ? 'disabled' : ''}
                             >
@@ -1437,11 +1438,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Determinar texto da ação
                 let acaoTexto = item.dsc_acao;
+
+                // Customizar texto para ações concluídas
                 if (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') {
                     if (item.cod_acao === 1) {
                         acaoTexto = 'Acompanhamento iniciado...';
                     } else if (item.cod_acao === 2) {
-                        acaoTexto = 'Exames Solicitados';
+                        acaoTexto = 'Exames e Glicemias Coletados';
                     } else if (item.cod_acao === 3) {
                         acaoTexto = 'Mapeamento Residencial de Glicemias iniciado';
                     }
@@ -1464,15 +1467,33 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
                                     ${(item.status_acao !== 'REALIZADA' && item.status_acao !== 'FINALIZADO') ? `
-                                        <button 
-                                            class="timeline-action-btn timeline-action-complete text-xs px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200 flex items-center"
-                                            data-cod-acompanhamento="${item.cod_acompanhamento}"
-                                            data-action="complete"
-                                            title="Marcar como concluída"
-                                        >
-                                            <i class="ri-check-line mr-1"></i>
-                                            Ação Concluída
-                                        </button>
+                                        ${(() => {
+                                            // Verificar se tem subtarefas obrigatórias e se pelo menos uma está concluída
+                                            let podeCompletar = true;
+                                            let tituloDisabled = "Marcar como concluída";
+
+                                            if (item.subtarefas && item.subtarefas.length > 0) {
+                                                const subtarefasObrigatorias = item.subtarefas.filter(st => st.obrigatoria);
+                                                if (subtarefasObrigatorias.length > 0) {
+                                                    const algumaConcluida = subtarefasObrigatorias.some(st => st.concluida);
+                                                    podeCompletar = algumaConcluida;
+                                                    if (!podeCompletar) {
+                                                        tituloDisabled = "Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir";
+                                                    }
+                                                }
+                                            }
+
+                                            return `<button
+                                                class="timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center ${podeCompletar ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}"
+                                                data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                                data-action="complete"
+                                                ${podeCompletar ? '' : 'disabled'}
+                                                title="${tituloDisabled}"
+                                            >
+                                                <i class="ri-check-line mr-1"></i>
+                                                Ação Concluída
+                                            </button>`;
+                                        })()}
                                     ` : ''}
                                     
                                     ${(item.status_acao !== 'CANCELADA' && item.status_acao !== 'FINALIZADO') ? `
@@ -1643,27 +1664,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
 
-            // Adicionar event listeners para os checkboxes de subtarefas
-            document.querySelectorAll('.subtarefa-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', async function() {
-                    const codSubtarefa = this.getAttribute('data-cod-subtarefa');
-                    const concluida = this.checked;
+            // Adicionar listener apenas UMA VEZ usando flag
+            if (!subtarefaListenerAdded) {
+                elements.timelineContent.addEventListener('change', async function(event) {
+                    // Verificar se o elemento clicado é um checkbox de subtarefa
+                    if (event.target.classList.contains('subtarefa-checkbox')) {
+                        const checkbox = event.target;
+                        console.log('=== CHECKBOX CLICADO ===');
 
-                    if (!codSubtarefa) {
-                        console.error('Código da subtarefa não encontrado');
-                        return;
-                    }
+                        const codSubtarefa = checkbox.getAttribute('data-cod-subtarefa');
+                        const concluida = checkbox.checked;
+                        const obrigatoria = checkbox.getAttribute('data-obrigatoria');
+                        console.log('Cod subtarefa:', codSubtarefa, 'Concluída:', concluida, 'Obrigatória:', obrigatoria);
 
-                    try {
-                        await handleSubtarefaUpdate(codSubtarefa, concluida, this);
-                    } catch (error) {
-                        console.error('Erro ao atualizar subtarefa:', error);
-                        alert('Erro ao atualizar subtarefa. Tente novamente.');
-                        // Reverter checkbox em caso de erro
-                        this.checked = !concluida;
+                        if (!codSubtarefa) {
+                            console.error('Código da subtarefa não encontrado');
+                            return;
+                        }
+
+                        // Atualizar o botão IMEDIATAMENTE ao clicar
+                        console.log('Chamando updateCompleteButtonState...');
+                        updateCompleteButtonState(checkbox);
+
+                        try {
+                            await handleSubtarefaUpdate(codSubtarefa, concluida, checkbox);
+                        } catch (error) {
+                            console.error('Erro ao atualizar subtarefa:', error);
+                            alert('Erro ao atualizar subtarefa. Tente novamente.');
+                            // Reverter checkbox em caso de erro
+                            checkbox.checked = !concluida;
+                            // Atualizar botão novamente após reverter
+                            updateCompleteButtonState(checkbox);
+                        }
                     }
                 });
-            });
+
+                subtarefaListenerAdded = true;
+                console.log('✅ Event listener de subtarefas adicionado');
+            }
         } catch (error) {
             console.error('Erro ao carregar timeline:', error);
             elements.timelineContent.innerHTML = '<div class="p-4 text-center text-red-500">Erro ao carregar timeline</div>';
@@ -1748,6 +1786,75 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Filtrar timeline por:', filterType);
     }
 
+    // Função para atualizar estado do botão "Ação Concluída" baseado nas subtarefas obrigatórias
+    function updateCompleteButtonState(checkboxElement) {
+        console.log('🔍 updateCompleteButtonState - iniciando...');
+
+        // Pegar o cod_subtarefa para identificar o cod_acompanhamento
+        const codSubtarefa = checkboxElement.getAttribute('data-cod-subtarefa');
+        console.log('📌 Cod subtarefa:', codSubtarefa);
+
+        // Buscar o botão pelo cod_acompanhamento em toda a timeline
+        // Primeiro, vamos encontrar qual ação essa subtarefa pertence
+        // através do data-cod-acompanhamento que deve estar nos botões
+
+        // Tentar encontrar o card pai
+        let timelineCard = checkboxElement.closest('.border-l-4');
+
+        if (!timelineCard) {
+            console.error('❌ timelineCard não encontrado!');
+            return;
+        }
+
+        console.log('📦 timelineCard encontrado');
+
+        // Buscar botão em toda a timeline content ao invés de só no card
+        const completeButton = document.querySelector(`.timeline-action-complete[data-cod-acompanhamento]`);
+
+        // Debug: mostrar todos os botões
+        const allTimelineButtons = document.querySelectorAll('.timeline-action-btn');
+        console.log('Total de botões na timeline:', allTimelineButtons.length);
+
+        const cardButtons = timelineCard.querySelectorAll('button');
+        console.log('Total de botões no card específico:', cardButtons.length);
+
+        if (!completeButton) {
+            console.error('❌ Nenhum botão completeButton encontrado na timeline!');
+            return;
+        }
+
+        console.log('✅ Botão encontrado:', completeButton.textContent.trim());
+
+        // Verificar se tem pelo menos uma subtarefa obrigatória marcada
+        const subtarefaCheckboxes = timelineCard.querySelectorAll('.subtarefa-checkbox');
+        let temSubtarefaObrigatoriaConcluida = false;
+
+        // Buscar checkboxes obrigatórias (data-obrigatoria="true")
+        console.log('Total de checkboxes:', subtarefaCheckboxes.length);
+        subtarefaCheckboxes.forEach((checkbox, index) => {
+            const isObrigatoria = checkbox.getAttribute('data-obrigatoria');
+            const isChecked = checkbox.checked;
+            console.log(`Checkbox ${index + 1}: obrigatoria="${isObrigatoria}", checked=${isChecked}`);
+
+            if (isObrigatoria === 'true' && checkbox.checked) {
+                temSubtarefaObrigatoriaConcluida = true;
+            }
+        });
+
+        console.log('Resultado final - Tem obrigatória concluída?', temSubtarefaObrigatoriaConcluida);
+
+        // Habilitar/desabilitar botão
+        if (temSubtarefaObrigatoriaConcluida) {
+            completeButton.disabled = false;
+            completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-green-600 text-white hover:bg-green-700 cursor-pointer';
+            completeButton.title = 'Marcar como concluída';
+        } else {
+            completeButton.disabled = true;
+            completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-gray-400 text-gray-200 cursor-not-allowed';
+            completeButton.title = 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
+        }
+    }
+
     // Função para atualizar status de subtarefa
     async function handleSubtarefaUpdate(codSubtarefa, concluida, checkboxElement) {
         try {
@@ -1786,6 +1893,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         span.appendChild(dateSpan);
                     }
                 }
+                // Não precisa mais chamar aqui - já é chamado no event listener antes da API
             } else {
                 throw new Error(result.erro || 'Erro desconhecido');
             }
