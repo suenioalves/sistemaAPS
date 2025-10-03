@@ -1397,6 +1397,44 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 ` : '';
 
+                // Card de subtarefas dinâmico (busca do array de subtarefas)
+                let cardSubtarefasTimeline = '';
+                console.log('Item cod_acao:', item.cod_acao, 'Subtarefas:', item.subtarefas);
+                if (item.subtarefas && item.subtarefas.length > 0) {
+                    const subtarefasHtml = item.subtarefas.map(st => `
+                        <label class="flex items-start cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                class="subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 focus:ring-offset-0"
+                                data-cod-subtarefa="${st.cod_subtarefa}"
+                                ${st.concluida ? 'checked' : ''}
+                                ${item.status_acao === 'CANCELADA' ? 'disabled' : ''}
+                            >
+                            <span class="ml-2 text-xs text-amber-700 group-hover:text-amber-900">
+                                ${st.descricao}
+                                ${st.concluida && st.data_conclusao ?
+                                    `<span class="text-green-600 ml-1">✓ (${new Date(st.data_conclusao).toLocaleDateString('pt-BR')})</span>` : ''}
+                            </span>
+                        </label>
+                    `).join('');
+
+                    cardSubtarefasTimeline = `
+                        <div class="mt-3 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-md">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <i class="ri-task-line text-amber-600 text-lg"></i>
+                                </div>
+                                <div class="ml-2 flex-1">
+                                    <h5 class="text-xs font-semibold text-amber-800 mb-2">Subtarefas (marque se já realizado):</h5>
+                                    <div class="space-y-2">
+                                        ${subtarefasHtml}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 // Determinar texto da ação
                 let acaoTexto = item.dsc_acao;
                 if (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') {
@@ -1418,6 +1456,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 ${item.observacoes ? `<p class="text-sm text-gray-700 mt-1">${item.observacoes}</p>` : ''}
                                 ${item.responsavel_pela_acao ? `<p class="text-xs text-gray-500 mt-1">Responsável: ${item.responsavel_pela_acao}</p>` : ''}
                                 ${cardInfoAgendarTimeline}
+                                ${cardSubtarefasTimeline}
                                 ${treatmentStatusHtml}
                                 ${labTestsHtml}
                                 ${mrgDetailsHtml}
@@ -1589,17 +1628,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 button.addEventListener('click', async function() {
                     const codAcompanhamento = this.getAttribute('data-cod-acompanhamento');
                     const action = this.getAttribute('data-action');
-                    
+
                     if (!codAcompanhamento) {
                         console.error('Código do acompanhamento não encontrado');
                         return;
                     }
-                    
+
                     try {
                         await handleTimelineAction(codAcompanhamento, action, this);
                     } catch (error) {
                         console.error('Erro ao executar ação da timeline:', error);
                         alert('Erro ao executar ação. Tente novamente.');
+                    }
+                });
+            });
+
+            // Adicionar event listeners para os checkboxes de subtarefas
+            document.querySelectorAll('.subtarefa-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', async function() {
+                    const codSubtarefa = this.getAttribute('data-cod-subtarefa');
+                    const concluida = this.checked;
+
+                    if (!codSubtarefa) {
+                        console.error('Código da subtarefa não encontrado');
+                        return;
+                    }
+
+                    try {
+                        await handleSubtarefaUpdate(codSubtarefa, concluida, this);
+                    } catch (error) {
+                        console.error('Erro ao atualizar subtarefa:', error);
+                        alert('Erro ao atualizar subtarefa. Tente novamente.');
+                        // Reverter checkbox em caso de erro
+                        this.checked = !concluida;
                     }
                 });
             });
@@ -1685,6 +1746,53 @@ document.addEventListener('DOMContentLoaded', function () {
     function filterTimelineActions(filterType) {
         // Implementar filtro da timeline
         console.log('Filtrar timeline por:', filterType);
+    }
+
+    // Função para atualizar status de subtarefa
+    async function handleSubtarefaUpdate(codSubtarefa, concluida, checkboxElement) {
+        try {
+            const response = await fetch(`/api/diabetes/timeline/subtarefa/${codSubtarefa}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    concluida: concluida,
+                    data_conclusao: concluida ? new Date().toISOString().split('T')[0] : null
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.erro || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.sucesso) {
+                // Atualizar apenas visualmente sem recarregar toda a timeline
+                const span = checkboxElement.nextElementSibling;
+                if (span) {
+                    // Remover data de conclusão antiga se existir
+                    const oldDate = span.querySelector('.text-green-600');
+                    if (oldDate) oldDate.remove();
+
+                    // Adicionar data de conclusão se foi marcado como concluído
+                    if (concluida) {
+                        const dataAtual = new Date().toLocaleDateString('pt-BR');
+                        const dateSpan = document.createElement('span');
+                        dateSpan.className = 'text-green-600 ml-1';
+                        dateSpan.textContent = ` ✓ (${dataAtual})`;
+                        span.appendChild(dateSpan);
+                    }
+                }
+            } else {
+                throw new Error(result.erro || 'Erro desconhecido');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar subtarefa:', error);
+            throw error;
+        }
     }
 
     // Função para resetar formulário de ação

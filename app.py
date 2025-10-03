@@ -6258,7 +6258,7 @@ def api_diabetes_timeline(cod_paciente):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Buscar histórico de acompanhamento incluindo dados MRG e exames
+        # Buscar histórico de acompanhamento incluindo dados MRG, exames e subtarefas
         query = """
         SELECT
                 a.cod_acompanhamento,
@@ -6285,13 +6285,20 @@ def api_diabetes_timeline(cod_paciente):
                 ex.glicemia_media,
                 ex.glicemia_jejum as exame_glicemia_jejum,
                 ex.data_exame,
-                ex.observacoes as observacoes_exame
+                ex.observacoes as observacoes_exame,
+                st.cod_subtarefa,
+                st.ordem as subtarefa_ordem,
+                st.descricao as subtarefa_descricao,
+                st.concluida as subtarefa_concluida,
+                st.data_conclusao as subtarefa_data_conclusao,
+                st.observacoes as subtarefa_observacoes
             FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
+            LEFT JOIN sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st ON a.cod_acompanhamento = st.cod_acompanhamento
             WHERE a.cod_cidadao = %(cod_paciente)s
-            ORDER BY a.created_at DESC, mrg.cod_mrg ASC
+            ORDER BY a.created_at DESC, mrg.cod_mrg ASC, st.ordem ASC
         """
         
         cur.execute(query, {'cod_paciente': cod_paciente})
@@ -6327,6 +6334,21 @@ def api_diabetes_timeline(cod_paciente):
                         'g_ao_deitar': evento['g_ao_deitar'],
                         'analise_mrg': evento['analise_mrg']
                     })
+
+                # Agregar subtarefas
+                if evento['cod_subtarefa'] is not None:
+                    if 'subtarefas' not in acomp:
+                        acomp['subtarefas'] = []
+                    # Verificar se a subtarefa já foi adicionada
+                    if not any(st['cod_subtarefa'] == evento['cod_subtarefa'] for st in acomp['subtarefas']):
+                        acomp['subtarefas'].append({
+                            'cod_subtarefa': evento['cod_subtarefa'],
+                            'ordem': evento['subtarefa_ordem'],
+                            'descricao': evento['subtarefa_descricao'],
+                            'concluida': evento['subtarefa_concluida'],
+                            'data_conclusao': evento['subtarefa_data_conclusao'].strftime('%Y-%m-%d') if evento['subtarefa_data_conclusao'] else None,
+                            'observacoes': evento['subtarefa_observacoes']
+                        })
             else:
                 # Novo acompanhamento
                 acompanhamentos[cod_acompanhamento] = {
@@ -6368,6 +6390,17 @@ def api_diabetes_timeline(cod_paciente):
                         'g_antes_jantar': evento['g_antes_jantar'],
                         'g_ao_deitar': evento['g_ao_deitar'],
                         'analise_mrg': evento['analise_mrg']
+                    }]
+
+                # Adicionar primeira subtarefa se existir
+                if evento['cod_subtarefa'] is not None:
+                    acompanhamentos[cod_acompanhamento]['subtarefas'] = [{
+                        'cod_subtarefa': evento['cod_subtarefa'],
+                        'ordem': evento['subtarefa_ordem'],
+                        'descricao': evento['subtarefa_descricao'],
+                        'concluida': evento['subtarefa_concluida'],
+                        'data_conclusao': evento['subtarefa_data_conclusao'].strftime('%Y-%m-%d') if evento['subtarefa_data_conclusao'] else None,
+                        'observacoes': evento['subtarefa_observacoes']
                     }]
 
         # Converter para lista ordenada
@@ -6421,9 +6454,54 @@ def api_diabetes_registrar_acao():
             'observacoes': data.get('observacoes'),
             'responsavel_pela_acao': data.get('responsavel_pela_acao')
         })
-        
+
         cod_acompanhamento = cur.fetchone()[0]
-        
+
+        # Se cod_acao = 1 (Agendar Novo Acompanhamento), criar automaticamente cod_acao = 2
+        if data['cod_acao_atual'] == 1:
+            # Primeira ação (cod_acao=1) é criada como REALIZADA
+            # Atualizar para REALIZADA se foi criada como AGUARDANDO
+            if status_acao != 'REALIZADA':
+                update_query = """
+                    UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento
+                    SET status_acao = 'REALIZADA', data_realizacao = %(data_realizacao)s
+                    WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                """
+                cur.execute(update_query, {
+                    'cod_acompanhamento': cod_acompanhamento,
+                    'data_realizacao': data['data_acao_atual']
+                })
+
+            # Criar automaticamente ação cod_acao = 2 (Solicitar Exames e Mapeamento)
+            query_acao_2 = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, observacoes, responsavel_pela_acao, cod_acao_origem)
+                VALUES (%(cod_cidadao)s, 2, 'AGUARDANDO', %(data_agendamento)s, %(observacoes)s, %(responsavel_pela_acao)s, %(cod_acao_origem)s)
+                RETURNING cod_acompanhamento
+            """
+
+            cur.execute(query_acao_2, {
+                'cod_cidadao': data['cod_cidadao'],
+                'data_agendamento': data['data_acao_atual'],
+                'observacoes': 'Criado automaticamente após agendar novo acompanhamento',
+                'responsavel_pela_acao': data.get('responsavel_pela_acao'),
+                'cod_acao_origem': cod_acompanhamento
+            })
+
+            cod_acompanhamento_acao_2 = cur.fetchone()[0]
+
+            # Inserir subtarefas para a ação cod_acao = 2 usando o template
+            query_subtarefas = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
+                (cod_acompanhamento, ordem, descricao, concluida)
+                SELECT %(cod_acompanhamento)s, ordem, descricao, FALSE
+                FROM sistemaaps.vw_subtarefas_template
+                WHERE cod_acao = 2
+                ORDER BY ordem
+            """
+
+            cur.execute(query_subtarefas, {'cod_acompanhamento': cod_acompanhamento_acao_2})
+
         # Tipo 3 agora é apenas solicitação, não insere dados de MRG
         # Dados de MRG são inseridos apenas no tipo 4 (Avaliar Tratamento)
         if False:  # Desabilitado - tipo 3 agora é apenas solicitação
@@ -6581,6 +6659,72 @@ def api_diabetes_delete_timeline_action(cod_acompanhamento):
         if conn:
             conn.rollback()
         print(f"Erro ao excluir ação da timeline: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/timeline/subtarefa/<int:cod_subtarefa>', methods=['PUT'])
+def api_diabetes_update_subtarefa(cod_subtarefa):
+    """API para atualizar status de uma subtarefa"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+
+        if not data or 'concluida' not in data:
+            return jsonify({"sucesso": False, "erro": "Dados da subtarefa são obrigatórios"}), 400
+
+        concluida = data['concluida']
+        data_conclusao = data.get('data_conclusao')
+        observacoes = data.get('observacoes')
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Verificar se a subtarefa existe e se a ação não foi cancelada
+        cur.execute("""
+            SELECT st.cod_subtarefa, a.status_acao
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st
+            JOIN sistemaaps.tb_hiperdia_dm_acompanhamento a ON st.cod_acompanhamento = a.cod_acompanhamento
+            WHERE st.cod_subtarefa = %s
+        """, (cod_subtarefa,))
+
+        result = cur.fetchone()
+
+        if not result:
+            return jsonify({"sucesso": False, "erro": "Subtarefa não encontrada"}), 404
+
+        status_acao = result[1]
+
+        # Verificar se a ação foi cancelada
+        if status_acao == 'CANCELADA':
+            return jsonify({"sucesso": False, "erro": "Não é possível atualizar subtarefas de uma ação cancelada"}), 400
+
+        # Atualizar subtarefa
+        update_query = """
+            UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
+            SET concluida = %s,
+                data_conclusao = %s,
+                observacoes = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_subtarefa = %s
+        """
+
+        cur.execute(update_query, (concluida, data_conclusao if concluida else None, observacoes, cod_subtarefa))
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": f"Subtarefa {'concluída' if concluida else 'desmarcada'} com sucesso!"
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar subtarefa: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
