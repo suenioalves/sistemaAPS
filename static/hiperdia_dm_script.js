@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         pacientes.forEach(paciente => {
-            const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm);
+            const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm, paciente.status_tratamento);
             const idade = calculateAge(paciente.dt_nascimento);
             
             tableHTML += `
@@ -692,15 +692,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Função para obter classe de status específica para diabetes com nova lógica avançada
-    function getStatusClass(statusNovo, statusAntigo) {
+    function getStatusClass(statusNovo, statusAntigo, statusTratamento) {
+        // Priorizar status_tratamento se existir
+        if (statusTratamento) {
+            switch (statusTratamento) {
+                case 1:
+                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Tratamento adequado</span>';
+                case 2:
+                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Tratamento aceitável</span>';
+                case 3:
+                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Tratamento descompensado</span>';
+            }
+        }
+
         // Usar status novo se disponível, senão usar status antigo
         const status = statusNovo || statusAntigo;
-        
+
         switch (status) {
             case 'sem_avaliacao':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Sem avaliação</span>';
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">Sem avaliação</span>';
             case 'em_analise':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">EM ANÁLISE</span>';
+                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900 text-white">Em análise</span>';
             case 'diabetes_compensada':
                 return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">DIABETES COMPENSADA</span>';
             case 'controlado':

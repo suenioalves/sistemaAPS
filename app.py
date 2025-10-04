@@ -6030,94 +6030,110 @@ def api_pacientes_hiperdia_dm():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Base da query para pacientes diabéticos usando view específica com agente e ação atual
-        base_query = """
-            SELECT DISTINCT 
-                d.cod_paciente,
-                d.nome_paciente,
-                d.dt_nascimento,
-                d.sexo,
-                d.cartao_sus,
-                d.nome_equipe,
-                d.microarea,
-                d.tipo_diabetes,
-                d.situacao_problema,
-                ag.nome_agente,
-                -- Ação atual (mais recente)
-                ultima_acao.cod_acao as acao_atual_cod,
-                ultima_acao.dsc_acao as acao_atual_nome,
-                ultima_acao.status_acao as acao_atual_status,
-                ultima_acao.data_agendamento as acao_atual_data_agendamento,
-                ultima_acao.data_realizacao as acao_atual_data_realizacao,
-                -- Status inteligente baseado na lógica de acompanhamento
-                CASE 
-                    WHEN ultima_acao.cod_acao IS NULL THEN 'sem_avaliacao'
-                    WHEN ultima_acao.status_acao = 'AGUARDANDO' THEN 'em_analise'
-                    WHEN ultima_acao.status_acao = 'REALIZADA' THEN 'em_analise'
-                    WHEN ultima_acao.status_acao = 'FINALIZADO' THEN 'diabetes_compensada'
-                    WHEN d.situacao_problema = 1 THEN 'controlado'
-                    WHEN d.situacao_problema = 0 THEN 'descompensado'
-                    ELSE 'indefinido'
-                END as status_dm_novo,
-                -- Status antigo para compatibilidade
-                CASE 
-                    WHEN d.situacao_problema = 1 THEN 'controlado'
-                    WHEN d.situacao_problema = 0 THEN 'descompensado'
-                    ELSE 'indefinido'
-                END as status_dm
-            FROM sistemaaps.mv_hiperdia_diabetes d
-            LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
-            LEFT JOIN LATERAL (
-                SELECT 
-                    a.cod_acao,
-                    ta.dsc_acao,
-                    a.status_acao,
-                    a.data_agendamento,
-                    a.data_realizacao,
-                    a.created_at
-                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
-                LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
-                WHERE a.cod_cidadao = d.cod_paciente
-                ORDER BY a.created_at DESC
-                LIMIT 1
-            ) ultima_acao ON true
+        # Base da query usando CTE para poder filtrar por campos calculados
+        base_query_start = """
+            WITH pacientes_base AS (
+                SELECT DISTINCT
+                    d.cod_paciente,
+                    d.nome_paciente,
+                    d.dt_nascimento,
+                    d.sexo,
+                    d.cartao_sus,
+                    d.nome_equipe,
+                    d.microarea,
+                    d.tipo_diabetes,
+                    d.situacao_problema,
+                    ag.nome_agente,
+                    ultima_acao.cod_acao as acao_atual_cod,
+                    ultima_acao.dsc_acao as acao_atual_nome,
+                    ultima_acao.status_acao as acao_atual_status,
+                    ultima_acao.data_agendamento as acao_atual_data_agendamento,
+                    ultima_acao.data_realizacao as acao_atual_data_realizacao,
+                    (
+                        SELECT trat.status_tratamento
+                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                        WHERE trat.cod_acompanhamento = ultima_acao.cod_acompanhamento
+                        ORDER BY trat.data_modificacao DESC
+                        LIMIT 1
+                    ) as status_tratamento,
+                    CASE
+                        WHEN ultima_acao.cod_acao IS NULL THEN 'sem_avaliacao'
+                        WHEN ultima_acao.status_acao = 'AGUARDANDO' THEN 'em_analise'
+                        WHEN ultima_acao.status_acao = 'REALIZADA' THEN 'em_analise'
+                        WHEN ultima_acao.status_acao = 'FINALIZADO' THEN 'diabetes_compensada'
+                        WHEN d.situacao_problema = 1 THEN 'controlado'
+                        WHEN d.situacao_problema = 0 THEN 'descompensado'
+                        ELSE 'indefinido'
+                    END as status_dm_novo,
+                    CASE
+                        WHEN d.situacao_problema = 1 THEN 'controlado'
+                        WHEN d.situacao_problema = 0 THEN 'descompensado'
+                        ELSE 'indefinido'
+                    END as status_dm
+                FROM sistemaaps.mv_hiperdia_diabetes d
+                LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
+                LEFT JOIN LATERAL (
+                    SELECT
+                        a.cod_acao,
+                        ta.dsc_acao,
+                        a.status_acao,
+                        a.data_agendamento,
+                        a.data_realizacao,
+                        a.created_at,
+                        a.cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                    LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
+                    WHERE a.cod_cidadao = d.cod_paciente
+                    ORDER BY a.created_at DESC
+                    LIMIT 1
+                ) ultima_acao ON true
+            )
+            SELECT * FROM pacientes_base
             WHERE 1=1
         """
+        base_query = base_query_start
 
         where_clauses = []
         params = {}
         
         # Filtro por equipe
         if equipe != 'Todas':
-            where_clauses.append("d.nome_equipe = %(equipe)s")
+            where_clauses.append("nome_equipe = %(equipe)s")
             params['equipe'] = equipe
-            
+
         # Filtro por microárea
         if microarea != 'Todas' and microarea != 'Todas as áreas':
             try:
                 microarea_int = int(microarea)
-                where_clauses.append("d.microarea = %(microarea)s")
+                where_clauses.append("microarea = %(microarea)s")
                 params['microarea'] = microarea_int
             except (ValueError, TypeError):
-                # Se não conseguir converter para int, ignore o filtro
                 pass
-            
+
         # Filtro por busca (nome do paciente)
         if search:
-            where_clauses.append("UPPER(d.nome_paciente) LIKE UPPER(%(search)s)")
+            where_clauses.append("UPPER(nome_paciente) LIKE UPPER(%(search)s)")
             params['search'] = f'%{search}%'
-        
-        # Filtro por status específico para diabetes
+
+        # Filtro por status - agora usando os campos calculados da CTE
         if status == 'Controlados':
-            where_clauses.append("d.situacao_problema = 1") # 1 = Compensado/Controlado
+            # Apenas tratamento adequado (1) e aceitável (2)
+            where_clauses.append("(status_tratamento IN (1, 2))")
         elif status == 'Descompensados':
-            where_clauses.append("d.situacao_problema = 0") # 0 = Ativo/Descompensado
+            # Apenas tratamento descompensado (3)
+            where_clauses.append("(status_tratamento = 3)")
+        elif status == 'EmAnalise':
+            # Em análise: tem ação AGUARDANDO ou REALIZADA, mas SEM avaliação de tratamento
+            where_clauses.append("(acao_atual_status IN ('AGUARDANDO', 'REALIZADA') AND status_tratamento IS NULL)")
+        elif status == 'SemAvaliacao':
+            # Sem nenhuma ação registrada
+            where_clauses.append("acao_atual_cod IS NULL")
         elif status == 'ComTratamento':
             # Verificar se tem medicamentos ativos para diabetes
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
-                    WHERE med.codcidadao = d.cod_paciente 
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
+                    WHERE med.codcidadao = cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
             """)
@@ -6127,34 +6143,48 @@ def api_pacientes_hiperdia_dm():
             full_query = base_query + " AND " + " AND ".join(where_clauses)
         else:
             full_query = base_query
-            
+
         # Adicionar ordenação e paginação
-        full_query += " ORDER BY d.nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
+        full_query += " ORDER BY nome_paciente LIMIT %(limit)s OFFSET %(offset)s"
         params['limit'] = limit
         params['offset'] = offset
         
         cur.execute(full_query, params)
         pacientes = cur.fetchall()
         
-        # Contar total de pacientes - query com agente e ação atual  
+        # Contar total de pacientes - usar mesma CTE
         count_query = """
-            SELECT COUNT(DISTINCT d.cod_paciente) as count
-            FROM sistemaaps.mv_hiperdia_diabetes d
-            LEFT JOIN sistemaaps.tb_agentes ag ON d.nome_equipe = ag.nome_equipe AND d.microarea = ag.micro_area
-            LEFT JOIN LATERAL (
-                SELECT 
-                    a.cod_acao,
-                    ta.dsc_acao,
-                    a.status_acao,
-                    a.data_agendamento,
-                    a.data_realizacao,
-                    a.created_at
-                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
-                LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
-                WHERE a.cod_cidadao = d.cod_paciente
-                ORDER BY a.created_at DESC
-                LIMIT 1
-            ) ultima_acao ON true
+            WITH pacientes_base AS (
+                SELECT DISTINCT
+                    d.cod_paciente,
+                    d.nome_paciente,
+                    d.nome_equipe,
+                    d.microarea,
+                    d.situacao_problema,
+                    ultima_acao.cod_acao as acao_atual_cod,
+                    ultima_acao.status_acao as acao_atual_status,
+                    ultima_acao.cod_acompanhamento,
+                    (
+                        SELECT trat.status_tratamento
+                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                        WHERE trat.cod_acompanhamento = ultima_acao.cod_acompanhamento
+                        ORDER BY trat.data_modificacao DESC
+                        LIMIT 1
+                    ) as status_tratamento
+                FROM sistemaaps.mv_hiperdia_diabetes d
+                LEFT JOIN LATERAL (
+                    SELECT
+                        a.cod_acao,
+                        a.status_acao,
+                        a.cod_acompanhamento
+                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                    WHERE a.cod_cidadao = d.cod_paciente
+                    ORDER BY a.created_at DESC
+                    LIMIT 1
+                ) ultima_acao ON true
+            )
+            SELECT COUNT(DISTINCT cod_paciente) as count
+            FROM pacientes_base
             WHERE 1=1
         """
         if where_clauses:
@@ -6193,20 +6223,30 @@ def api_get_total_diabeticos():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Query base para contar diabéticos usando view específica
+        # Query base para contar diabéticos - com LATERAL join apenas para ultima_acao
         base_query = """
             SELECT COUNT(DISTINCT d.cod_paciente) as total_pacientes
             FROM sistemaaps.mv_hiperdia_diabetes d
+            LEFT JOIN LATERAL (
+                SELECT
+                    a.cod_acao,
+                    a.status_acao,
+                    a.cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                WHERE a.cod_cidadao = d.cod_paciente
+                ORDER BY a.created_at DESC
+                LIMIT 1
+            ) ultima_acao ON true
             WHERE 1=1
         """
-        
+
         where_clauses = []
         params = {}
-        
+
         if equipe != 'Todas':
             where_clauses.append("d.nome_equipe = %(equipe)s")
             params['equipe'] = equipe
-            
+
         if microarea != 'Todas' and microarea != 'Todas as áreas':
             try:
                 microarea_int = int(microarea)
@@ -6215,17 +6255,21 @@ def api_get_total_diabeticos():
             except (ValueError, TypeError):
                 # Se não conseguir converter para int, ignore o filtro
                 pass
-        
+
         # Aplicar filtros de status específicos para diabetes
         if status == 'Controlados':
-            where_clauses.append("d.situacao_problema = 1")
+            where_clauses.append("(d.situacao_problema = 1)")
         elif status == 'Descompensados':
-            where_clauses.append("d.situacao_problema = 0")
+            where_clauses.append("(d.situacao_problema = 0)")
+        elif status == 'EmAnalise':
+            where_clauses.append("ultima_acao.status_acao IN ('AGUARDANDO', 'REALIZADA')")
+        elif status == 'SemAvaliacao':
+            where_clauses.append("ultima_acao.cod_acao IS NULL")
         elif status == 'ComTratamento':
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med 
-                    WHERE med.codcidadao = d.cod_paciente 
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
+                    WHERE med.codcidadao = d.cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
             """)
