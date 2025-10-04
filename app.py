@@ -6593,7 +6593,22 @@ def api_diabetes_registrar_acao():
         
         # Ação de Modificar tratamento (cod_acao 3) agora apenas registra a ação na timeline
         # A modificação real do tratamento será feita através do modal de tratamento dedicado
-        
+
+        # Se cod_acao = 7 (Encaminhar para Endocrinologia), criar subtarefas automaticamente
+        if data['cod_acao_atual'] == 7:
+            print(f"[DEBUG] Criando subtarefas para cod_acao=7, cod_acompanhamento={cod_acompanhamento}")
+            query_subtarefas_endocrino = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
+                (cod_acompanhamento, ordem, descricao, obrigatoria, concluida)
+                SELECT %(cod_acompanhamento)s, ordem, descricao, obrigatoria, FALSE
+                FROM sistemaaps.vw_subtarefas_template
+                WHERE cod_acao = 7
+                ORDER BY ordem
+            """
+            cur.execute(query_subtarefas_endocrino, {'cod_acompanhamento': cod_acompanhamento})
+            rows_inserted = cur.rowcount
+            print(f"[DEBUG] {rows_inserted} subtarefas inseridas para endocrinologia")
+
         conn.commit()
         
         return jsonify({

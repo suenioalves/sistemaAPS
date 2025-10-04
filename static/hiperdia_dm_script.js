@@ -1459,6 +1459,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 class="subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 focus:ring-offset-0"
                                 data-cod-subtarefa="${st.cod_subtarefa}"
                                 data-obrigatoria="${st.obrigatoria}"
+                                data-ordem="${st.ordem}"
                                 ${st.concluida ? 'checked' : ''}
                                 ${item.status_acao === 'CANCELADA' ? 'disabled' : ''}
                             >
@@ -1546,10 +1547,21 @@ document.addEventListener('DOMContentLoaded', function () {
                                             if (item.subtarefas && item.subtarefas.length > 0) {
                                                 const subtarefasObrigatorias = item.subtarefas.filter(st => st.obrigatoria);
                                                 if (subtarefasObrigatorias.length > 0) {
-                                                    const algumaConcluida = subtarefasObrigatorias.some(st => st.concluida);
-                                                    podeCompletar = algumaConcluida;
-                                                    if (!podeCompletar) {
-                                                        tituloDisabled = "Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir";
+                                                    // Para cod_acao = 7 (Encaminhar para Endocrinologia),
+                                                    // exigir que a ÚLTIMA subtarefa (ordem 6) esteja concluída
+                                                    if (item.cod_acao === 7) {
+                                                        const ultimaSubtarefa = item.subtarefas.find(st => st.ordem === 6);
+                                                        podeCompletar = ultimaSubtarefa && ultimaSubtarefa.concluida;
+                                                        if (!podeCompletar) {
+                                                            tituloDisabled = "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir";
+                                                        }
+                                                    } else {
+                                                        // Para outras ações, pelo menos uma obrigatória deve estar concluída
+                                                        const algumaConcluida = subtarefasObrigatorias.some(st => st.concluida);
+                                                        podeCompletar = algumaConcluida;
+                                                        if (!podeCompletar) {
+                                                            tituloDisabled = "Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir";
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1557,6 +1569,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                             return `<button
                                                 class="timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center ${podeCompletar ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}"
                                                 data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                                data-cod-acao="${item.cod_acao}"
                                                 data-action="complete"
                                                 ${podeCompletar ? '' : 'disabled'}
                                                 title="${tituloDisabled}"
@@ -1911,21 +1924,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
         console.log('✅ Botão encontrado:', completeButton.textContent.trim());
 
+        // Obter cod_acao do botão para determinar lógica de validação
+        const codAcompanhamento = completeButton.getAttribute('data-cod-acompanhamento');
+        const codAcao = completeButton.getAttribute('data-cod-acao');
+
         // Verificar se tem pelo menos uma subtarefa obrigatória marcada
         const subtarefaCheckboxes = timelineCard.querySelectorAll('.subtarefa-checkbox');
         let temSubtarefaObrigatoriaConcluida = false;
 
         // Buscar checkboxes obrigatórias (data-obrigatoria="true")
         console.log('Total de checkboxes:', subtarefaCheckboxes.length);
-        subtarefaCheckboxes.forEach((checkbox, index) => {
-            const isObrigatoria = checkbox.getAttribute('data-obrigatoria');
-            const isChecked = checkbox.checked;
-            console.log(`Checkbox ${index + 1}: obrigatoria="${isObrigatoria}", checked=${isChecked}`);
+        console.log('cod_acao:', codAcao);
 
-            if (isObrigatoria === 'true' && checkbox.checked) {
-                temSubtarefaObrigatoriaConcluida = true;
-            }
-        });
+        // Para cod_acao = 7 (Encaminhar para Endocrinologia), exigir a última subtarefa (ordem 6)
+        if (codAcao === '7') {
+            const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '6');
+            temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
+            console.log('Verificação especial cod_acao 7 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
+        } else {
+            // Para outras ações, pelo menos uma obrigatória deve estar concluída
+            subtarefaCheckboxes.forEach((checkbox, index) => {
+                const isObrigatoria = checkbox.getAttribute('data-obrigatoria');
+                const isChecked = checkbox.checked;
+                console.log(`Checkbox ${index + 1}: obrigatoria="${isObrigatoria}", checked=${isChecked}`);
+
+                if (isObrigatoria === 'true' && checkbox.checked) {
+                    temSubtarefaObrigatoriaConcluida = true;
+                }
+            });
+        }
 
         console.log('Resultado final - Tem obrigatória concluída?', temSubtarefaObrigatoriaConcluida);
 
@@ -1937,7 +1964,10 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             completeButton.disabled = true;
             completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-gray-400 text-gray-200 cursor-not-allowed';
-            completeButton.title = 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
+            const mensagem = codAcao === '7'
+                ? "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir"
+                : 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
+            completeButton.title = mensagem;
         }
     }
 
