@@ -1547,9 +1547,17 @@ document.addEventListener('DOMContentLoaded', function () {
                                             if (item.subtarefas && item.subtarefas.length > 0) {
                                                 const subtarefasObrigatorias = item.subtarefas.filter(st => st.obrigatoria);
                                                 if (subtarefasObrigatorias.length > 0) {
-                                                    // Para cod_acao = 7 (Encaminhar para Endocrinologia),
-                                                    // exigir que a ÚLTIMA subtarefa (ordem 6) esteja concluída
-                                                    if (item.cod_acao === 7) {
+                                                    // Para cod_acao = 5 (Modificar Tratamento),
+                                                    // exigir que a subtarefa (ordem 1) esteja concluída
+                                                    if (item.cod_acao === 5) {
+                                                        const subtarefa = item.subtarefas.find(st => st.ordem === 1);
+                                                        podeCompletar = subtarefa && subtarefa.concluida;
+                                                        if (!podeCompletar) {
+                                                            tituloDisabled = "Complete a subtarefa 'Nova receita dos medicamentos entregue ao paciente' antes de concluir";
+                                                        }
+                                                    } else if (item.cod_acao === 7) {
+                                                        // Para cod_acao = 7 (Encaminhar para Endocrinologia),
+                                                        // exigir que a ÚLTIMA subtarefa (ordem 6) esteja concluída
                                                         const ultimaSubtarefa = item.subtarefas.find(st => st.ordem === 6);
                                                         podeCompletar = ultimaSubtarefa && ultimaSubtarefa.concluida;
                                                         if (!podeCompletar) {
@@ -1944,8 +1952,13 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Total de checkboxes:', subtarefaCheckboxes.length);
         console.log('cod_acao:', codAcao);
 
-        // Para cod_acao = 7 (Encaminhar para Endocrinologia), exigir a última subtarefa (ordem 6)
-        if (codAcao === '7') {
+        // Para cod_acao = 5 (Modificar Tratamento), exigir a subtarefa (ordem 1)
+        if (codAcao === '5') {
+            const checkbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '1');
+            temSubtarefaObrigatoriaConcluida = checkbox && checkbox.checked;
+            console.log('Verificação especial cod_acao 5 - subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
+        } else if (codAcao === '7') {
+            // Para cod_acao = 7 (Encaminhar para Endocrinologia), exigir a última subtarefa (ordem 6)
             const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '6');
             temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
             console.log('Verificação especial cod_acao 7 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
@@ -1978,7 +1991,9 @@ document.addEventListener('DOMContentLoaded', function () {
             completeButton.disabled = true;
             completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-gray-400 text-gray-200 cursor-not-allowed';
             let mensagem = 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
-            if (codAcao === '7') {
+            if (codAcao === '5') {
+                mensagem = "Complete a subtarefa 'Nova receita dos medicamentos entregue ao paciente' antes de concluir";
+            } else if (codAcao === '7') {
                 mensagem = "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir";
             } else if (codAcao === '8') {
                 mensagem = "Complete a subtarefa 'Consulta com a Nutrição realizada' antes de concluir";
