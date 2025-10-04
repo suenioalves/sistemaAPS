@@ -6258,12 +6258,44 @@ def api_get_total_diabeticos():
 
         # Aplicar filtros de status específicos para diabetes
         if status == 'Controlados':
-            where_clauses.append("(d.situacao_problema = 1)")
+            # Controlados: status_tratamento = 1 (adequado) ou 2 (aceitável)
+            where_clauses.append("""
+                EXISTS (
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
+                        ON acomp.cod_acompanhamento = trat.cod_acompanhamento
+                    WHERE acomp.cod_cidadao = d.cod_paciente
+                    AND trat.status_tratamento IN (1, 2)
+                    ORDER BY trat.data_modificacao DESC
+                    LIMIT 1
+                )
+            """)
         elif status == 'Descompensados':
-            where_clauses.append("(d.situacao_problema = 0)")
+            # Descompensados: status_tratamento = 3
+            where_clauses.append("""
+                EXISTS (
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
+                        ON acomp.cod_acompanhamento = trat.cod_acompanhamento
+                    WHERE acomp.cod_cidadao = d.cod_paciente
+                    AND trat.status_tratamento = 3
+                    ORDER BY trat.data_modificacao DESC
+                    LIMIT 1
+                )
+            """)
         elif status == 'EmAnalise':
-            where_clauses.append("ultima_acao.status_acao IN ('AGUARDANDO', 'REALIZADA')")
+            # Em Análise: tem ação AGUARDANDO/REALIZADA mas sem avaliação de tratamento
+            where_clauses.append("""
+                ultima_acao.status_acao IN ('AGUARDANDO', 'REALIZADA')
+                AND NOT EXISTS (
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
+                        ON acomp.cod_acompanhamento = trat.cod_acompanhamento
+                    WHERE acomp.cod_cidadao = d.cod_paciente
+                )
+            """)
         elif status == 'SemAvaliacao':
+            # Sem Avaliação: nenhuma ação registrada
             where_clauses.append("ultima_acao.cod_acao IS NULL")
         elif status == 'ComTratamento':
             where_clauses.append("""

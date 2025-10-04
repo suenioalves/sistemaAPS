@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', function () {
         diabeticosCard: document.getElementById('total-diabeticos'),
         controladosCard: document.getElementById('total-controlados'),
         descompensadosCard: document.getElementById('total-descompensados'),
-        tratamentoCard: document.getElementById('total-tratamento'),
+        emAnaliseCard: document.getElementById('total-em-analise'),
+        semAvaliacaoCard: document.getElementById('total-sem-avaliacao'),
         pacientesContainer: document.getElementById('diabetes-pacientes-container'),
         pacientesLista: document.getElementById('diabetes-pacientes-lista'),
         loadingDiv: document.getElementById('diabetes-loading'),
@@ -413,17 +414,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateCard(elements.descompensadosCard, 'Erro');
             });
 
-        // Card: Com Tratamento
-        const paramsTratamento = new URLSearchParams(params);
-        paramsTratamento.set('status', 'ComTratamento');
-        fetch(`/api/get_total_diabeticos?${paramsTratamento.toString()}`)
+        // Card: Em Análise
+        const paramsEmAnalise = new URLSearchParams(params);
+        paramsEmAnalise.set('status', 'EmAnalise');
+        fetch(`/api/get_total_diabeticos?${paramsEmAnalise.toString()}`)
             .then(response => response.json())
             .then(data => {
-                updateCard(elements.tratamentoCard, data.total_pacientes || 0);
+                updateCard(elements.emAnaliseCard, data.total_pacientes || 0);
             })
             .catch(error => {
-                console.error('Erro ao buscar diabéticos com tratamento:', error);
-                updateCard(elements.tratamentoCard, 'Erro');
+                console.error('Erro ao buscar diabéticos em análise:', error);
+                updateCard(elements.emAnaliseCard, 'Erro');
+            });
+
+        // Card: Sem Avaliação
+        const paramsSemAvaliacao = new URLSearchParams(params);
+        paramsSemAvaliacao.set('status', 'SemAvaliacao');
+        fetch(`/api/get_total_diabeticos?${paramsSemAvaliacao.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                updateCard(elements.semAvaliacaoCard, data.total_pacientes || 0);
+            })
+            .catch(error => {
+                console.error('Erro ao buscar diabéticos sem avaliação:', error);
+                updateCard(elements.semAvaliacaoCard, 'Erro');
             });
     }
 

@@ -145,50 +145,67 @@
                     <div class="flex items-center mb-4">
                         <h2 class="text-xl font-semibold text-gray-800">Resumo</h2>
                     </div>
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 flex items-center justify-center text-amber-600 mr-3">
-                                        <i class="ri-drop-line"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm text-amber-600 font-medium">Total Diabéticos</p>
-                                        <p id="total-diabeticos" class="text-2xl font-bold text-amber-700">0</p>
-                                    </div>
+                    <!-- Grid Principal: Total Diabéticos (esquerda, 2 linhas) + 4 cards menores (direita, 2x2) -->
+                    <div class="grid grid-cols-3 gap-4">
+                        <!-- Total Diabéticos - Card Grande (ocupa 2 linhas) -->
+                        <div class="row-span-2 bg-amber-50 p-6 rounded-lg border border-amber-200 flex items-center">
+                            <div class="w-12 h-12 flex items-center justify-center text-amber-600 mr-4">
+                                <i class="ri-drop-line text-3xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-amber-600 font-medium">Total de Diabéticos</p>
+                                <p id="total-diabeticos" class="text-3xl font-bold text-amber-700">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Controlados -->
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-green-600 mr-3">
+                                    <i class="ri-check-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-green-600 font-medium">Controlados</p>
+                                    <p id="total-controlados" class="text-2xl font-bold text-green-700">0</p>
                                 </div>
                             </div>
-                            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 flex items-center justify-center text-green-600 mr-3">
-                                        <i class="ri-check-line"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm text-green-600 font-medium">Controlados</p>
-                                        <p id="total-controlados" class="text-2xl font-bold text-green-700">0</p>
-                                    </div>
+                        </div>
+
+                        <!-- Descompensados -->
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-red-600 mr-3">
+                                    <i class="ri-alert-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-red-600 font-medium">Descompensados</p>
+                                    <p id="total-descompensados" class="text-2xl font-bold text-red-700">0</p>
                                 </div>
                             </div>
-                            <div class="bg-red-50 p-4 rounded-lg border border-red-200">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 flex items-center justify-center text-red-600 mr-3">
-                                        <i class="ri-alert-line"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm text-red-600 font-medium">Descompensados</p>
-                                        <p id="total-descompensados" class="text-2xl font-bold text-red-700">0</p>
-                                    </div>
+                        </div>
+
+                        <!-- Em Análise -->
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-blue-600 mr-3">
+                                    <i class="ri-search-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-blue-600 font-medium">Em Análise</p>
+                                    <p id="total-em-analise" class="text-2xl font-bold text-blue-700">0</p>
                                 </div>
                             </div>
-                            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 flex items-center justify-center text-purple-600 mr-3">
-                                        <i class="ri-medicine-bottle-line"></i>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm text-purple-600 font-medium">Com Tratamento</p>
-                                        <p id="total-tratamento" class="text-2xl font-bold text-purple-700">0</p>
-                                    </div>
+                        </div>
+
+                        <!-- Sem Avaliação -->
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-gray-600 mr-3">
+                                    <i class="ri-questionnaire-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-600 font-medium">Sem Avaliação</p>
+                                    <p id="total-sem-avaliacao" class="text-2xl font-bold text-gray-700">0</p>
                                 </div>
                             </div>
                         </div>
