@@ -1188,6 +1188,26 @@ document.addEventListener('DOMContentLoaded', function () {
                     treatmentStatusHtml = generateTreatmentEvaluationStatus(lab, item);
                 }
 
+                // Gerar visualização de Mudança Proposta no Tratamento para ação tipo 4
+                let mudancaPropostaHtml = '';
+                if (item.cod_acao === 4 && item.tratamento && item.tratamento.mudanca_proposta) {
+                    mudancaPropostaHtml = `
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="bg-purple-50 border-l-4 border-purple-400 p-3 rounded-r-md">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0">
+                                        <i class="ri-file-edit-line text-purple-600 text-lg"></i>
+                                    </div>
+                                    <div class="ml-2 flex-1">
+                                        <h5 class="text-xs font-semibold text-purple-800 mb-1">Mudança Proposta no Tratamento:</h5>
+                                        <p class="text-sm text-purple-700 whitespace-pre-line">${item.tratamento.mudanca_proposta}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 // Processar múltiplos mapeamentos MRG para ação tipo 4
                 if (item.cod_acao === 4 && item.mrg_mappings && item.mrg_mappings.length > 0) {
                     const mrgId = `mrg-details-${item.cod_acompanhamento}`;
@@ -1484,6 +1504,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 ${treatmentStatusHtml}
                                 ${labTestsHtml}
                                 ${mrgDetailsHtml}
+                                ${mudancaPropostaHtml}
 
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
@@ -3253,6 +3274,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const statusControle = document.getElementById('eval-control-status-diabetes').value;
         const dataAvaliacao = document.getElementById('eval-assessment-date-diabetes').value;
         const observacoes = document.getElementById('eval-observations-diabetes').value;
+        const mudancaProposta = document.getElementById('eval-mudanca-proposta-diabetes').value;
         const responsavel = document.getElementById('eval-responsible-diabetes').value;
 
         // ============================================
@@ -3333,6 +3355,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 cod_acao: 4,
                 data_agendamento: dataAvaliacao,
                 observacoes: observacoes || 'Avaliação de tratamento com dados laboratoriais e mapeamentos',
+                observacoes_avaliacao: observacoes,
+                mudanca_proposta: mudancaProposta,
                 responsavel_pela_acao: responsavel,
                 status_controle: statusControle,
                 exames: {
@@ -3404,6 +3428,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('eval-control-status-diabetes').value = '';
         document.getElementById('eval-assessment-date-diabetes').value = '';
         document.getElementById('eval-observations-diabetes').value = '';
+        document.getElementById('eval-mudanca-proposta-diabetes').value = '';
         document.getElementById('eval-responsible-diabetes').value = '';
 
         // Limpar container de mapeamentos

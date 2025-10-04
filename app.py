@@ -6258,7 +6258,7 @@ def api_diabetes_timeline(cod_paciente):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # Buscar histórico de acompanhamento incluindo dados MRG, exames e subtarefas
+        # Buscar histórico de acompanhamento incluindo dados MRG, exames, subtarefas e tratamento
         query = """
         SELECT
                 a.cod_acompanhamento,
@@ -6292,12 +6292,16 @@ def api_diabetes_timeline(cod_paciente):
                 st.obrigatoria as subtarefa_obrigatoria,
                 st.concluida as subtarefa_concluida,
                 st.data_conclusao as subtarefa_data_conclusao,
-                st.observacoes as subtarefa_observacoes
+                st.observacoes as subtarefa_observacoes,
+                trat.status_tratamento,
+                trat.observacoes as tratamento_observacoes,
+                trat.mudanca_proposta
             FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st ON a.cod_acompanhamento = st.cod_acompanhamento
+            LEFT JOIN sistemaaps.tb_hiperdia_dm_tratamento trat ON a.cod_acompanhamento = trat.cod_acompanhamento
             WHERE a.cod_cidadao = %(cod_paciente)s
             ORDER BY a.created_at DESC, mrg.cod_mrg ASC, st.ordem ASC
         """
@@ -6375,6 +6379,14 @@ def api_diabetes_timeline(cod_paciente):
                         'glicemia_jejum': evento['exame_glicemia_jejum'],
                         'data_exame': evento['data_exame'].strftime('%Y-%m-%d') if evento['data_exame'] else None,
                         'observacoes': evento['observacoes_exame']
+                    }
+
+                # Adicionar dados de tratamento se existirem
+                if evento['status_tratamento'] is not None or evento['mudanca_proposta']:
+                    acompanhamentos[cod_acompanhamento]['tratamento'] = {
+                        'status_tratamento': evento['status_tratamento'],
+                        'observacoes': evento['tratamento_observacoes'],
+                        'mudanca_proposta': evento['mudanca_proposta']
                     }
 
                 # Adicionar primeiro mapeamento MRG se existir
@@ -6486,7 +6498,7 @@ def api_diabetes_registrar_acao():
             cur.execute(query_acao_2, {
                 'cod_cidadao': data['cod_cidadao'],
                 'data_agendamento': data['data_acao_atual'],
-                'observacoes': 'Criado automaticamente após agendar novo acompanhamento',
+                'observacoes': '1) Entregar a solicitação de exames laboratoriais para avaliar o tratamento da diabetes (Hemoglobina glicada e glicemia de jejum), e outros exames gerais (Colesterol Total, HDL, LDL, Triglicerideos, Creatinina, Ureia etc).\n2) Realizar o monitoramento de glicemia residencial nos seguintes horarios por no minimo dois dias:\nEm Jejum, 2 horas após o café da manhã, antes do almoço, 2 horas após o almoço, antes do jantar, ao deitar)',
                 'responsavel_pela_acao': data.get('responsavel_pela_acao'),
                 'cod_acao_origem': cod_acompanhamento
             })
@@ -6622,7 +6634,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
                 cur.execute(query_acao_4, (
                     cod_cidadao,
                     data_realizacao or datetime.now().strftime('%Y-%m-%d'),
-                    'Criado automaticamente após conclusão da coleta de exames e glicemias residenciais',
+                    'Avaliar o tratamento a partir dos exames laboratoriais coletados e do mapeamento da glicemia residencial.',
                     responsavel_pela_acao,
                     cod_acompanhamento
                 ))
@@ -8960,111 +8972,58 @@ def api_diabetes_avaliar_tratamento():
                     'dias_mapeamento': mapeamento.get('dias_mapeamento', 7)
                 })
 
-        # ================================================================
-        # ANÁLISE AUTOMÁTICA DO TRATAMENTO BASEADA EM CRITÉRIOS CLÍNICOS
-        # ================================================================
-        analise_tratamento = None
-        cor_classificacao = None
-
-        # Obter hemoglobina glicada se foi fornecida
-        hemoglobina_glicada = None
-        if 'exames' in data and data['exames']:
-            hemoglobina_glicada = data['exames'].get('hemoglobina_glicada')
-
-        if hemoglobina_glicada:
-            # Coletar todas as glicemias capilares dos mapeamentos
-            glicemias_capilares = []
-            if 'mapeamentos' in data and data['mapeamentos']:
-                for mapeamento in data['mapeamentos']:
-                    # Adicionar todas as glicemias que não são None
-                    for campo in ['g_jejum', 'g_apos_cafe', 'g_antes_almoco', 'g_apos_almoco', 'g_antes_jantar', 'g_ao_deitar']:
-                        valor = mapeamento.get(campo)
-                        if valor is not None:
-                            glicemias_capilares.append({
-                                'valor': valor,
-                                'tipo': campo
-                            })
-
-            # REGRA 1: HbA1c < 7% → TRATAMENTO ADEQUADO (independente das glicemias)
-            if hemoglobina_glicada < 7.0:
-                analise_tratamento = 'TRATAMENTO ADEQUADO'
-                cor_classificacao = 'VERDE'
-
-            # REGRA 2 e 3: HbA1c entre 7-7.9% → Depende das glicemias capilares
-            elif 7.0 <= hemoglobina_glicada < 8.0:
-                if len(glicemias_capilares) > 0:
-                    # Definir metas para cada tipo de glicemia
-                    metas = {
-                        'g_jejum': 130,           # Jejum/Pré-prandial: 80-130 mg/dL
-                        'g_antes_almoco': 130,    # Pré-prandial
-                        'g_antes_jantar': 130,    # Pré-prandial
-                        'g_apos_cafe': 180,       # Pós-prandial: < 180 mg/dL
-                        'g_apos_almoco': 180,     # Pós-prandial
-                        'g_ao_deitar': 180        # Considerado pós-prandial
-                    }
-
-                    # Analisar quantas glicemias estão próximas das metas
-                    total_afericoes = len(glicemias_capilares)
-                    afericoes_proximas_meta = 0
-
-                    for glicemia in glicemias_capilares:
-                        meta = metas.get(glicemia['tipo'], 180)
-                        # Considera "próximo da meta" se está até 20 mg/dL acima
-                        if glicemia['valor'] <= (meta + 20):
-                            afericoes_proximas_meta += 1
-
-                    percentual_proximas = (afericoes_proximas_meta / total_afericoes) * 100
-
-                    # REGRA 2: Maioria (>50%) próximas das metas → TRATAMENTO ACEITÁVEL
-                    if percentual_proximas > 50:
-                        analise_tratamento = 'TRATAMENTO ACEITÁVEL'
-                        cor_classificacao = 'VERDE'
-                    else:
-                        # REGRA 3: Maioria (>50%) acima das metas → TRATAMENTO INADEQUADO
-                        analise_tratamento = 'TRATAMENTO INADEQUADO'
-                        cor_classificacao = 'AMARELO'
-                else:
-                    # Sem glicemias capilares, basear apenas na HbA1c
-                    analise_tratamento = 'TRATAMENTO ACEITÁVEL (sem glicemias capilares para análise completa)'
-                    cor_classificacao = 'AMARELO'
-
-            # REGRA 4: HbA1c >= 8% → TRATAMENTO INADEQUADO (independente das glicemias)
-            else:  # hemoglobina_glicada >= 8.0
-                analise_tratamento = 'TRATAMENTO INADEQUADO'
-                cor_classificacao = 'VERMELHO'
-
-            # Adicionar análise às observações se não foi fornecida
-            observacoes_atuais = data.get('observacoes', '')
-            if analise_tratamento:
-                analise_completa = f"\n\n=== ANÁLISE AUTOMÁTICA DO TRATAMENTO ===\n"
-                analise_completa += f"Hemoglobina Glicada: {hemoglobina_glicada}%\n"
-                analise_completa += f"Classificação: {analise_tratamento}\n"
-                analise_completa += f"Cor: {cor_classificacao}\n"
-
-                if len(glicemias_capilares) > 0:
-                    analise_completa += f"Total de aferições capilares: {len(glicemias_capilares)}\n"
-
-                # Atualizar observações com a análise
-                cur.execute("""
-                    UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento
-                    SET observacoes = %s
-                    WHERE cod_acompanhamento = %s
-                """, (observacoes_atuais + analise_completa, cod_acompanhamento))
-
-        # Atualizar status do controle do paciente se fornecido
+        # Salvar status do tratamento na tb_hiperdia_dm_tratamento
         if 'status_controle' in data and data['status_controle']:
-            # Aqui você pode adicionar lógica para atualizar o status geral do paciente
-            # Por exemplo, atualizar uma tabela de status ou adicionar em observações
-            pass
+            # Mapear texto do status para código numérico
+            status_map = {
+                'Tratamento adequado': 1,      # Verde
+                'Tratamento aceitável': 2,     # Amarelo
+                'Tratamento descompensado': 3  # Vermelho
+            }
+
+            status_tratamento = status_map.get(data['status_controle'])
+
+            if status_tratamento:
+                # Verificar se já existe registro de tratamento para este acompanhamento
+                cur.execute("""
+                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_tratamento
+                    WHERE cod_acompanhamento = %s
+                """, (cod_acompanhamento,))
+
+                tratamento_existe = cur.fetchone()[0] > 0
+
+                if tratamento_existe:
+                    # Atualizar registro existente
+                    tratamento_query = """
+                        UPDATE sistemaaps.tb_hiperdia_dm_tratamento
+                        SET status_tratamento = %(status_tratamento)s,
+                            observacoes = %(observacoes)s,
+                            mudanca_proposta = %(mudanca_proposta)s,
+                            data_modificacao = %(data_modificacao)s
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                    """
+                else:
+                    # Inserir novo registro
+                    tratamento_query = """
+                        INSERT INTO sistemaaps.tb_hiperdia_dm_tratamento
+                        (cod_acompanhamento, status_tratamento, observacoes, mudanca_proposta, data_modificacao)
+                        VALUES (%(cod_acompanhamento)s, %(status_tratamento)s, %(observacoes)s, %(mudanca_proposta)s, %(data_modificacao)s)
+                    """
+
+                cur.execute(tratamento_query, {
+                    'cod_acompanhamento': cod_acompanhamento,
+                    'status_tratamento': status_tratamento,
+                    'observacoes': data.get('observacoes_avaliacao'),
+                    'mudanca_proposta': data.get('mudanca_proposta'),
+                    'data_modificacao': data_realizacao
+                })
 
         conn.commit()
 
         return jsonify({
             "success": True,
             "cod_acompanhamento": cod_acompanhamento,
-            "message": "Avaliação de tratamento salva com sucesso",
-            "analise_tratamento": analise_tratamento,
-            "cor_classificacao": cor_classificacao
+            "message": "Avaliação de tratamento salva com sucesso"
         })
 
     except Exception as e:
