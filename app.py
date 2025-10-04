@@ -6609,6 +6609,21 @@ def api_diabetes_registrar_acao():
             rows_inserted = cur.rowcount
             print(f"[DEBUG] {rows_inserted} subtarefas inseridas para endocrinologia")
 
+        # Se cod_acao = 8 (Encaminhar para Nutrição), criar subtarefas automaticamente
+        if data['cod_acao_atual'] == 8:
+            print(f"[DEBUG] Criando subtarefas para cod_acao=8, cod_acompanhamento={cod_acompanhamento}")
+            query_subtarefas_nutricao = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
+                (cod_acompanhamento, ordem, descricao, obrigatoria, concluida)
+                SELECT %(cod_acompanhamento)s, ordem, descricao, obrigatoria, FALSE
+                FROM sistemaaps.vw_subtarefas_template
+                WHERE cod_acao = 8
+                ORDER BY ordem
+            """
+            cur.execute(query_subtarefas_nutricao, {'cod_acompanhamento': cod_acompanhamento})
+            rows_inserted = cur.rowcount
+            print(f"[DEBUG] {rows_inserted} subtarefas inseridas para nutrição")
+
         conn.commit()
         
         return jsonify({

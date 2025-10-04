@@ -1555,6 +1555,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                                         if (!podeCompletar) {
                                                             tituloDisabled = "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir";
                                                         }
+                                                    } else if (item.cod_acao === 8) {
+                                                        // Para cod_acao = 8 (Encaminhar para Nutrição),
+                                                        // exigir que a ÚLTIMA subtarefa (ordem 2) esteja concluída
+                                                        const ultimaSubtarefa = item.subtarefas.find(st => st.ordem === 2);
+                                                        podeCompletar = ultimaSubtarefa && ultimaSubtarefa.concluida;
+                                                        if (!podeCompletar) {
+                                                            tituloDisabled = "Complete a subtarefa 'Consulta com a Nutrição realizada' antes de concluir";
+                                                        }
                                                     } else {
                                                         // Para outras ações, pelo menos uma obrigatória deve estar concluída
                                                         const algumaConcluida = subtarefasObrigatorias.some(st => st.concluida);
@@ -1941,6 +1949,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '6');
             temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
             console.log('Verificação especial cod_acao 7 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
+        } else if (codAcao === '8') {
+            // Para cod_acao = 8 (Encaminhar para Nutrição), exigir a última subtarefa (ordem 2)
+            const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '2');
+            temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
+            console.log('Verificação especial cod_acao 8 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
         } else {
             // Para outras ações, pelo menos uma obrigatória deve estar concluída
             subtarefaCheckboxes.forEach((checkbox, index) => {
@@ -1964,9 +1977,12 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             completeButton.disabled = true;
             completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-gray-400 text-gray-200 cursor-not-allowed';
-            const mensagem = codAcao === '7'
-                ? "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir"
-                : 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
+            let mensagem = 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
+            if (codAcao === '7') {
+                mensagem = "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir";
+            } else if (codAcao === '8') {
+                mensagem = "Complete a subtarefa 'Consulta com a Nutrição realizada' antes de concluir";
+            }
             completeButton.title = mensagem;
         }
     }
