@@ -6570,36 +6570,75 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Verificar se a ação existe
+        # Verificar se a ação existe e buscar informações completas
         cur.execute("""
-            SELECT cod_acompanhamento, status_acao, cod_cidadao
-            FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            SELECT cod_acompanhamento, status_acao, cod_cidadao, cod_acao, responsavel_pela_acao
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
-        
+
         action = cur.fetchone()
         if not action:
             return jsonify({"sucesso": False, "erro": "Ação não encontrada"}), 404
-        
+
+        cod_acao_atual = action[3]
+        cod_cidadao = action[2]
+        responsavel_pela_acao = action[4]
+
         # Atualizar status
         update_query = """
-            UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento 
-            SET status_acao = %s, 
+            UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento
+            SET status_acao = %s,
                 data_realizacao = %s,
                 updated_at = CURRENT_TIMESTAMP
             WHERE cod_acompanhamento = %s
         """
-        
+
         cur.execute(update_query, (status, data_realizacao, cod_acompanhamento))
+
+        # Se concluiu a ação 2 (Aguardando Coleta de Exames e Glicemias), criar automaticamente ação 4 (Avaliar Tratamento)
+        if status == 'REALIZADA' and cod_acao_atual == 2:
+            # Verificar se já não existe uma ação 4 pendente/aguardando para este paciente
+            cur.execute("""
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+                WHERE cod_cidadao = %s
+                AND cod_acao = 4
+                AND status_acao IN ('AGUARDANDO', 'PENDENTE')
+                AND cod_acao_origem = %s
+            """, (cod_cidadao, cod_acompanhamento))
+
+            acao_4_existente = cur.fetchone()
+
+            if not acao_4_existente:
+                # Criar ação 4 automaticamente
+                query_acao_4 = """
+                    INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%s, 4, 'AGUARDANDO', %s, %s, %s, %s)
+                    RETURNING cod_acompanhamento
+                """
+
+                cur.execute(query_acao_4, (
+                    cod_cidadao,
+                    data_realizacao or datetime.now().strftime('%Y-%m-%d'),
+                    'Criado automaticamente após conclusão da coleta de exames e glicemias residenciais',
+                    responsavel_pela_acao,
+                    cod_acompanhamento
+                ))
+
+                cod_acompanhamento_acao_4 = cur.fetchone()[0]
+                print(f"✅ Ação 4 (Avaliar Tratamento) criada automaticamente: {cod_acompanhamento_acao_4}")
+
         conn.commit()
-        
+
         mensagem_map = {
             'REALIZADA': 'Ação marcada como concluída com sucesso!',
             'CANCELADA': 'Ação cancelada com sucesso!',
             'AGUARDANDO': 'Status da ação atualizado para aguardando',
             'PENDENTE': 'Status da ação atualizado para pendente'
         }
-        
+
         return jsonify({
             "sucesso": True,
             "mensagem": mensagem_map.get(status, "Status atualizado com sucesso!")
@@ -8798,38 +8837,82 @@ def api_diabetes_avaliar_tratamento():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Inserir ação de acompanhamento principal
-        acao_query = """
-            INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
-            (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-            VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_agendamento)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
-            RETURNING cod_acompanhamento
-        """
-
         status_acao = 'REALIZADA'  # Avaliação já foi realizada
         data_realizacao = data.get('data_agendamento')
 
-        cur.execute(acao_query, {
-            'cod_cidadao': data['cod_cidadao'],
-            'cod_acao': data['cod_acao'],
-            'status_acao': status_acao,
-            'data_agendamento': data.get('data_agendamento'),
-            'data_realizacao': data_realizacao,
-            'observacoes': data.get('observacoes'),
-            'responsavel_pela_acao': data.get('responsavel_pela_acao')
-        })
+        # Verificar se foi fornecido um cod_acompanhamento (atualizar ação existente da timeline)
+        cod_acompanhamento = data.get('cod_acompanhamento')
 
-        cod_acompanhamento = cur.fetchone()[0]
+        if cod_acompanhamento:
+            # Atualizar ação existente da timeline
+            acao_query = """
+                UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento
+                SET status_acao = %(status_acao)s,
+                    data_realizacao = %(data_realizacao)s,
+                    observacoes = %(observacoes)s,
+                    responsavel_pela_acao = %(responsavel_pela_acao)s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE cod_acompanhamento = %(cod_acompanhamento)s
+            """
 
-        # Inserir dados de exames laboratoriais se fornecidos
+            cur.execute(acao_query, {
+                'status_acao': status_acao,
+                'data_realizacao': data_realizacao,
+                'observacoes': data.get('observacoes'),
+                'responsavel_pela_acao': data.get('responsavel_pela_acao'),
+                'cod_acompanhamento': cod_acompanhamento
+            })
+        else:
+            # Inserir nova ação de acompanhamento
+            acao_query = """
+                INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
+                (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
+                VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_agendamento)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                RETURNING cod_acompanhamento
+            """
+
+            cur.execute(acao_query, {
+                'cod_cidadao': data['cod_cidadao'],
+                'cod_acao': data['cod_acao'],
+                'status_acao': status_acao,
+                'data_agendamento': data.get('data_agendamento'),
+                'data_realizacao': data_realizacao,
+                'observacoes': data.get('observacoes'),
+                'responsavel_pela_acao': data.get('responsavel_pela_acao')
+            })
+
+            cod_acompanhamento = cur.fetchone()[0]
+
+        # Inserir ou atualizar dados de exames laboratoriais se fornecidos
         if 'exames' in data and data['exames']:
             exames = data['exames']
             if any([exames.get('hemoglobina_glicada'), exames.get('glicemia_media'), exames.get('glicemia_jejum')]):
-                exames_query = """
-                    INSERT INTO sistemaaps.tb_hiperdia_dm_exames
-                    (cod_acompanhamento, hemoglobina_glicada, glicemia_media, glicemia_jejum, data_exame)
-                    VALUES (%(cod_acompanhamento)s, %(hemoglobina_glicada)s, %(glicemia_media)s, %(glicemia_jejum)s, %(data_exame)s)
-                """
+                # Verificar se já existe exame para este acompanhamento
+                cur.execute("""
+                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_exames
+                    WHERE cod_acompanhamento = %s
+                """, (cod_acompanhamento,))
+
+                exame_existe = cur.fetchone()[0] > 0
+
+                if exame_existe:
+                    # Atualizar exame existente
+                    exames_query = """
+                        UPDATE sistemaaps.tb_hiperdia_dm_exames
+                        SET hemoglobina_glicada = %(hemoglobina_glicada)s,
+                            glicemia_media = %(glicemia_media)s,
+                            glicemia_jejum = %(glicemia_jejum)s,
+                            data_exame = %(data_exame)s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE cod_acompanhamento = %(cod_acompanhamento)s
+                    """
+                else:
+                    # Inserir novo exame
+                    exames_query = """
+                        INSERT INTO sistemaaps.tb_hiperdia_dm_exames
+                        (cod_acompanhamento, hemoglobina_glicada, glicemia_media, glicemia_jejum, data_exame)
+                        VALUES (%(cod_acompanhamento)s, %(hemoglobina_glicada)s, %(glicemia_media)s, %(glicemia_jejum)s, %(data_exame)s)
+                    """
 
                 cur.execute(exames_query, {
                     'cod_acompanhamento': cod_acompanhamento,
@@ -8839,8 +8922,24 @@ def api_diabetes_avaliar_tratamento():
                     'data_exame': exames.get('data_exame')
                 })
 
-        # Inserir múltiplos mapeamentos residenciais se fornecidos
+        # Inserir ou atualizar múltiplos mapeamentos residenciais se fornecidos
         if 'mapeamentos' in data and data['mapeamentos']:
+            # Verificar se já existem mapeamentos para este acompanhamento
+            cur.execute("""
+                SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_mrg
+                WHERE cod_acompanhamento = %s
+            """, (cod_acompanhamento,))
+
+            mapeamentos_existem = cur.fetchone()[0] > 0
+
+            if mapeamentos_existem:
+                # Deletar mapeamentos antigos e inserir novos (estratégia de replace)
+                cur.execute("""
+                    DELETE FROM sistemaaps.tb_hiperdia_mrg
+                    WHERE cod_acompanhamento = %s
+                """, (cod_acompanhamento,))
+
+            # Inserir mapeamentos (novos ou substituindo antigos)
             mrg_query = """
                 INSERT INTO sistemaaps.tb_hiperdia_mrg
                 (cod_acompanhamento, data_mrg, g_jejum, g_apos_cafe, g_antes_almoco, g_apos_almoco, g_antes_jantar, g_ao_deitar, periodo_mapeamento, dias_mapeamento)
@@ -8861,6 +8960,97 @@ def api_diabetes_avaliar_tratamento():
                     'dias_mapeamento': mapeamento.get('dias_mapeamento', 7)
                 })
 
+        # ================================================================
+        # ANÁLISE AUTOMÁTICA DO TRATAMENTO BASEADA EM CRITÉRIOS CLÍNICOS
+        # ================================================================
+        analise_tratamento = None
+        cor_classificacao = None
+
+        # Obter hemoglobina glicada se foi fornecida
+        hemoglobina_glicada = None
+        if 'exames' in data and data['exames']:
+            hemoglobina_glicada = data['exames'].get('hemoglobina_glicada')
+
+        if hemoglobina_glicada:
+            # Coletar todas as glicemias capilares dos mapeamentos
+            glicemias_capilares = []
+            if 'mapeamentos' in data and data['mapeamentos']:
+                for mapeamento in data['mapeamentos']:
+                    # Adicionar todas as glicemias que não são None
+                    for campo in ['g_jejum', 'g_apos_cafe', 'g_antes_almoco', 'g_apos_almoco', 'g_antes_jantar', 'g_ao_deitar']:
+                        valor = mapeamento.get(campo)
+                        if valor is not None:
+                            glicemias_capilares.append({
+                                'valor': valor,
+                                'tipo': campo
+                            })
+
+            # REGRA 1: HbA1c < 7% → TRATAMENTO ADEQUADO (independente das glicemias)
+            if hemoglobina_glicada < 7.0:
+                analise_tratamento = 'TRATAMENTO ADEQUADO'
+                cor_classificacao = 'VERDE'
+
+            # REGRA 2 e 3: HbA1c entre 7-7.9% → Depende das glicemias capilares
+            elif 7.0 <= hemoglobina_glicada < 8.0:
+                if len(glicemias_capilares) > 0:
+                    # Definir metas para cada tipo de glicemia
+                    metas = {
+                        'g_jejum': 130,           # Jejum/Pré-prandial: 80-130 mg/dL
+                        'g_antes_almoco': 130,    # Pré-prandial
+                        'g_antes_jantar': 130,    # Pré-prandial
+                        'g_apos_cafe': 180,       # Pós-prandial: < 180 mg/dL
+                        'g_apos_almoco': 180,     # Pós-prandial
+                        'g_ao_deitar': 180        # Considerado pós-prandial
+                    }
+
+                    # Analisar quantas glicemias estão próximas das metas
+                    total_afericoes = len(glicemias_capilares)
+                    afericoes_proximas_meta = 0
+
+                    for glicemia in glicemias_capilares:
+                        meta = metas.get(glicemia['tipo'], 180)
+                        # Considera "próximo da meta" se está até 20 mg/dL acima
+                        if glicemia['valor'] <= (meta + 20):
+                            afericoes_proximas_meta += 1
+
+                    percentual_proximas = (afericoes_proximas_meta / total_afericoes) * 100
+
+                    # REGRA 2: Maioria (>50%) próximas das metas → TRATAMENTO ACEITÁVEL
+                    if percentual_proximas > 50:
+                        analise_tratamento = 'TRATAMENTO ACEITÁVEL'
+                        cor_classificacao = 'VERDE'
+                    else:
+                        # REGRA 3: Maioria (>50%) acima das metas → TRATAMENTO INADEQUADO
+                        analise_tratamento = 'TRATAMENTO INADEQUADO'
+                        cor_classificacao = 'AMARELO'
+                else:
+                    # Sem glicemias capilares, basear apenas na HbA1c
+                    analise_tratamento = 'TRATAMENTO ACEITÁVEL (sem glicemias capilares para análise completa)'
+                    cor_classificacao = 'AMARELO'
+
+            # REGRA 4: HbA1c >= 8% → TRATAMENTO INADEQUADO (independente das glicemias)
+            else:  # hemoglobina_glicada >= 8.0
+                analise_tratamento = 'TRATAMENTO INADEQUADO'
+                cor_classificacao = 'VERMELHO'
+
+            # Adicionar análise às observações se não foi fornecida
+            observacoes_atuais = data.get('observacoes', '')
+            if analise_tratamento:
+                analise_completa = f"\n\n=== ANÁLISE AUTOMÁTICA DO TRATAMENTO ===\n"
+                analise_completa += f"Hemoglobina Glicada: {hemoglobina_glicada}%\n"
+                analise_completa += f"Classificação: {analise_tratamento}\n"
+                analise_completa += f"Cor: {cor_classificacao}\n"
+
+                if len(glicemias_capilares) > 0:
+                    analise_completa += f"Total de aferições capilares: {len(glicemias_capilares)}\n"
+
+                # Atualizar observações com a análise
+                cur.execute("""
+                    UPDATE sistemaaps.tb_hiperdia_dm_acompanhamento
+                    SET observacoes = %s
+                    WHERE cod_acompanhamento = %s
+                """, (observacoes_atuais + analise_completa, cod_acompanhamento))
+
         # Atualizar status do controle do paciente se fornecido
         if 'status_controle' in data and data['status_controle']:
             # Aqui você pode adicionar lógica para atualizar o status geral do paciente
@@ -8872,7 +9062,9 @@ def api_diabetes_avaliar_tratamento():
         return jsonify({
             "success": True,
             "cod_acompanhamento": cod_acompanhamento,
-            "message": "Avaliação de tratamento salva com sucesso"
+            "message": "Avaliação de tratamento salva com sucesso",
+            "analise_tratamento": analise_tratamento,
+            "cor_classificacao": cor_classificacao
         })
 
     except Exception as e:

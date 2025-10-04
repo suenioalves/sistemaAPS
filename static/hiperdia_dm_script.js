@@ -158,31 +158,45 @@ document.addEventListener('DOMContentLoaded', function () {
             resetActionForm();
         });
 
-        // Mostrar/ocultar campos específicos baseado na ação selecionada
-        elements.codAcaoSelect.addEventListener('change', function() {
-            const codAcao = parseInt(this.value);
+        // Event listeners para os botões de tipo de ação
+        document.querySelectorAll('.action-type-tab-diabetes').forEach(button => {
+            button.addEventListener('click', function() {
+                // Remover classe active de todos os botões
+                document.querySelectorAll('.action-type-tab-diabetes').forEach(btn => {
+                    btn.classList.remove('active', 'border-amber-500', 'bg-amber-50', 'text-amber-700');
+                    btn.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+                });
 
-            // Fechar todos os modais secundários primeiro
-            const evaluateModal = document.getElementById('evaluate-treatment-modal-diabetes');
-            if (evaluateModal) evaluateModal.classList.add('hidden');
+                // Adicionar classe active ao botão clicado
+                this.classList.add('active', 'border-amber-500', 'bg-amber-50', 'text-amber-700');
+                this.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
 
-            // Card informativo para "Agendar Novo Acompanhamento"
-            const cardInfoAgendar = document.getElementById('card-info-agendar-diabetes');
-            if (cardInfoAgendar) {
-                if (codAcao === 1) { // Agendar Novo Acompanhamento
-                    cardInfoAgendar.classList.remove('hidden');
-                } else {
-                    cardInfoAgendar.classList.add('hidden');
+                // Atualizar o valor do hidden input
+                const codAcao = parseInt(this.dataset.actionValue);
+                elements.codAcaoSelect.value = codAcao;
+
+                // Fechar todos os modais secundários primeiro
+                const evaluateModal = document.getElementById('evaluate-treatment-modal-diabetes');
+                if (evaluateModal) evaluateModal.classList.add('hidden');
+
+                // Card informativo para "Agendar Novo Acompanhamento"
+                const cardInfoAgendar = document.getElementById('card-info-agendar-diabetes');
+                if (cardInfoAgendar) {
+                    if (codAcao === 1) { // Agendar Novo Acompanhamento
+                        cardInfoAgendar.classList.remove('hidden');
+                    } else {
+                        cardInfoAgendar.classList.add('hidden');
+                    }
                 }
-            }
 
-            // Mostrar campos baseado na ação
-            if (codAcao === 4) { // Avaliar Tratamento
-                openEvaluateTreatmentModal();
-            } else if (codAcao === 5) { // Modificar tratamento
-                // Modificar tratamento agora apenas registra a ação na timeline
-                // O tratamento real será modificado através do modal de tratamento separadamente
-            }
+                // Mostrar campos baseado na ação
+                if (codAcao === 4) { // Avaliar Tratamento
+                    openEvaluateTreatmentModal();
+                } else if (codAcao === 5) { // Modificar tratamento
+                    // Modificar tratamento agora apenas registra a ação na timeline
+                    // O tratamento real será modificado através do modal de tratamento separadamente
+                }
+            });
         });
 
         elements.saveActionBtn.addEventListener('click', handleSaveAction);
@@ -1439,6 +1453,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Determinar texto da ação
                 let acaoTexto = item.dsc_acao;
 
+                // Customizar texto para ações aguardando ou concluídas
+                if (item.cod_acao === 4 && item.status_acao === 'AGUARDANDO') {
+                    acaoTexto = 'Aguardando Avaliação do Tratamento';
+                }
+
                 // Customizar texto para ações concluídas
                 if (item.status_acao === 'REALIZADA' || item.status_acao === 'FINALIZADO') {
                     if (item.cod_acao === 1) {
@@ -1447,6 +1466,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         acaoTexto = 'Exames e Glicemias Coletados';
                     } else if (item.cod_acao === 3) {
                         acaoTexto = 'Mapeamento Residencial de Glicemias iniciado';
+                    } else if (item.cod_acao === 4) {
+                        acaoTexto = 'Tratamento Avaliado';
                     }
                 }
 
@@ -1466,6 +1487,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
+                                    ${/* Botão especial "Avaliar Tratamento" para ação 4 em status AGUARDANDO */ ''}
+                                    ${(item.cod_acao === 4 && item.status_acao === 'AGUARDANDO') ? `
+                                        <button
+                                            class="avaliar-tratamento-btn text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-cyan-600 text-white hover:bg-cyan-700 cursor-pointer"
+                                            data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                            title="Abrir modal para avaliar o tratamento"
+                                        >
+                                            <i class="ri-stethoscope-line mr-1"></i>
+                                            Avaliar Tratamento
+                                        </button>
+                                    ` : ''}
+
                                     ${(item.status_acao !== 'REALIZADA' && item.status_acao !== 'FINALIZADO') ? `
                                         ${(() => {
                                             // Verificar se tem subtarefas obrigatórias e se pelo menos uma está concluída
@@ -1661,6 +1694,21 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.error('Erro ao executar ação da timeline:', error);
                         alert('Erro ao executar ação. Tente novamente.');
                     }
+                });
+            });
+
+            // Adicionar event listeners para o botão "Avaliar Tratamento" especial
+            document.querySelectorAll('.avaliar-tratamento-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const codAcompanhamento = this.getAttribute('data-cod-acompanhamento');
+                    console.log('Abrindo modal Avaliar Tratamento para cod_acompanhamento:', codAcompanhamento);
+
+                    // Armazenar o código do acompanhamento para usar ao salvar
+                    // Isso permite vincular a avaliação à ação específica da timeline
+                    sessionStorage.setItem('cod_acompanhamento_avaliacao', codAcompanhamento);
+
+                    // Abrir o modal de avaliar tratamento
+                    openEvaluateTreatmentModal();
                 });
             });
 
@@ -1906,6 +1954,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Função para resetar formulário de ação
     function resetActionForm() {
         elements.actionForm.reset();
+
+        // Resetar os botões de tipo de ação
+        document.querySelectorAll('.action-type-tab-diabetes').forEach(btn => {
+            btn.classList.remove('active', 'border-amber-500', 'bg-amber-50', 'text-amber-700');
+            btn.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+        });
     }
 
     // Função para salvar ação
@@ -3201,8 +3255,23 @@ document.addEventListener('DOMContentLoaded', function () {
         const observacoes = document.getElementById('eval-observations-diabetes').value;
         const responsavel = document.getElementById('eval-responsible-diabetes').value;
 
-        if (!dataAvaliacao || !responsavel) {
-            alert('Por favor, preencha os campos obrigatórios.');
+        // ============================================
+        // VALIDAÇÕES OBRIGATÓRIAS
+        // ============================================
+
+        // 1. Campos sempre obrigatórios
+        if (!dataAvaliacao) {
+            alert('Por favor, preencha a Data da Avaliação.');
+            return;
+        }
+
+        if (!responsavel) {
+            alert('Por favor, preencha o nome do Responsável pela avaliação.');
+            return;
+        }
+
+        if (!statusControle) {
+            alert('Por favor, selecione o Status do Controle.');
             return;
         }
 
@@ -3211,7 +3280,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Coletar dados dos mapeamentos
+        // 2. Coletar dados dos mapeamentos
         const mappings = [];
         const mappingContainers = document.querySelectorAll('#mappings-container-diabetes > div');
         mappingContainers.forEach((container, index) => {
@@ -3239,27 +3308,53 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
+        // 3. Validar: Pelo menos Hemoglobina Glicada OU Mapeamentos Residenciais
+        const temHemoglobinaGlicada = hemoglobina && hemoglobina.trim() !== '';
+        const temMapeamentos = mappings.length > 0;
+
+        if (!temHemoglobinaGlicada && !temMapeamentos) {
+            alert('É obrigatório preencher pelo menos:\n\n• Hemoglobina Glicada OU\n• Mapeamentos Residenciais de Glicemia\n\nPara avaliar o tratamento atual.');
+            return;
+        }
+
+        // 4. Se preencheu algum exame laboratorial, a data dos exames é obrigatória
+        const temAlgumExame = hemoglobina || glicemiaMedia || glicemiaJejum;
+        if (temAlgumExame && !dataExames) {
+            alert('Por favor, preencha a Data dos Exames, pois você informou dados de exames laboratoriais.');
+            return;
+        }
+
+        // Verificar se há um cod_acompanhamento armazenado (chamado a partir da timeline)
+        const codAcompanhamentoTimeline = sessionStorage.getItem('cod_acompanhamento_avaliacao');
+
         try {
+            const requestBody = {
+                cod_cidadao: currentPacienteForModal.cod_paciente,
+                cod_acao: 4,
+                data_agendamento: dataAvaliacao,
+                observacoes: observacoes || 'Avaliação de tratamento com dados laboratoriais e mapeamentos',
+                responsavel_pela_acao: responsavel,
+                status_controle: statusControle,
+                exames: {
+                    hemoglobina_glicada: hemoglobina ? parseFloat(hemoglobina) : null,
+                    glicemia_media: glicemiaMedia ? parseInt(glicemiaMedia) : null,
+                    glicemia_jejum: glicemiaJejum ? parseInt(glicemiaJejum) : null,
+                    data_exame: dataExames
+                },
+                mapeamentos: mappings
+            };
+
+            // Se foi chamado a partir da timeline, incluir o cod_acompanhamento
+            if (codAcompanhamentoTimeline) {
+                requestBody.cod_acompanhamento = parseInt(codAcompanhamentoTimeline);
+            }
+
             const response = await fetch('/api/diabetes/avaliar_tratamento', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    cod_cidadao: currentPacienteForModal.cod_paciente,
-                    cod_acao: 4,
-                    data_agendamento: dataAvaliacao,
-                    observacoes: observacoes || 'Avaliação de tratamento com dados laboratoriais e mapeamentos',
-                    responsavel_pela_acao: responsavel,
-                    status_controle: statusControle,
-                    exames: {
-                        hemoglobina_glicada: hemoglobina ? parseFloat(hemoglobina) : null,
-                        glicemia_media: glicemiaMedia ? parseInt(glicemiaMedia) : null,
-                        glicemia_jejum: glicemiaJejum ? parseInt(glicemiaJejum) : null,
-                        data_exame: dataExames
-                    },
-                    mapeamentos: mappings
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -3269,7 +3364,20 @@ document.addEventListener('DOMContentLoaded', function () {
             const result = await response.json();
 
             if (result.success) {
-                alert('Avaliação de tratamento salva com sucesso!');
+                // Construir mensagem com análise automática se disponível
+                let mensagem = 'Avaliação de tratamento salva com sucesso!';
+
+                if (result.analise_tratamento && result.cor_classificacao) {
+                    mensagem += '\n\n=== ANÁLISE AUTOMÁTICA ===\n';
+                    mensagem += `Classificação: ${result.analise_tratamento}\n`;
+                    mensagem += `Status: ${result.cor_classificacao}`;
+                }
+
+                alert(mensagem);
+
+                // Limpar o sessionStorage
+                sessionStorage.removeItem('cod_acompanhamento_avaliacao');
+
                 document.getElementById('evaluate-treatment-modal-diabetes').classList.add('hidden');
                 elements.registerModal.classList.add('hidden'); // Fechar também o modal principal
                 clearEvaluateTreatmentModal();

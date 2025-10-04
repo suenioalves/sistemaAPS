@@ -340,7 +340,7 @@
                 <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg leading-6 font-medium text-gray-900">
@@ -353,16 +353,40 @@
                     
                     <form id="action-form-diabetes" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Ação</label>
-                            <select id="cod-acao-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
-                                <option value="">Selecione uma ação</option>
-                                <option value="1">Agendar Novo Acompanhamento</option>
-                                <option value="2">Solicitar Hemoglobina Glicada, Glicemia Média e Glicemia de Jejum</option>
-                                <option value="3">Solicitar Mapeamento Residencial de Glicemias</option>
-                                <option value="4">Avaliar Tratamento</option>
-                                <option value="5">Modificar Tratamento</option>
-                                <option value="6">Finalizar Acompanhamento</option>
-                            </select>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Ação</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="1">
+                                    <i class="ri-calendar-check-line text-xl mr-2 text-blue-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Agendar Novo Acompanhamento</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="4">
+                                    <i class="ri-stethoscope-line text-xl mr-2 text-cyan-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Avaliar Tratamento</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="5">
+                                    <i class="ri-capsule-line text-xl mr-2 text-purple-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Modificar Tratamento</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="7">
+                                    <i class="ri-user-heart-line text-xl mr-2 text-pink-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Encaminhar para Endocrinologia</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="8">
+                                    <i class="ri-apple-line text-xl mr-2 text-green-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Encaminhar para Nutrição</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="6">
+                                    <i class="ri-checkbox-circle-line text-xl mr-2 text-amber-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Finalizar Acompanhamento</span>
+                                </button>
+                            </div>
+                            <!-- Hidden input para armazenar o valor selecionado -->
+                            <input type="hidden" id="cod-acao-diabetes" value="">
                         </div>
                         
                         <div>
@@ -766,10 +790,11 @@
 
                     <!-- Seção de Exames Laboratoriais -->
                     <div class="bg-blue-50 rounded-lg p-4">
-                        <h4 class="text-lg font-medium text-gray-900 mb-4">Dados de Exames Laboratoriais</h4>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">Dados de Exames Laboratoriais</h4>
+                        <p class="text-xs text-blue-600 mb-3"><strong>Obrigatório:</strong> Preencher Hemoglobina Glicada OU pelo menos um Mapeamento Residencial</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Hemoglobina Glicada (%)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Hemoglobina Glicada (%) <span class="text-blue-600">*</span></label>
                                 <input type="number" step="0.1" id="eval-hemoglobina-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="ex: 7.5">
                             </div>
                             <div>
@@ -782,19 +807,21 @@
                             </div>
                         </div>
                         <div class="mt-3">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data dos Exames</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data dos Exames <span class="text-red-600">*</span></label>
                             <input type="date" id="eval-exams-date-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">Obrigatório se preencheu algum dado de exame acima</p>
                         </div>
                     </div>
 
                     <!-- Seção de Mapeamentos Residenciais de Glicemia -->
                     <div class="bg-green-50 rounded-lg p-4">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4 class="text-lg font-medium text-gray-900">Mapeamentos Residenciais de Glicemia</h4>
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-lg font-medium text-gray-900">Mapeamentos Residenciais de Glicemia <span class="text-green-600">*</span></h4>
                             <button type="button" id="add-mapping-btn-diabetes" class="bg-green-600 text-white py-2 px-4 rounded text-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
                                 <i class="ri-add-line mr-1"></i>Adicionar Período
                             </button>
                         </div>
+                        <p class="text-xs text-green-600 mb-3"><strong>Obrigatório:</strong> Pelo menos um mapeamento OU Hemoglobina Glicada preenchida</p>
 
                         <div id="mappings-container-diabetes" class="space-y-4">
                             <!-- Mapeamentos serão adicionados dinamicamente -->
@@ -806,7 +833,7 @@
                         <h4 class="text-lg font-medium text-gray-900 mb-4">Avaliação do Tratamento</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Status do Controle</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status do Controle <span class="text-red-600">*</span></label>
                                 <select id="eval-control-status-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                                     <option value="">Selecione o status</option>
                                     <option value="CONTROLADO">Controlado</option>
@@ -815,7 +842,7 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Data da Avaliação</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data da Avaliação <span class="text-red-600">*</span></label>
                                 <input type="date" id="eval-assessment-date-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                             </div>
                         </div>
@@ -824,7 +851,7 @@
                             <textarea id="eval-observations-diabetes" rows="4" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Análise dos resultados, conduta, recomendações..."></textarea>
                         </div>
                         <div class="mt-3">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela Avaliação</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Responsável pela Avaliação <span class="text-red-600">*</span></label>
                             <input type="text" id="eval-responsible-diabetes" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="Nome do profissional responsável">
                         </div>
                     </div>
