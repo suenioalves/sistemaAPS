@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"C:/Program Files/PostgreSQL/16/bin/psql.exe\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT * FROM sistemaaps.tb_hiperdia_dm_tipos_acao ORDER BY cod_acao;\")"
+      "Bash(start cmd /k \"python app.py\")"
     ],
     "deny": [],
     "ask": [],

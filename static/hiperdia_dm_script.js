@@ -1030,12 +1030,12 @@ document.addEventListener('DOMContentLoaded', function () {
             
             const data = await response.json();
             const timeline = data.timeline || [];
-            
+
             if (timeline.length === 0) {
                 elements.timelineContent.innerHTML = '<div class="p-4 text-center text-gray-500">Nenhuma ação registrada ainda</div>';
                 return;
             }
-            
+
             let timelineHTML = '';
             timeline.forEach(item => {
                 const dataDisplay = item.data_realizacao || item.data_agendamento;
@@ -1198,6 +1198,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     // Adicionar seção de avaliação do tratamento com base nos resultados dos exames
                     treatmentStatusHtml = generateTreatmentEvaluationStatus(lab, item);
+                }
+
+                // Gerar avaliação de tratamento MESMO SEM lab_tests, se houver status_tratamento salvo
+                if (item.cod_acao === 4 && !item.lab_tests && item.tratamento && item.tratamento.status_tratamento) {
+                    treatmentStatusHtml = generateTreatmentEvaluationStatus(null, item);
                 }
 
                 // Gerar visualização de Mudança Proposta no Tratamento para ação tipo 4
@@ -1590,7 +1595,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 `;
             });
-            
+
             elements.timelineContent.innerHTML = timelineHTML;
             
             // Adicionar event listeners para os botões de expandir/recolher MRG
@@ -3450,9 +3455,83 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Função para gerar avaliação do status do tratamento com base nos exames laboratoriais
     function generateTreatmentEvaluationStatus(labData, timelineItem) {
-        if (!labData || !timelineItem) return '';
+        if (!timelineItem) {
+            return '';
+        }
 
-        // Avaliar status do controle diabético baseado nas diretrizes SBD 2023-2024
+        // Se houver status_tratamento salvo no banco, usar ele ao invés de calcular (MESMO SEM labData)
+        if (timelineItem.tratamento && timelineItem.tratamento.status_tratamento) {
+            const statusTratamento = timelineItem.tratamento.status_tratamento;
+            let status, color, icon;
+
+            if (statusTratamento === 1) {
+                status = 'TRATAMENTO ADEQUADO';
+                color = 'text-green-600';
+                icon = '🟢';
+            } else if (statusTratamento === 2) {
+                status = 'TRATAMENTO ACEITÁVEL';
+                color = 'text-yellow-600';
+                icon = '🟡';
+            } else if (statusTratamento === 3) {
+                status = 'DESCOMPENSADO';
+                color = 'text-red-600';
+                icon = '🔴';
+            }
+
+            const evaluationId = `evaluation-details-${timelineItem.cod_acompanhamento}`;
+
+            return `
+                <div class="mt-3 pt-3 border-t border-gray-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-purple-600 mr-2">
+                                <i class="ri-stethoscope-line"></i>
+                            </div>
+                            <h5 class="font-medium text-gray-700 text-sm">Avaliação do Tratamento</h5>
+                        </div>
+                        <button
+                            class="evaluation-toggle-btn flex items-center text-xs text-gray-500 hover:text-purple-600 transition-colors duration-200"
+                            data-target="${evaluationId}"
+                            title="Expandir/Recolher detalhes da avaliação"
+                        >
+                            <span class="toggle-text mr-1">Expandir</span>
+                            <div class="w-4 h-4 flex items-center justify-center toggle-icon">
+                                <i class="ri-arrow-down-s-line"></i>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Status da Avaliação (sempre visível) -->
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-2">
+                        <div class="flex items-center justify-center">
+                            <span class="text-3xl mr-3" title="Status do Controle">${icon}</span>
+                            <div class="text-center">
+                                <div class="text-lg font-bold ${color}">${status}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detalhes da Avaliação (expansível) -->
+                    <div id="${evaluationId}" class="evaluation-details-content hidden">
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+
+                        <!-- Observações da Avaliação do Tratamento -->
+                        ${timelineItem.tratamento.observacoes ? `
+                            <div class="mb-4 p-3 bg-blue-50 border border-blue-300 rounded-lg">
+                                <div class="text-xs text-blue-700 font-medium mb-2">
+                                    <i class="ri-file-text-line mr-1"></i>Observações da Avaliação:
+                                </div>
+                                <div class="text-sm text-blue-800 whitespace-pre-wrap">${timelineItem.tratamento.observacoes}</div>
+                            </div>
+                        ` : ''}
+
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Se não houver status_tratamento, avaliar automaticamente baseado nas diretrizes SBD 2023-2024
         const evaluateDiabeticControl = (hbA1c, glicemiaMedia, glicemiaJejum) => {
             let score = 0;
             let criteriaMet = [];

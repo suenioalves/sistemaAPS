@@ -6399,6 +6399,14 @@ def api_diabetes_timeline(cod_paciente):
                             'data_conclusao': evento['subtarefa_data_conclusao'].strftime('%Y-%m-%d') if evento['subtarefa_data_conclusao'] else None,
                             'observacoes': evento['subtarefa_observacoes']
                         })
+
+                # Agregar dados de tratamento se ainda não existir
+                if 'tratamento' not in acomp and (evento['status_tratamento'] is not None or evento['mudanca_proposta'] is not None or evento['tratamento_observacoes'] is not None):
+                    acomp['tratamento'] = {
+                        'status_tratamento': evento['status_tratamento'],
+                        'observacoes': evento['tratamento_observacoes'],
+                        'mudanca_proposta': evento['mudanca_proposta']
+                    }
             else:
                 # Novo acompanhamento
                 acompanhamentos[cod_acompanhamento] = {
@@ -6426,7 +6434,7 @@ def api_diabetes_timeline(cod_paciente):
                     }
 
                 # Adicionar dados de tratamento se existirem
-                if evento['status_tratamento'] is not None or evento['mudanca_proposta']:
+                if evento['status_tratamento'] is not None or evento['mudanca_proposta'] is not None or evento['tratamento_observacoes'] is not None:
                     acompanhamentos[cod_acompanhamento]['tratamento'] = {
                         'status_tratamento': evento['status_tratamento'],
                         'observacoes': evento['tratamento_observacoes'],
@@ -6685,6 +6693,59 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
 
                 cod_acompanhamento_acao_4 = cur.fetchone()[0]
                 print(f"✅ Ação 4 (Avaliar Tratamento) criada automaticamente: {cod_acompanhamento_acao_4}")
+
+        # Se concluiu a ação 5 (Modificar Tratamento), criar automaticamente ação 2 (Aguardando Coleta) para 30 dias depois
+        if status == 'REALIZADA' and cod_acao_atual == 5:
+            from datetime import datetime, timedelta
+
+            # Calcular data para 30 dias depois
+            data_base = datetime.strptime(data_realizacao, '%Y-%m-%d') if data_realizacao else datetime.now()
+            data_coleta = (data_base + timedelta(days=30)).strftime('%Y-%m-%d')
+
+            # Verificar se já não existe uma ação 2 pendente/aguardando para este paciente
+            cur.execute("""
+                SELECT cod_acompanhamento
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+                WHERE cod_cidadao = %s
+                AND cod_acao = 2
+                AND status_acao IN ('AGUARDANDO', 'PENDENTE')
+                AND cod_acao_origem = %s
+            """, (cod_cidadao, cod_acompanhamento))
+
+            acao_2_existente = cur.fetchone()
+
+            if not acao_2_existente:
+                # Criar ação 2 automaticamente para 30 dias depois
+                query_acao_2 = """
+                    INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento
+                    (cod_cidadao, cod_acao, status_acao, data_agendamento, observacoes, responsavel_pela_acao, cod_acao_origem)
+                    VALUES (%s, 2, 'AGUARDANDO', %s, %s, %s, %s)
+                    RETURNING cod_acompanhamento
+                """
+
+                cur.execute(query_acao_2, (
+                    cod_cidadao,
+                    data_coleta,
+                    '1) Entregar a solicitação de exames laboratoriais para avaliar o tratamento da diabetes (Hemoglobina glicada e glicemia de jejum), e outros exames gerais (Colesterol Total, HDL, LDL, Triglicerideos, Creatinina, Ureia etc).\n2) Realizar o monitoramento de glicemia residencial nos seguintes horarios por no minimo dois dias:\nEm Jejum, 2 horas após o café da manhã, antes do almoço, 2 horas após o almoço, antes do jantar, ao deitar',
+                    responsavel_pela_acao,
+                    cod_acompanhamento
+                ))
+
+                cod_acompanhamento_acao_2 = cur.fetchone()[0]
+
+                # Inserir subtarefas para a ação 2 usando o template
+                query_subtarefas = """
+                    INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
+                    (cod_acompanhamento, ordem, descricao, obrigatoria, concluida)
+                    SELECT %s, ordem, descricao, obrigatoria, FALSE
+                    FROM sistemaaps.vw_subtarefas_template
+                    WHERE cod_acao = 2
+                    ORDER BY ordem
+                """
+
+                cur.execute(query_subtarefas, (cod_acompanhamento_acao_2,))
+
+                print(f"✅ Ação 2 (Aguardando Coleta) criada automaticamente para 30 dias depois: {cod_acompanhamento_acao_2}")
 
         conn.commit()
 
