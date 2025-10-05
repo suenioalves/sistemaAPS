@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         pacientes.forEach(paciente => {
-            const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm, paciente.status_tratamento);
+            const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm, paciente.status_tratamento, paciente.acao_atual_status);
             const idade = calculateAge(paciente.dt_nascimento);
             
             tableHTML += `
@@ -706,38 +706,65 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Função para obter classe de status específica para diabetes com nova lógica avançada
-    function getStatusClass(statusNovo, statusAntigo, statusTratamento) {
-        // Priorizar status_tratamento se existir
+    function getStatusClass(statusNovo, statusAntigo, statusTratamento, acaoAtualStatus) {
+        // Verificar se está em análise (apenas ação AGUARDANDO)
+        const emAnalise = acaoAtualStatus && acaoAtualStatus === 'AGUARDANDO';
+
+        let statusHtml = '';
+
+        // Determinar o status anterior/atual
         if (statusTratamento) {
             switch (statusTratamento) {
                 case 1:
-                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Tratamento adequado</span>';
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Tratamento adequado</span>';
+                    break;
                 case 2:
-                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Tratamento aceitável</span>';
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Tratamento aceitável</span>';
+                    break;
                 case 3:
-                    return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Tratamento descompensado</span>';
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Tratamento descompensado</span>';
+                    break;
+            }
+        } else {
+            // Usar status novo se disponível, senão usar status antigo
+            const status = statusNovo || statusAntigo;
+
+            switch (status) {
+                case 'sem_avaliacao':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">Sem avaliação</span>';
+                    break;
+                case 'em_analise':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900 text-white">Em análise</span>';
+                    break;
+                case 'diabetes_compensada':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">DIABETES COMPENSADA</span>';
+                    break;
+                case 'controlado':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Controlado</span>';
+                    break;
+                case 'descompensado':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Descompensado</span>';
+                    break;
+                case 'indefinido':
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Indefinido</span>';
+                    break;
+                default:
+                    statusHtml = '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Acompanhamento</span>';
+                    break;
             }
         }
 
-        // Usar status novo se disponível, senão usar status antigo
-        const status = statusNovo || statusAntigo;
-
-        switch (status) {
-            case 'sem_avaliacao':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">Sem avaliação</span>';
-            case 'em_analise':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-900 text-white">Em análise</span>';
-            case 'diabetes_compensada':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">DIABETES COMPENSADA</span>';
-            case 'controlado':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Controlado</span>';
-            case 'descompensado':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Descompensado</span>';
-            case 'indefinido':
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Indefinido</span>';
-            default:
-                return '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Acompanhamento</span>';
+        // Se estiver em análise, adicionar badge "Em análise" embaixo
+        if (emAnalise) {
+            return `
+                <div class="flex flex-col gap-1">
+                    ${statusHtml}
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Em análise</span>
+                </div>
+            `;
         }
+
+        return statusHtml;
     }
 
     // Função para exibir a ação atual do paciente

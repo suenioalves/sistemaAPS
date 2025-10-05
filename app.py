@@ -6052,7 +6052,9 @@ def api_pacientes_hiperdia_dm():
                     (
                         SELECT trat.status_tratamento
                         FROM sistemaaps.tb_hiperdia_dm_tratamento trat
-                        WHERE trat.cod_acompanhamento = ultima_acao.cod_acompanhamento
+                        INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
+                            ON acomp.cod_acompanhamento = trat.cod_acompanhamento
+                        WHERE acomp.cod_cidadao = d.cod_paciente
                         ORDER BY trat.data_modificacao DESC
                         LIMIT 1
                     ) as status_tratamento,
