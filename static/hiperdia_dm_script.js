@@ -1115,26 +1115,47 @@ document.addEventListener('DOMContentLoaded', function () {
                 let mrgDetailsHtml = '';
                 let treatmentStatusHtml = '';
 
-                // Função para determinar cor e símbolo baseado nas metas SBD 2023-2024
+                // Calcular idade do paciente para MRG
+                const idadePaciente = currentPacienteForModal && currentPacienteForModal.dt_nascimento
+                    ? calculateAge(currentPacienteForModal.dt_nascimento)
+                    : null;
+
+                const isIdoso = idadePaciente !== null && idadePaciente >= 65;
+
+                // Função para determinar cor e símbolo baseado na tabela de metas individualizadas
                 const getGlicemiaStatus = (value, tipo) => {
                     if (value === null || value === undefined) return { color: 'text-gray-500', symbol: '⚪', status: 'N/A' };
 
                     const val = parseFloat(value);
 
-                    // Metas SBD 2023-2024:
-                    // Jejum/Pré-prandial: 80-130 mg/dL
-                    // Pós-prandial: < 180 mg/dL
-
                     if (tipo === 'pre-prandial') {
-                        // Jejum e antes das refeições
-                        if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
-                        if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
-                        return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        // Jejum e Pré-Prandial
+                        if (val >= 70 && val < 80) return { color: 'text-yellow-600', symbol: '🟡', status: 'Atenção (70-79)' };
+                        if (val < 70) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+
+                        if (isIdoso) {
+                            // Idoso (≥65 anos): 80-130 mg/dL
+                            if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        } else {
+                            // DM1/DM2: 80-130 mg/dL
+                            if (val >= 80 && val <= 130) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        }
                     } else {
-                        // Pós-prandial (após refeições e ao deitar)
-                        if (val < 80) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
-                        if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
-                        return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        // Pós-prandial (2h após refeições e ao deitar)
+                        if (val >= 70 && val < 80) return { color: 'text-yellow-600', symbol: '🟡', status: 'Atenção (70-79)' };
+                        if (val < 70) return { color: 'text-red-600', symbol: '🔴', status: 'Hipoglicemia' };
+
+                        if (isIdoso) {
+                            // Idoso (≥65 anos): <180 mg/dL
+                            if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        } else {
+                            // DM1/DM2: <180 mg/dL
+                            if (val < 180) return { color: 'text-green-600', symbol: '🟢', status: 'Meta' };
+                            return { color: 'text-red-600', symbol: '🔴', status: 'Acima da meta' };
+                        }
                     }
                 };
 
@@ -1142,28 +1163,56 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (item.cod_acao === 4 && item.lab_tests) {
                     const lab = item.lab_tests;
 
-                    // Função para determinar cor da HbA1c
+                    // Calcular idade do paciente
+                    const idadePaciente = currentPacienteForModal && currentPacienteForModal.dt_nascimento
+                        ? calculateAge(currentPacienteForModal.dt_nascimento)
+                        : null;
+
+                    const isIdoso = idadePaciente !== null && idadePaciente >= 65;
+
+                    // Função para determinar cor da HbA1c com base na idade
                     const getHbA1cStatus = (value) => {
                         if (value === null || value === undefined) return { color: 'text-gray-500', icon: '⚪', status: 'N/A' };
                         const val = parseFloat(value);
-                        if (val < 7.0) return { color: 'text-green-600', icon: '🟢', status: 'Meta (<7%)' };
-                        if (val <= 8.0) return { color: 'text-yellow-600', icon: '🟡', status: 'Aceitável (7-8%)' };
-                        return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>8%)' };
+
+                        if (isIdoso) {
+                            // Idoso (≥65 anos): Meta <7,5%
+                            if (val < 7.5) return { color: 'text-green-600', icon: '🟢', status: 'Meta (<7,5%)' };
+                            if (val <= 8.0) return { color: 'text-yellow-600', icon: '🟡', status: 'Aceitável (7,5-8%)' };
+                            return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>8%)' };
+                        } else {
+                            // DM1/DM2: Meta <7%
+                            if (val < 7.0) return { color: 'text-green-600', icon: '🟢', status: 'Meta (<7%)' };
+                            if (val <= 8.0) return { color: 'text-yellow-600', icon: '🟡', status: 'Aceitável (7-8%)' };
+                            return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>8%)' };
+                        }
                     };
 
-                    // Função para determinar cor da glicemia
+                    // Função para determinar cor da glicemia com base na idade
                     const getGlicemiaLabStatus = (value, tipo) => {
                         if (value === null || value === undefined) return { color: 'text-gray-500', icon: '⚪', status: 'N/A' };
                         const val = parseFloat(value);
 
                         if (tipo === 'jejum') {
-                            if (val < 80) return { color: 'text-red-600', icon: '🔴', status: 'Baixa (<80)' };
-                            if (val <= 130) return { color: 'text-green-600', icon: '🟢', status: 'Meta (80-130)' };
-                            return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>130)' };
+                            // Glicemia de Jejum e Pré-Prandial
+                            if (val >= 70 && val < 80) return { color: 'text-yellow-600', icon: '🟡', status: 'Atenção (70-79)' };
+                            if (val < 70) return { color: 'text-red-600', icon: '🔴', status: 'Hipoglicemia (<70)' };
+
+                            if (isIdoso) {
+                                // Idoso (≥65 anos): 80-130 mg/dL
+                                if (val >= 80 && val <= 130) return { color: 'text-green-600', icon: '🟢', status: 'Meta (80-130)' };
+                                return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>130)' };
+                            } else {
+                                // DM1/DM2: 80-130 mg/dL
+                                if (val >= 80 && val <= 130) return { color: 'text-green-600', icon: '🟢', status: 'Meta (80-130)' };
+                                return { color: 'text-red-600', icon: '🔴', status: 'Elevada (>130)' };
+                            }
                         } else {
-                            if (val < 80) return { color: 'text-red-600', icon: '🔴', status: 'Baixa (<80)' };
-                            if (val <= 140) return { color: 'text-green-600', icon: '🟢', status: 'Adequada (≤140)' };
-                            return { color: 'text-yellow-600', icon: '🟡', status: 'Elevada (>140)' };
+                            // Glicemia Pós-Prandial (2h)
+                            if (val >= 70 && val < 80) return { color: 'text-yellow-600', icon: '🟡', status: 'Atenção (70-79)' };
+                            if (val < 70) return { color: 'text-red-600', icon: '🔴', status: 'Hipoglicemia (<70)' };
+                            if (val < 180) return { color: 'text-green-600', icon: '🟢', status: 'Meta (<180)' };
+                            return { color: 'text-red-600', icon: '🔴', status: 'Elevada (≥180)' };
                         }
                     };
 
