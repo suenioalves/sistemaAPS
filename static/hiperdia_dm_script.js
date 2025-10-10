@@ -196,6 +196,75 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else if (codAcao === 5) { // Modificar tratamento
                     // Modificar tratamento agora apenas registra a ação na timeline
                     // O tratamento real será modificado através do modal de tratamento separadamente
+                } else if (codAcao === 7) { // Iniciar/Monitorar Insulinoterapia
+                    // Exibir card informativo com botão para abrir Jornada da Insulina
+                    const cardInfoContainer = document.getElementById('card-info-container-diabetes');
+                    if (cardInfoContainer) {
+                        cardInfoContainer.innerHTML = `
+                            <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-md">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0">
+                                        <i class="ri-information-line text-orange-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-3 flex-1">
+                                        <h4 class="text-sm font-semibold text-orange-800 mb-2">Jornada da Insulina</h4>
+                                        <p class="text-sm text-orange-700 mb-3">
+                                            Esta ação abrirá uma interface interativa especial para acompanhamento do processo
+                                            de ajuste de insulina, baseado nas diretrizes brasileiras de diabetes.
+                                        </p>
+                                        <button type="button"
+                                                id="btn-abrir-jornada-insulina"
+                                                class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors inline-flex items-center">
+                                            <i class="ri-syringe-line mr-2"></i>
+                                            Abrir Jornada da Insulina
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        cardInfoContainer.classList.remove('hidden');
+
+                        // Adicionar event listener ao botão após criar o HTML
+                        setTimeout(() => {
+                            const btnJornada = document.getElementById('btn-abrir-jornada-insulina');
+                            if (btnJornada) {
+                                btnJornada.addEventListener('click', function() {
+                                    console.log('[DEBUG] Botão Jornada clicado');
+                                    console.log('[DEBUG] JornadaInsulinoterapia:', window.JornadaInsulinoterapia);
+                                    console.log('[DEBUG] hiperdiaDom:', hiperdiaDom);
+                                    console.log('[DEBUG] Paciente atual:', hiperdiaDom.currentPacienteForModal);
+
+                                    if (window.JornadaInsulinoterapia && hiperdiaDom.currentPacienteForModal) {
+                                        window.JornadaInsulinoterapia.iniciar(hiperdiaDom.currentPacienteForModal);
+                                        document.getElementById('register-action-modal-diabetes').classList.add('hidden');
+                                    } else {
+                                        console.error('[ERRO] JornadaInsulinoterapia ou paciente não disponível');
+                                        console.error('[ERRO] JornadaInsulinoterapia existe?', !!window.JornadaInsulinoterapia);
+                                        console.error('[ERRO] Paciente existe?', !!hiperdiaDom.currentPacienteForModal);
+                                        alert('Erro ao abrir Jornada da Insulina. Verifique o console para detalhes.');
+                                    }
+                                });
+                            }
+                        }, 100);
+                    }
+
+                    // Ocultar botão "Salvar Ação"
+                    const saveBtn = document.getElementById('save-action-btn-diabetes');
+                    if (saveBtn) {
+                        saveBtn.style.display = 'none';
+                    }
+                } else {
+                    // Para outras ações, limpar o card e mostrar botão salvar
+                    const cardInfoContainer = document.getElementById('card-info-container-diabetes');
+                    if (cardInfoContainer) {
+                        cardInfoContainer.innerHTML = '';
+                        cardInfoContainer.classList.add('hidden');
+                    }
+
+                    const saveBtn = document.getElementById('save-action-btn-diabetes');
+                    if (saveBtn) {
+                        saveBtn.style.display = '';
+                    }
                 }
             });
         });
@@ -542,7 +611,7 @@ document.addEventListener('DOMContentLoaded', function () {
         pacientes.forEach(paciente => {
             const statusClass = getStatusClass(paciente.status_dm_novo, paciente.status_dm, paciente.status_tratamento, paciente.acao_atual_status);
             const idade = calculateAge(paciente.dt_nascimento);
-            
+
             tableHTML += `
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -570,10 +639,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         ${getAcaoAtualDisplay(paciente)}
-                        <div class="mt-2">
-                            <button class="text-amber-600 hover:text-amber-900 font-medium" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
-                                <i class="ri-edit-line"></i> Editar Ações
-                            </button>
+                        <div class="mt-2 space-y-1">
+                            <div>
+                                <button class="text-amber-600 hover:text-amber-900 font-medium" onclick="abrirModalTimelineDiabetes(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
+                                    <i class="ri-edit-line"></i> Editar Ações
+                                </button>
+                            </div>
+                            <div id="insulinoterapia-link-${paciente.cod_paciente}"></div>
                         </div>
                     </td>
                 </tr>
@@ -590,12 +662,51 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         elements.pacientesLista.innerHTML = tableHTML;
-        
-        // Carregar tratamento atual para cada paciente
+
+        // Carregar tratamento atual e verificar insulina para cada paciente
         pacientes.forEach(paciente => {
             loadTreatmentSummaryForPatient(paciente.cod_paciente);
+            checkInsulinaStatus(paciente);
         });
     }
+
+    // Função para verificar se paciente usa insulina e exibir link
+    async function checkInsulinaStatus(paciente) {
+        const container = document.getElementById(`insulinoterapia-link-${paciente.cod_paciente}`);
+        if (!container) return;
+
+        try {
+            const response = await fetch(`/api/diabetes/insulinas/${paciente.cod_paciente}`);
+            const data = await response.json();
+
+            if (data.sucesso && data.insulinas && data.insulinas.length > 0) {
+                // Paciente usa insulina - exibir link no estilo "Editar Ações"
+                container.innerHTML = `
+                    <div>
+                        <button class="text-orange-600 hover:text-orange-900 font-medium" onclick="abrirJornadaInsulina(${JSON.stringify(paciente).replace(/"/g, '&quot;')})">
+                            <i class="ri-syringe-line"></i> Insulinoterapia
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Paciente não usa insulina - não exibir nada
+                container.innerHTML = '';
+            }
+        } catch (error) {
+            console.error('[ERRO] Erro ao verificar insulina:', error);
+            container.innerHTML = `<span class="text-xs text-gray-400">-</span>`;
+        }
+    }
+
+    // Função global para abrir jornada de insulina
+    window.abrirJornadaInsulina = function(paciente) {
+        if (window.JornadaInsulinoterapia) {
+            window.JornadaInsulinoterapia.iniciar(paciente);
+        } else {
+            console.error('[ERRO] JornadaInsulinoterapia não está disponível');
+            alert('Erro ao abrir jornada de insulinoterapia');
+        }
+    };
 
     // Função para calcular idade
     function calculateAge(birthDate) {
@@ -1050,9 +1161,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Função para abrir modal da timeline (disponível globalmente)
     window.abrirModalTimelineDiabetes = function(paciente) {
         currentPacienteForModal = paciente;
+        // Também armazenar no hiperdiaDom para acesso global
+        hiperdiaDom.currentPacienteForModal = paciente;
+
         elements.timelineModalTitle.textContent = `Editar Ações - ${paciente.nome_paciente}`;
         elements.timelineModal.classList.remove('hidden');
-        
+
         // Carregar timeline
         loadTimelineDiabetes(paciente.cod_paciente);
     };

@@ -4,7 +4,10 @@
       "Bash(cmd /c:*)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -f \"/c/Users/Pichau/Desktop/SISTEMA APS/sistemaAPS/bd_sistema_aps/Scripts/Hiperdia/Diabetes/ADD_SUBTAREFAS_ENDOCRINOLOGIA.sql\")",
       "Bash(powershell:*)",
-      "Bash(start cmd /k \"python app.py\")"
+      "Bash(start cmd /k \"python app.py\")",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -f \"c:/Users/Pichau/Desktop/SISTEMA APS/sistemaAPS/bd_sistema_aps/Scripts/Hiperdia/Diabetes/CREATE_TABLE_INSULINOTERAPIA.sql\")",
+      "Bash(curl:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": [],

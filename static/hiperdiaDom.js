@@ -4,6 +4,9 @@
 const _elements = {}; // Objeto para armazenar referências aos elementos do DOM
 
 export const hiperdiaDom = {
+    // Armazena o paciente atual para acesso de outros módulos
+    currentPacienteForModal: null,
+
     /**
      * Inicializa e armazena referências a todos os elementos do DOM necessários.
      * Deve ser chamado uma vez no início do script principal.
@@ -1289,6 +1292,9 @@ export const hiperdiaDom = {
      openRegisterModal: (paciente) => {
         if (!paciente || !_elements.registerModal) return;
 
+        // Armazena o paciente atual
+        hiperdiaDom.currentPacienteForModal = paciente;
+
         _elements.registerModalTitle.textContent = `Registrar Nova Ação - ${paciente.nome_paciente}`;
         _elements.hiperdiaRegisterForm.reset(); // Limpa o formulário
         _elements.dataAcaoAtualInput.value = new Date().toISOString().split('T')[0]; // Data atual
@@ -1360,9 +1366,14 @@ export const hiperdiaDom = {
      * @param {Date} dataAcaoAtual - A data da ação atual.
      */
     toggleRegisterSections: (selectedValue, dataAcaoAtual) => {
+        // Mostrar botão "Salvar Ação" por padrão (será ocultado apenas para ação 7)
+        if (_elements.saveRegisterModalBtn) {
+            _elements.saveRegisterModalBtn.style.display = '';
+        }
+
         const sections = [
             _elements.mrpaSection, _elements.medicationSection, _elements.labExamsSection, _elements.imageExamsSection,
-            _elements.nutritionSection, _elements.cardiologySection, _elements.encaminharCardiologiaSection, 
+            _elements.nutritionSection, _elements.cardiologySection, _elements.encaminharCardiologiaSection,
             _elements.registrarCardiologiaSection, _elements.riskSection
         ];
         sections.forEach(section => {
@@ -1454,23 +1465,39 @@ export const hiperdiaDom = {
                     _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Encaminhar Nutrição" será agendada para hoje.`;
                 }
                 break;
-            case '7': // Encaminhar Nutrição
-                // Não cria ação futura diretamente de acordo com as especificações.
-                // A ação 8 (Registrar Nutrição) cria a 9 (Agendar Hiperdia).
+            case '7': // Iniciar/Monitorar Insulinoterapia
+                // Abre modal da Jornada da Insulinoterapia - NÃO cria ação na timeline
                 if (_elements.autoActionNotice) {
                     _elements.autoActionNotice.classList.remove('hidden');
-                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Esta ação não gera uma ação futura automática.`;
+                    _elements.autoActionNotice.innerHTML = `
+                        <strong>Jornada da Insulina:</strong>
+                        Esta ação abrirá uma interface interativa especial para acompanhamento do ajuste de insulina.
+                        <button type="button" onclick="JornadaInsulinoterapia.iniciar(hiperdiaDom.currentPacienteForModal); document.getElementById('register-action-modal-diabetes').classList.add('hidden');"
+                                class="ml-3 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                            <i class="ri-syringe-line mr-1"></i>
+                            Abrir Jornada da Insulina
+                        </button>
+                    `;
+                }
+
+                // Ocultar botão "Salvar Ação" pois esta ação não deve ser salva no formato tradicional
+                if (_elements.saveRegisterModalBtn) {
+                    _elements.saveRegisterModalBtn.style.display = 'none';
                 }
                 break;
-            case '8': // Registrar consulta nutrição
-                if (_elements.nutritionSection) _elements.nutritionSection.classList.remove('hidden');
-                // g) ao realizar a acao registrar nutrição, cria a acao futura Agendar Hiperdia (pendente)
+            case '8': // Encaminhar para Endocrinologia
                 if (_elements.autoActionNotice) {
                     _elements.autoActionNotice.classList.remove('hidden');
-                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Uma ação para "Agendar Hiperdia" será agendada para hoje.`;
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Paciente encaminhado para avaliação especializada.`;
                 }
                 break;
-            case '9': // Agendar Hiperdia
+            case '9': // Encaminhar para Nutrição
+                if (_elements.autoActionNotice) {
+                    _elements.autoActionNotice.classList.remove('hidden');
+                    _elements.autoActionNotice.innerHTML = `<strong>Ação Automática:</strong> Paciente encaminhado para acompanhamento nutricional.`;
+                }
+                break;
+            case '10': // Agendar Hiperdia (caso exista)
                 if (_elements.autoActionNotice) {
                     _elements.autoActionNotice.classList.remove('hidden');
                     const today = new Date();

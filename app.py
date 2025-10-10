@@ -3,6 +3,7 @@ import psycopg2
 import psycopg2.extras # Adicionado para DictCursor
 import json
 import math
+import traceback
 from datetime import date, datetime, timedelta
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -44,7 +45,10 @@ TIPO_ACAO_DIABETES_MAP_PY = {
     3: "Solicitar Mapeamento Residencial de Glicemias",
     4: "Avaliar Tratamento",
     5: "Modificar Tratamento",
-    6: "Finalizar Acompanhamento"
+    6: "Finalizar Acompanhamento",
+    7: "Iniciar/Monitorar Insulinoterapia",
+    8: "Encaminhar para Endocrinologia",
+    9: "Encaminhar para Nutrição"
 }
 
 # Global map for Plafam action types
@@ -6966,6 +6970,264 @@ def api_diabetes_update_subtarefa(cod_subtarefa):
         import traceback
         traceback.print_exc()
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {e}"}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+# ============================================================================
+# ROTAS API - JORNADA DA INSULINOTERAPIA
+# ============================================================================
+
+@app.route('/api/diabetes/insulinoterapia/<int:cod_cidadao>', methods=['GET'])
+def api_get_jornada_insulina(cod_cidadao):
+    """API para buscar a jornada de insulinoterapia de um paciente"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Buscar dados da jornada
+        cur.execute("""
+            SELECT
+                i.*,
+                ins.tipo_insulina,
+                ins.doses_estruturadas,
+                ins.frequencia_dia
+            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia i
+            LEFT JOIN sistemaaps.tb_hiperdia_dm_insulina ins ON i.cod_seq_insulina = ins.cod_seq_insulina
+            WHERE i.codcidadao = %s
+            ORDER BY i.data_registro DESC
+        """, (cod_cidadao,))
+
+        registros = cur.fetchall()
+
+        # Buscar fase atual
+        cur.execute("""
+            SELECT fase_tratamento, status_fase
+            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia
+            WHERE codcidadao = %s AND status_fase = 'EM_ANDAMENTO'
+            ORDER BY data_registro DESC
+            LIMIT 1
+        """, (cod_cidadao,))
+
+        fase_atual = cur.fetchone()
+
+        return jsonify({
+            "sucesso": True,
+            "registros": [dict(r) for r in registros],
+            "fase_atual": dict(fase_atual) if fase_atual else None
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao buscar jornada de insulinoterapia: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinoterapia', methods=['POST'])
+def api_criar_registro_insulinoterapia():
+    """API para criar novo registro na jornada de insulinoterapia"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+
+        required_fields = ['codcidadao', 'fase_tratamento']
+        if not all(field in data for field in required_fields):
+            return jsonify({"sucesso": False, "erro": "Campos obrigatórios faltando"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Inserir novo registro
+        cur.execute("""
+            INSERT INTO sistemaaps.tb_hiperdia_dm_insulinoterapia
+            (codcidadao, cod_seq_insulina, fase_tratamento, tipo_glicemia, valor_glicemia,
+             sugestao_sistema, acao_realizada, observacoes, responsavel_registro, status_fase,
+             meta_alcancada, dose_nph_manha, dose_nph_noite, dose_regular_cafe,
+             dose_regular_almoco, dose_regular_jantar, data_registro)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING cod_seq_acompanhamento
+        """, (
+            data['codcidadao'],
+            data.get('cod_seq_insulina'),
+            data['fase_tratamento'],
+            data.get('tipo_glicemia'),
+            data.get('valor_glicemia'),
+            data.get('sugestao_sistema'),
+            data.get('acao_realizada'),
+            data.get('observacoes'),
+            data.get('responsavel_registro'),
+            data.get('status_fase', 'EM_ANDAMENTO'),
+            data.get('meta_alcancada', False),
+            data.get('dose_nph_manha'),
+            data.get('dose_nph_noite'),
+            data.get('dose_regular_cafe'),
+            data.get('dose_regular_almoco'),
+            data.get('dose_regular_jantar'),
+            data.get('data_registro')
+        ))
+
+        cod_acompanhamento = cur.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "cod_seq_acompanhamento": cod_acompanhamento,
+            "mensagem": "Registro criado com sucesso"
+        })
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"[ERRO] Erro ao criar registro de insulinoterapia: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinoterapia/<int:cod_acompanhamento>', methods=['PUT'])
+def api_atualizar_registro_insulinoterapia(cod_acompanhamento):
+    """API para atualizar registro da jornada de insulinoterapia"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Atualizar registro
+        cur.execute("""
+            UPDATE sistemaaps.tb_hiperdia_dm_insulinoterapia
+            SET fase_tratamento = COALESCE(%s, fase_tratamento),
+                tipo_glicemia = COALESCE(%s, tipo_glicemia),
+                valor_glicemia = COALESCE(%s, valor_glicemia),
+                sugestao_sistema = COALESCE(%s, sugestao_sistema),
+                acao_realizada = COALESCE(%s, acao_realizada),
+                observacoes = COALESCE(%s, observacoes),
+                status_fase = COALESCE(%s, status_fase),
+                meta_alcancada = COALESCE(%s, meta_alcancada),
+                dose_nph_manha = COALESCE(%s, dose_nph_manha),
+                dose_nph_noite = COALESCE(%s, dose_nph_noite),
+                dose_regular_cafe = COALESCE(%s, dose_regular_cafe),
+                dose_regular_almoco = COALESCE(%s, dose_regular_almoco),
+                dose_regular_jantar = COALESCE(%s, dose_regular_jantar)
+            WHERE cod_seq_acompanhamento = %s
+        """, (
+            data.get('fase_tratamento'),
+            data.get('tipo_glicemia'),
+            data.get('valor_glicemia'),
+            data.get('sugestao_sistema'),
+            data.get('acao_realizada'),
+            data.get('observacoes'),
+            data.get('status_fase'),
+            data.get('meta_alcancada'),
+            data.get('dose_nph_manha'),
+            data.get('dose_nph_noite'),
+            data.get('dose_regular_cafe'),
+            data.get('dose_regular_almoco'),
+            data.get('dose_regular_jantar'),
+            cod_acompanhamento
+        ))
+
+        conn.commit()
+
+        return jsonify({
+            "sucesso": True,
+            "mensagem": "Registro atualizado com sucesso"
+        })
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"[ERRO] Erro ao atualizar registro de insulinoterapia: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinas/<int:cod_cidadao>', methods=['GET'])
+def api_get_insulinas_paciente(cod_cidadao):
+    """API para buscar insulinas ativas do paciente"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cur.execute("""
+            SELECT
+                cod_seq_insulina,
+                tipo_insulina,
+                frequencia_dia,
+                doses_estruturadas,
+                data_inicio,
+                data_fim,
+                observacoes
+            FROM sistemaaps.tb_hiperdia_dm_insulina
+            WHERE codcidadao = %s
+              AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)
+            ORDER BY tipo_insulina, data_inicio DESC
+        """, (cod_cidadao,))
+
+        insulinas = cur.fetchall()
+
+        return jsonify({
+            "sucesso": True,
+            "insulinas": [dict(i) for i in insulinas]
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao buscar insulinas: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+@app.route('/api/diabetes/insulinas/<int:cod_seq_insulina>', methods=['PUT'])
+def api_atualizar_doses_insulina(cod_seq_insulina):
+    """API para atualizar doses de insulina"""
+    conn = None
+    cur = None
+    try:
+        data = request.get_json()
+        doses_estruturadas = data.get('doses_estruturadas')
+
+        if not doses_estruturadas:
+            return jsonify({"sucesso": False, "erro": "Doses são obrigatórias"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE sistemaaps.tb_hiperdia_dm_insulina
+            SET doses_estruturadas = %s::jsonb,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_seq_insulina = %s
+            RETURNING cod_seq_insulina
+        """, (json.dumps(doses_estruturadas), cod_seq_insulina))
+
+        result = cur.fetchone()
+        conn.commit()
+
+        if result:
+            return jsonify({
+                "sucesso": True,
+                "mensagem": "Doses atualizadas com sucesso"
+            })
+        else:
+            return jsonify({"sucesso": False, "erro": "Insulina não encontrada"}), 404
+
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"[ERRO] Erro ao atualizar doses: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
     finally:
         if cur: cur.close()
         if conn: conn.close()

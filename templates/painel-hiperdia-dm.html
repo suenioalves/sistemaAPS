@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="{{ url_for('static', filename='insulinoterapia.js') }}"></script>
     <script type="module" src="{{ url_for('static', filename='hiperdia_dm_script.js') }}" defer></script>
 </head>
 
@@ -396,11 +397,16 @@
                                 </button>
 
                                 <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="7">
+                                    <i class="ri-syringe-line text-xl mr-2 text-orange-500 flex-shrink-0"></i>
+                                    <span class="text-sm font-medium leading-tight">Iniciar/Monitorar Insulinoterapia</span>
+                                </button>
+
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="8">
                                     <i class="ri-user-heart-line text-xl mr-2 text-pink-500 flex-shrink-0"></i>
                                     <span class="text-sm font-medium leading-tight">Encaminhar para Endocrinologia</span>
                                 </button>
 
-                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="8">
+                                <button type="button" class="action-type-tab-diabetes flex items-center py-3 px-4 border border-gray-200 bg-white rounded-lg text-left transition-colors duration-200 hover:bg-gray-50 text-gray-600 min-h-[60px]" data-action-value="9">
                                     <i class="ri-apple-line text-xl mr-2 text-green-500 flex-shrink-0"></i>
                                     <span class="text-sm font-medium leading-tight">Encaminhar para Nutrição</span>
                                 </button>
@@ -434,6 +440,9 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Container para cards informativos dinâmicos -->
+                        <div id="card-info-container-diabetes" class="hidden"></div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
