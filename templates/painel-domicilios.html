@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domicílios e Famílias - Sistema APS</title>
+
+    <!-- TailwindCSS CDN com configuração customizada -->
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#10b981',
+                        domicilio: '#3b82f6'
+                    },
+                    borderRadius: {
+                        'none': '0px',
+                        'sm': '4px',
+                        DEFAULT: '8px',
+                        'md': '12px',
+                        'xl': '20px',
+                        '2xl': '24px',
+                        '3xl': '32px',
+                        'full': '9999px',
+                        'button': '8px'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- RemixIcon para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+
+    <!-- Estilos customizados -->
+    <link rel="stylesheet" href="/static/style.css">
+
+    <!-- jsPDF para geração de PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Script principal do painel (módulo ES6) -->
+    <script type="module" src="{{ url_for('static', filename='domicilios_script.js') }}" defer></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- HEADER -->
+    <!-- Cabeçalho fixo com informações do sistema e usuário -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <!-- Lado esquerdo: Logo e título -->
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center">
+                    <!-- Ícone do sistema (casa representando domicílio) -->
+                    <div class="w-10 h-10 flex items-center justify-center bg-blue-500 bg-opacity-10 rounded-xl">
+                        <div class="w-6 h-6 flex items-center justify-center text-blue-600">
+                            <i class="ri-home-4-line"></i>
+                        </div>
+                    </div>
+                    <!-- Título principal -->
+                    <h1 class="ml-2 text-2xl font-bold tracking-wider text-blue-600 flex items-center">
+                        Domicílios e Famílias
+                        <div class="w-5 h-5 flex items-center justify-center text-blue-600 ml-1">
+                            <i class="ri-group-line"></i>
+                        </div>
+                    </h1>
+                </div>
+                <!-- Separador vertical -->
+                <div class="h-6 w-px bg-gray-200"></div>
+                <!-- Subtítulo descritivo -->
+                <span class="text-sm text-gray-600">Gestão de Domicílios e Famílias Cadastradas</span>
+            </div>
+
+            <!-- Lado direito: Data e usuário -->
+            <div class="flex items-center space-x-4">
+                <!-- Data atual -->
+                <div class="text-sm text-gray-600">
+                    <span>{{ data_atual }}</span>
+                </div>
+                <!-- Dropdown de usuário (placeholder para futuras funcionalidades) -->
+                <div class="relative">
+                    <button class="flex items-center text-gray-700 hover:text-blue-600">
+                        <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2">
+                            <i class="ri-user-line"></i>
+                        </div>
+                        <span>Profissional APS</span>
+                        <div class="w-4 h-4 flex items-center justify-center">
+                            <i class="ri-arrow-down-s-line"></i>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- SEÇÃO DE FILTROS E RESUMO -->
+        <!-- Container branco com filtros à esquerda e cards de resumo à direita -->
+        <div class="bg-white rounded shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- COLUNA ESQUERDA: FILTROS -->
+                <div>
+                    <div class="flex items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Filtros de Busca</h2>
+                    </div>
+                    <div class="space-y-4">
+
+                        <!-- Filtro: Equipe -->
+                        <!-- Dropdown customizado para seleção de equipe -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Equipe</label>
+                            <div class="relative">
+                                <button id="domicilio-equipe-button"
+                                    class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 px-3 text-left flex justify-between items-center border-b-2 border-gray-200 focus:border-blue-500 transition-colors duration-200 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="w-6 h-6 flex items-center justify-center text-blue-600 mr-2">
+                                            <i class="ri-team-line"></i>
+                                        </div>
+                                        <span id="domicilio-equipe-button-text">Todas as equipes</span>
+                                    </div>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <!-- Dropdown das equipes (populado via JavaScript) -->
+                                <div id="domicilio-equipe-dropdown"
+                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="domicilio-equipe-dropdown-content" class="p-2">
+                                        <!-- Conteúdo será populado via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtro: Microárea -->
+                        <!-- Dropdown dependente da equipe selecionada -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Microárea</label>
+                            <div class="relative">
+                                <button id="domicilio-microarea-button"
+                                    class="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 px-3 text-left flex justify-between items-center border-b-2 border-gray-200 focus:border-blue-500 transition-colors duration-200 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="w-6 h-6 flex items-center justify-center text-blue-600 mr-2">
+                                            <i class="ri-map-pin-line"></i>
+                                        </div>
+                                        <span id="domicilio-microarea-button-text">Todas as microáreas</span>
+                                    </div>
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i class="ri-arrow-down-s-line"></i>
+                                    </div>
+                                </button>
+                                <!-- Dropdown das microáreas (populado dinamicamente) -->
+                                <div id="domicilio-microarea-dropdown"
+                                    class="hidden absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+                                    <div id="domicilio-microarea-dropdown-content" class="p-2">
+                                        <!-- Conteúdo será populado via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtro: Busca por endereço ou nome de família -->
+                        <!-- Input de texto com debounce para busca dinâmica -->
+                        <div>
+                            <label for="domicilio-busca-input" class="block text-sm font-medium text-gray-700 mb-1">
+                                Buscar por Endereço ou Família
+                            </label>
+                            <div class="relative">
+                                <input type="text" id="domicilio-busca-input"
+                                    class="w-full pl-10 pr-4 py-2 border-b-2 border-gray-200 focus:border-blue-500 bg-gray-50 focus:bg-white transition-colors duration-200"
+                                    placeholder="Digite o endereço ou nome da família...">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                    <div class="w-5 h-5 flex items-center justify-center text-gray-400">
+                                        <i class="ri-search-line"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUNA DIREITA: RESUMO -->
+                <!-- Cards com estatísticas principais do painel -->
+                <div>
+                    <div class="flex items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Resumo Geral</h2>
+                    </div>
+
+                    <!-- Grid de cards de resumo: 1 grande + 4 pequenos -->
+                    <div class="grid grid-cols-3 gap-4">
+
+                        <!-- Card grande: Total de Domicílios -->
+                        <!-- Ocupa 2 linhas (row-span-2) -->
+                        <div class="row-span-2 bg-blue-50 p-6 rounded-lg border border-blue-200 flex items-center">
+                            <div class="w-12 h-12 flex items-center justify-center text-blue-600 mr-4">
+                                <i class="ri-home-4-line text-3xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-blue-600 font-medium">Total de Domicílios</p>
+                                <p id="total-domicilios" class="text-3xl font-bold text-blue-700">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Card: Total de Famílias -->
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-green-600 mr-3">
+                                    <i class="ri-group-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-green-600 font-medium">Famílias</p>
+                                    <p id="total-familias" class="text-2xl font-bold text-green-700">0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Total de Cidadãos -->
+                        <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-purple-600 mr-3">
+                                    <i class="ri-user-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-purple-600 font-medium">Cidadãos</p>
+                                    <p id="total-cidadaos" class="text-2xl font-bold text-purple-700">0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Média de Cidadãos por Domicílio -->
+                        <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-amber-600 mr-3">
+                                    <i class="ri-user-settings-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-amber-600 font-medium">Média/Domicílio</p>
+                                    <p id="media-cidadaos" class="text-2xl font-bold text-amber-700">0.0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: Inconsistências -->
+                        <!-- Domicílios com possíveis problemas cadastrais -->
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 flex items-center justify-center text-red-600 mr-3">
+                                    <i class="ri-alert-line"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-red-600 font-medium">Inconsistências</p>
+                                    <p id="total-inconsistencias" class="text-2xl font-bold text-red-700">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO DE ABAS DE FILTRO -->
+        <!-- Tabs para filtrar por status do domicílio -->
+        <div class="bg-white rounded shadow-sm mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+
+                    <!-- Aba: Todos -->
+                    <button class="domicilio-status-tab-btn active bg-white text-blue-600 py-3 px-4 text-sm font-medium border-b-2 border-blue-500 hover:text-blue-600 hover:border-blue-300 whitespace-nowrap"
+                        data-status-filter="Todos">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center mr-2">
+                                <i class="ri-list-check-2"></i>
+                            </div>
+                            <span>Todos</span>
+                        </div>
+                    </button>
+
+                    <!-- Aba: Ativos -->
+                    <!-- Domicílios com famílias ativas -->
+                    <button class="domicilio-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-green-600 hover:border-green-300 whitespace-nowrap"
+                        data-status-filter="Ativos">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-green-600 mr-2">
+                                <i class="ri-checkbox-circle-line"></i>
+                            </div>
+                            <span>Ativos</span>
+                        </div>
+                    </button>
+
+                    <!-- Aba: Inativos -->
+                    <!-- Domicílios sem moradores ou famílias inativas -->
+                    <button class="domicilio-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 whitespace-nowrap"
+                        data-status-filter="Inativos">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-gray-600 mr-2">
+                                <i class="ri-close-circle-line"></i>
+                            </div>
+                            <span>Inativos</span>
+                        </div>
+                    </button>
+
+                    <!-- Aba: Com Inconsistências -->
+                    <!-- Domicílios com problemas cadastrais -->
+                    <button class="domicilio-status-tab-btn bg-white text-gray-700 py-3 px-4 text-sm font-medium border-b-2 border-transparent hover:text-red-600 hover:border-red-300 whitespace-nowrap"
+                        data-status-filter="Inconsistencias">
+                        <div class="flex items-center">
+                            <div class="w-5 h-5 flex items-center justify-center text-red-600 mr-2">
+                                <i class="ri-alert-line"></i>
+                            </div>
+                            <span>Com Inconsistências</span>
+                        </div>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- SEÇÃO DE LISTA DE DOMICÍLIOS -->
+        <!-- Tabela principal com os domicílios -->
+        <div class="bg-white rounded shadow-sm">
+
+            <!-- Header da tabela com botões de ação -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Lista de Domicílios</h3>
+
+                    <!-- Botões de ação em lote -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Botões de seleção -->
+                        <div class="flex items-center space-x-2">
+                            <button id="selecionar-todos-domicilios" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                Selecionar Todos
+                            </button>
+                            <span class="text-gray-300">|</span>
+                            <button id="desmarcar-todos-domicilios" class="text-sm text-gray-600 hover:text-gray-700 font-medium">
+                                Desmarcar Todos
+                            </button>
+                        </div>
+
+                        <!-- Botão: Gerar PDF em lote -->
+                        <button id="gerar-pdf-lote" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 flex items-center justify-center mr-2">
+                                    <i class="ri-file-pdf-line"></i>
+                                </div>
+                                <span>Gerar PDF Selecionados</span>
+                            </div>
+                        </button>
+
+                        <!-- Botão: Exportar Relatório -->
+                        <button id="exportar-relatorio" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 flex items-center justify-center mr-2">
+                                    <i class="ri-file-excel-line"></i>
+                                </div>
+                                <span>Exportar Relatório</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <!-- Exibido enquanto os dados estão sendo carregados -->
+            <div id="domicilios-loading" class="flex justify-center items-center p-8">
+                <div class="text-gray-500">Carregando domicílios...</div>
+            </div>
+
+            <!-- Container da tabela -->
+            <!-- Inicialmente oculto, exibido após carregar os dados -->
+            <div id="domicilios-container" class="hidden">
+                <div class="overflow-x-auto">
+                    <!-- Tabela de domicílios (populada via JavaScript) -->
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <!-- Coluna: Checkbox para seleção -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                </th>
+                                <!-- Coluna: Endereço -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Endereço
+                                </th>
+                                <!-- Coluna: Equipe -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Equipe
+                                </th>
+                                <!-- Coluna: Microárea -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Microárea
+                                </th>
+                                <!-- Coluna: Famílias -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Famílias
+                                </th>
+                                <!-- Coluna: Cidadãos -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cidadãos
+                                </th>
+                                <!-- Coluna: Status -->
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <!-- Coluna: Ações -->
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Ações
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="domicilios-tbody" class="bg-white divide-y divide-gray-200">
+                            <!-- Linhas serão populadas via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginação -->
+                <!-- Controles de navegação entre páginas -->
+                <div id="domicilios-paginacao" class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                    <!-- Info de página atual -->
+                    <div class="text-sm text-gray-700">
+                        Mostrando <span id="page-start">1</span> a <span id="page-end">10</span> de <span id="total-records">0</span> registros
+                    </div>
+
+                    <!-- Botões de navegação -->
+                    <div class="flex space-x-2">
+                        <button id="btn-primeira-pagina" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="ri-skip-back-line"></i>
+                        </button>
+                        <button id="btn-pagina-anterior" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="ri-arrow-left-s-line"></i>
+                        </button>
+                        <span id="page-info" class="px-4 py-1 text-sm text-gray-700">Página 1 de 1</span>
+                        <button id="btn-proxima-pagina" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="ri-arrow-right-s-line"></i>
+                        </button>
+                        <button id="btn-ultima-pagina" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="ri-skip-forward-line"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: VISUALIZAR FAMÍLIA -->
+    <!-- Modal para exibir detalhes completos de uma família -->
+    <div id="modal-visualizar-familia" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay de fundo -->
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <!-- Centralização vertical -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Conteúdo do modal -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+
+                <!-- Header do modal -->
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl leading-6 font-medium text-gray-900">
+                            Detalhes da Família
+                        </h3>
+                        <button id="close-modal-familia" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Corpo do modal -->
+                <div class="bg-white px-4 py-5 sm:p-6">
+
+                    <!-- Informações do domicílio -->
+                    <div class="mb-6 bg-blue-50 p-4 rounded-lg">
+                        <h4 class="text-lg font-medium text-gray-900 mb-3">Informações do Domicílio</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Endereço</p>
+                                <p id="modal-endereco" class="text-base font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Equipe / Microárea</p>
+                                <p id="modal-equipe-microarea" class="text-base font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Código do Domicílio</p>
+                                <p id="modal-cod-domicilio" class="text-base font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">CNS do Domicílio</p>
+                                <p id="modal-cns-domicilio" class="text-base font-medium text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de membros da família -->
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-3">Membros da Família</h4>
+
+                        <!-- Tabela de membros (populada via JavaScript) -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNS</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Nascimento</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Idade</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sexo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modal-membros-tbody" class="bg-white divide-y divide-gray-200">
+                                    <!-- Linhas serão populadas via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer do modal com botões de ação -->
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="btn-gerar-pdf-familia" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <div class="flex items-center">
+                            <i class="ri-file-pdf-line mr-2"></i>
+                            <span>Gerar PDF</span>
+                        </div>
+                    </button>
+                    <button id="btn-fechar-modal-familia" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR DOMICÍLIO -->
+    <!-- Modal para edição de informações do domicílio (funcionalidade futura) -->
+    <div id="modal-editar-domicilio" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+
+                <!-- Header -->
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl leading-6 font-medium text-gray-900">
+                            Editar Domicílio
+                        </h3>
+                        <button id="close-modal-editar" class="text-gray-400 hover:text-gray-600">
+                            <i class="ri-close-line text-2xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formulário de edição -->
+                <div class="bg-white px-4 py-5 sm:p-6">
+                    <form id="form-editar-domicilio" class="space-y-4">
+                        <!-- Campo: Endereço -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
+                            <input type="text" id="edit-endereco" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <!-- Campo: Equipe -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Equipe</label>
+                            <select id="edit-equipe" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Selecione a equipe</option>
+                                <!-- Opções populadas via JavaScript -->
+                            </select>
+                        </div>
+
+                        <!-- Campo: Microárea -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Microárea</label>
+                            <select id="edit-microarea" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Selecione a microárea</option>
+                                <!-- Opções populadas via JavaScript -->
+                            </select>
+                        </div>
+
+                        <!-- Campo: Observações -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                            <textarea id="edit-observacoes" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="btn-salvar-edicao" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm">
+                        Salvar Alterações
+                    </button>
+                    <button id="btn-cancelar-edicao" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

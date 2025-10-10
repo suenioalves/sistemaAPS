@@ -503,6 +503,403 @@ def painel_plafam_analise_adolescentes():
     return render_template('painel-plafam-analise-adolescentes.html')
 
 
+# ============================================================================
+# PAINEL DE DOMICÍLIOS E FAMÍLIAS
+# ============================================================================
+
+@app.route('/painel-domicilios')
+def painel_domicilios():
+    """Renderiza página do painel de domicílios e famílias"""
+    from datetime import datetime
+    return render_template('painel-domicilios.html', data_atual=datetime.now().strftime('%d/%m/%Y'))
+
+
+@app.route('/api/domicilios/list')
+def api_listar_domicilios():
+    """
+    API para listar domicílios com paginação e filtros
+    Query baseada em queries_sql_esus.sql - Query 11 (Versão Agregada)
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Parâmetros de paginação
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+        offset = (page - 1) * limit
+
+        # Filtros
+        equipe = request.args.get('equipe', 'Todas')
+        microarea = request.args.get('microarea', 'Todas')
+        busca = request.args.get('busca', '')
+        status_filter = request.args.get('status', 'Todos')
+
+        # Query principal baseada na documentação (Query 11 - Versão Agregada)
+        query = """
+        SELECT
+            d.co_seq_cds_cad_domiciliar AS id_domicilio,
+            COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
+            d.no_bairro AS bairro,
+            d.nu_cep AS cep,
+            COUNT(DISTINCT df.co_seq_cds_domicilio_familia) AS total_familias,
+            COUNT(DISTINCT ci.co_seq_cds_cad_individual) AS total_integrantes,
+            STRING_AGG(DISTINCT e.no_equipe, ', ') AS equipes,
+            STRING_AGG(DISTINCT ci.nu_micro_area, ', ') AS microareas,
+            STRING_AGG(
+                ci.no_cidadao ||
+                CASE WHEN ci.st_responsavel_familiar = 1 THEN ' (RESPONSÁVEL)' ELSE '' END,
+                '; '
+            ) AS lista_integrantes,
+            MAX(ci.st_responsavel_familiar) AS tem_responsavel,
+            TO_CHAR(d.dt_cad_domiciliar, 'DD/MM/YYYY') AS data_cadastro
+        FROM tb_cds_cad_domiciliar d
+        LEFT JOIN tb_tipo_logradouro tl ON tl.co_tipo_logradouro = d.tp_logradouro
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+        LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
+        LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+        WHERE d.st_versao_atual = 1
+          AND df.st_mudanca = 0
+          AND ci.st_versao_atual = 1
+          AND ci.st_ficha_inativa = 0
+        """
+
+        params = []
+
+        # Filtro por equipe
+        if equipe and equipe != 'Todas':
+            query += " AND e.no_equipe = %s"
+            params.append(equipe)
+
+        # Filtro por microárea
+        if microarea and microarea != 'Todas':
+            query += " AND ci.nu_micro_area = %s"
+            params.append(microarea)
+
+        # Filtro por busca textual
+        if busca:
+            query += " AND (LOWER(d.no_logradouro) LIKE LOWER(%s) OR LOWER(d.no_bairro) LIKE LOWER(%s) OR LOWER(ci.no_cidadao) LIKE LOWER(%s))"
+            busca_param = f'%{busca}%'
+            params.extend([busca_param, busca_param, busca_param])
+
+        query += """
+        GROUP BY
+            d.co_seq_cds_cad_domiciliar,
+            tl.no_tipo_logradouro,
+            d.no_logradouro,
+            d.nu_domicilio,
+            d.no_bairro,
+            d.nu_cep,
+            d.dt_cad_domiciliar
+        HAVING COUNT(DISTINCT ci.co_seq_cds_cad_individual) > 0
+        """
+
+        # Filtro por status
+        if status_filter == 'Ativos':
+            query += " AND COUNT(DISTINCT ci.co_seq_cds_cad_individual) > 0"
+        elif status_filter == 'Inativos':
+            query += " AND COUNT(DISTINCT ci.co_seq_cds_cad_individual) = 0"
+        elif status_filter == 'Inconsistencias':
+            query += " AND MAX(ci.st_responsavel_familiar) = 0"  # Sem responsável
+
+        query += " ORDER BY d.dt_cad_domiciliar DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cur.execute(query, tuple(params))
+        domicilios = cur.fetchall()
+
+        # Contar total de registros
+        count_query = """
+        SELECT COUNT(DISTINCT d.co_seq_cds_cad_domiciliar)
+        FROM tb_cds_cad_domiciliar d
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        WHERE d.st_versao_atual = 1
+          AND df.st_mudanca = 0
+          AND ci.st_versao_atual = 1
+          AND ci.st_ficha_inativa = 0
+        """
+
+        count_params = []
+        if equipe and equipe != 'Todas':
+            count_query += " AND EXISTS (SELECT 1 FROM tb_cidadao c LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine WHERE (c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao) AND e.no_equipe = %s)"
+            count_params.append(equipe)
+
+        if microarea and microarea != 'Todas':
+            count_query += " AND ci.nu_micro_area = %s"
+            count_params.append(microarea)
+
+        if busca:
+            count_query += " AND (LOWER(d.no_logradouro) LIKE LOWER(%s) OR LOWER(d.no_bairro) LIKE LOWER(%s) OR LOWER(ci.no_cidadao) LIKE LOWER(%s))"
+            count_params.extend([busca_param, busca_param, busca_param])
+
+        cur.execute(count_query, tuple(count_params))
+        total = cur.fetchone()[0]
+
+        return jsonify({
+            "sucesso": True,
+            "domicilios": [dict(d) for d in domicilios],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": (total + limit - 1) // limit
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao listar domicílios: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/domicilios/stats')
+def api_estatisticas_domicilios():
+    """API para retornar estatísticas gerais de domicílios"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        equipe = request.args.get('equipe', 'Todas')
+        microarea = request.args.get('microarea', 'Todas')
+
+        query = """
+        SELECT
+            COUNT(DISTINCT d.co_seq_cds_cad_domiciliar) AS total_domicilios,
+            COUNT(DISTINCT df.co_seq_cds_domicilio_familia) AS total_familias,
+            COUNT(DISTINCT ci.co_seq_cds_cad_individual) AS total_cidadaos,
+            ROUND(AVG(integrantes.qtd), 2) AS media_por_domicilio,
+            COUNT(DISTINCT CASE WHEN integrantes.tem_resp = 0 THEN d.co_seq_cds_cad_domiciliar END) AS inconsistencias
+        FROM tb_cds_cad_domiciliar d
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        LEFT JOIN (
+            SELECT
+                d2.co_seq_cds_cad_domiciliar,
+                COUNT(DISTINCT ci2.co_seq_cds_cad_individual) AS qtd,
+                MAX(ci2.st_responsavel_familiar) AS tem_resp
+            FROM tb_cds_cad_domiciliar d2
+            INNER JOIN tb_cds_domicilio_familia df2 ON df2.co_cds_cad_domiciliar = d2.co_seq_cds_cad_domiciliar
+            INNER JOIN tb_cds_cad_individual ci2 ON (
+                ci2.nu_cpf_responsavel = df2.nu_cpf_cidadao
+                OR ci2.nu_cpf_cidadao = df2.nu_cpf_cidadao
+                OR ci2.nu_cartao_sus_responsavel = df2.nu_cartao_sus
+                OR ci2.nu_cns_cidadao = df2.nu_cartao_sus
+            )
+            WHERE d2.st_versao_atual = 1
+              AND df2.st_mudanca = 0
+              AND ci2.st_versao_atual = 1
+              AND ci2.st_ficha_inativa = 0
+            GROUP BY d2.co_seq_cds_cad_domiciliar
+        ) integrantes ON integrantes.co_seq_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        WHERE d.st_versao_atual = 1
+          AND df.st_mudanca = 0
+          AND ci.st_versao_atual = 1
+          AND ci.st_ficha_inativa = 0
+        """
+
+        params = []
+        if equipe and equipe != 'Todas':
+            query += """
+            AND EXISTS (
+                SELECT 1
+                FROM tb_cidadao c
+                LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
+                LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+                WHERE (c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao)
+                  AND e.no_equipe = %s
+            )
+            """
+            params.append(equipe)
+
+        if microarea and microarea != 'Todas':
+            query += " AND ci.nu_micro_area = %s"
+            params.append(microarea)
+
+        cur.execute(query, tuple(params))
+        stats = cur.fetchone()
+
+        return jsonify({
+            "sucesso": True,
+            "stats": dict(stats) if stats else {}
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao buscar estatísticas: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/equipes')
+def api_listar_equipes():
+    """API para listar todas as equipes e suas microáreas"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Buscar equipes
+        cur.execute("""
+            SELECT DISTINCT
+                e.nu_ine,
+                e.no_equipe AS nome,
+                e.nu_area AS area
+            FROM tb_equipe e
+            WHERE e.st_registro_valido = 1
+            ORDER BY e.no_equipe
+        """)
+
+        equipes_raw = cur.fetchall()
+        equipes = []
+
+        # Para cada equipe, buscar suas microáreas
+        for equipe in equipes_raw:
+            cur.execute("""
+                SELECT DISTINCT ci.nu_micro_area
+                FROM tb_cds_cad_individual ci
+                LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+                LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
+                LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+                WHERE e.nu_ine = %s
+                  AND ci.nu_micro_area IS NOT NULL
+                  AND ci.st_versao_atual = 1
+                ORDER BY ci.nu_micro_area
+            """, (equipe['nu_ine'],))
+
+            microareas = [row['nu_micro_area'] for row in cur.fetchall()]
+
+            equipes.append({
+                'ine': equipe['nu_ine'],
+                'nome': equipe['nome'],
+                'area': equipe['area'],
+                'microareas': microareas
+            })
+
+        return jsonify({
+            "sucesso": True,
+            "equipes": equipes
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao listar equipes: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/domicilios/<int:id_domicilio>/familia')
+def api_detalhes_familia(id_domicilio):
+    """API para retornar detalhes completos de uma família em um domicílio"""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Query baseada em queries_sql_esus.sql - Query 11 (Versão Completa)
+        query = """
+        SELECT
+            d.co_seq_cds_cad_domiciliar AS id_domicilio,
+            COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
+            d.no_bairro AS bairro,
+            d.nu_cep AS cep,
+            df.co_seq_cds_domicilio_familia AS id_familia,
+            df.nu_cpf_cidadao AS cpf_responsavel,
+            df.qt_membros_familia AS qtd_membros_declarada,
+            rf.no_renda_familiar AS renda_familiar,
+            ci.co_seq_cds_cad_individual AS id_cadastro_integrante,
+            ci.no_cidadao AS nome_integrante,
+            ci.nu_cpf_cidadao AS cpf_integrante,
+            ci.nu_cns_cidadao AS cns_integrante,
+            TO_CHAR(ci.dt_nascimento, 'DD/MM/YYYY') AS nascimento_integrante,
+            EXTRACT(YEAR FROM AGE(ci.dt_nascimento)) AS idade_integrante,
+            s.no_sexo AS sexo_integrante,
+            ci.st_responsavel_familiar AS eh_responsavel,
+            ci.nu_micro_area AS microarea,
+            e.no_equipe AS equipe
+        FROM tb_cds_cad_domiciliar d
+        LEFT JOIN tb_tipo_logradouro tl ON tl.co_tipo_logradouro = d.tp_logradouro
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        LEFT JOIN tb_renda_familiar rf ON rf.co_renda_familiar = df.co_renda_familiar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+        LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+        LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
+        LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+        WHERE d.co_seq_cds_cad_domiciliar = %s
+          AND d.st_versao_atual = 1
+          AND df.st_mudanca = 0
+          AND ci.st_versao_atual = 1
+          AND ci.st_ficha_inativa = 0
+        ORDER BY ci.st_responsavel_familiar DESC, ci.no_cidadao
+        """
+
+        cur.execute(query, (id_domicilio,))
+        membros = cur.fetchall()
+
+        if not membros:
+            return jsonify({"sucesso": False, "erro": "Domicílio não encontrado"}), 404
+
+        # Organizar dados
+        domicilio_info = {
+            "id_domicilio": membros[0]['id_domicilio'],
+            "endereco_completo": membros[0]['endereco_completo'],
+            "bairro": membros[0]['bairro'],
+            "cep": membros[0]['cep'],
+            "qtd_membros_declarada": membros[0]['qtd_membros_declarada'],
+            "renda_familiar": membros[0]['renda_familiar']
+        }
+
+        membros_lista = [dict(m) for m in membros]
+
+        return jsonify({
+            "sucesso": True,
+            "domicilio": domicilio_info,
+            "membros": membros_lista
+        })
+
+    except Exception as e:
+        print(f"[ERRO] Erro ao buscar detalhes da família: {e}")
+        traceback.print_exc()
+        return jsonify({"sucesso": False, "erro": str(e)}), 500
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
 @app.route('/api/pacientes_plafam')
 def api_pacientes_plafam():
     conn = None
