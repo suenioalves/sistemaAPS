@@ -133,6 +133,13 @@ document.addEventListener('DOMContentLoaded', function () {
         editEquipe: document.getElementById('edit-equipe'),
         editMicroarea: document.getElementById('edit-microarea'),
         editObservacoes: document.getElementById('edit-observacoes'),
+
+        // Modal - Opções de PDF
+        modalOpcoesPdf: document.getElementById('modal-opcoes-pdf'),
+        closeModalOpcoesPdf: document.getElementById('close-modal-opcoes-pdf'),
+        btnConfirmarGerarPdf: document.getElementById('btn-confirmar-gerar-pdf'),
+        btnCancelarOpcoesPdf: document.getElementById('btn-cancelar-opcoes-pdf'),
+        pdfTotalSelecionados: document.getElementById('pdf-total-selecionados'),
     };
 
     // ========================================================================
@@ -309,6 +316,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Modal Editar - Salvar
         elementos.btnSalvarEdicao.addEventListener('click', salvarEdicaoDomicilio);
+
+        // Modal Opções PDF - Fechar
+        elementos.closeModalOpcoesPdf.addEventListener('click', fecharModalOpcoesPdf);
+        elementos.btnCancelarOpcoesPdf.addEventListener('click', fecharModalOpcoesPdf);
+
+        // Modal Opções PDF - Confirmar
+        elementos.btnConfirmarGerarPdf.addEventListener('click', confirmarGerarPdfLote);
 
         // Fechar modais ao clicar no overlay
         elementos.modalVisualizarFamilia.addEventListener('click', function(e) {
@@ -1031,50 +1045,291 @@ document.addEventListener('DOMContentLoaded', function () {
      * Gera PDF de uma família específica
      * @param {Object} domicilio - Dados do domicílio e família
      */
-    function gerarPdfFamilia(domicilio) {
+    /**
+     * Gera PDF com informações completas do domicílio e famílias
+     * Chamado ao clicar no botão "Gerar PDF" na tabela ou no modal
+     */
+    async function gerarPdfFamilia(domicilio) {
         try {
-            console.log('Gerando PDF da família...');
+            console.log('Gerando PDF do domicílio...', domicilio);
 
-            // TODO: Implementar geração de PDF usando jsPDF
-            // Estrutura sugerida:
-            // 1. Criar documento PDF
-            // 2. Adicionar cabeçalho com logo e título
-            // 3. Adicionar informações do domicílio
-            // 4. Adicionar tabela de membros da família
-            // 5. Adicionar rodapé com data de geração
-            // 6. Salvar arquivo
+            // Buscar dados completos do domicílio (com famílias)
+            const response = await fetch(`/api/domicilios/${domicilio.id_domicilio}/familia`);
+            const data = await response.json();
+
+            if (!data.sucesso) {
+                throw new Error(data.erro || 'Erro ao buscar dados do domicílio');
+            }
+
+            const domicilioCompleto = data.domicilio;
+            const familias = data.familias || [];
 
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
+            const pageWidth = 210;
+            const margin = 15;
+            let currentY = 20;
 
-            // Título
-            doc.setFontSize(16);
-            doc.text('Ficha de Família - Sistema APS', 105, 20, { align: 'center' });
+            // ==== CABEÇALHO ====
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.setTextColor(29, 112, 184); // Azul
+            doc.text('FICHA DO DOMICÍLIO', pageWidth / 2, currentY, { align: 'center' });
 
-            // Informações do domicílio
+            currentY += 10;
             doc.setFontSize(12);
-            doc.text(`Endereço: ${domicilio.endereco_completo || '-'}`, 20, 40);
-            doc.text(`Equipe: ${domicilio.nome_equipe || '-'}`, 20, 50);
-            doc.text(`Microárea: ${domicilio.microarea || '-'}`, 20, 60);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Sistema de Atenção Primária à Saúde', pageWidth / 2, currentY, { align: 'center' });
 
-            // TODO: Adicionar tabela de membros usando autoTable
+            currentY += 12;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(margin, currentY, pageWidth - margin, currentY);
 
-            // Salvar
-            doc.save(`familia_${domicilio.cod_domicilio}.pdf`);
+            // ==== INFORMAÇÕES DO DOMICÍLIO ====
+            currentY += 10;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
+            doc.text('Informações do Domicílio', margin, currentY);
+
+            currentY += 8;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+
+            // Endereço
+            doc.setFont("helvetica", "bold");
+            doc.text('Endereço:', margin, currentY);
+            doc.setFont("helvetica", "normal");
+            const enderecoText = domicilioCompleto.endereco_completo || 'Não informado';
+            const splitEndereco = doc.splitTextToSize(enderecoText, pageWidth - margin - 40);
+            doc.text(splitEndereco, margin + 25, currentY);
+            currentY += (splitEndereco.length * 5) + 3;
+
+            // Bairro e CEP
+            if (domicilioCompleto.bairro || domicilioCompleto.cep) {
+                doc.setFont("helvetica", "bold");
+                doc.text('Bairro/CEP:', margin, currentY);
+                doc.setFont("helvetica", "normal");
+                doc.text(`${domicilioCompleto.bairro || '-'} - CEP: ${domicilioCompleto.cep || '-'}`, margin + 25, currentY);
+                currentY += 6;
+            }
+
+            // Equipe
+            if (domicilioCompleto.equipes) {
+                doc.setFont("helvetica", "bold");
+                doc.text('Equipe:', margin, currentY);
+                doc.setFont("helvetica", "normal");
+                doc.text(`${domicilioCompleto.equipes}`, margin + 25, currentY);
+                currentY += 6;
+            }
+
+            // Microárea
+            if (domicilioCompleto.microareas) {
+                doc.setFont("helvetica", "bold");
+                doc.text('Microárea:', margin, currentY);
+                doc.setFont("helvetica", "normal");
+                doc.text(`${domicilioCompleto.microareas}`, margin + 25, currentY);
+                currentY += 6;
+            }
+
+            // Código do domicílio
+            doc.setFont("helvetica", "bold");
+            doc.text('Código:', margin, currentY);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${domicilioCompleto.id_domicilio || '-'}`, margin + 25, currentY);
+
+            // Resumo
+            currentY += 8;
+            doc.setFillColor(240, 248, 255);
+            doc.rect(margin, currentY, pageWidth - (margin * 2), 12, 'F');
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.text(`Total de Famílias: ${familias.length}`, margin + 5, currentY + 8);
+            const totalCidadaos = familias.reduce((sum, fam) => sum + fam.membros.length, 0);
+            doc.text(`Total de Cidadãos: ${totalCidadaos}`, margin + 80, currentY + 8);
+
+            currentY += 18;
+
+            // Determinar equipe e microárea predominante do domicílio
+            const equipesCount = {};
+            const microareasCount = {};
+            familias.forEach(fam => {
+                fam.membros.forEach(m => {
+                    if (m.equipe) {
+                        equipesCount[m.equipe] = (equipesCount[m.equipe] || 0) + 1;
+                    }
+                    if (m.microarea) {
+                        microareasCount[m.microarea] = (microareasCount[m.microarea] || 0) + 1;
+                    }
+                });
+            });
+
+            const equipePredominante = Object.keys(equipesCount).reduce((a, b) =>
+                equipesCount[a] > equipesCount[b] ? a : b, null);
+            const microareaPredominante = Object.keys(microareasCount).reduce((a, b) =>
+                microareasCount[a] > microareasCount[b] ? a : b, null);
+
+            // ==== FAMÍLIAS E MEMBROS ====
+            familias.forEach((familia, index) => {
+                // Verificar se precisa de nova página
+                if (currentY > 180) { // Ajustado para paisagem
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                // Encontrar responsável
+                const responsavel = familia.membros.find(m => m.eh_responsavel === 1);
+                const nomeFamilia = responsavel ? responsavel.nome : (familia.membros[0]?.nome || 'Família sem nome');
+
+                // Cabeçalho da família
+                doc.setFillColor(29, 112, 184);
+                doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'F');
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(12);
+                doc.setTextColor(255, 255, 255);
+                doc.text(`Família ${index + 1}: ${nomeFamilia}`, margin + 3, currentY + 6.5);
+
+                currentY += 12;
+
+                // Informações da família
+                doc.setFontSize(9);
+                doc.setTextColor(80, 80, 80);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Prontuário: ${familia.id_familia || 'Não informado'} | Renda Familiar: ${familia.renda_familiar || 'Não informado'}`, margin + 2, currentY);
+
+                currentY += 6;
+
+                // Tabela de membros com novas colunas
+                const membrosData = familia.membros.map(membro => {
+                    // Determinar sexo (F ou M)
+                    const sexoCompleto = (membro.sexo || '').toUpperCase();
+                    let sexoAbreviado = '-';
+                    if (sexoCompleto.includes('FEMININO') || sexoCompleto.includes('F')) {
+                        sexoAbreviado = 'F';
+                    } else if (sexoCompleto.includes('MASCULINO') || sexoCompleto.includes('M')) {
+                        sexoAbreviado = 'M';
+                    }
+
+                    // Priorizar CPF, senão CNS
+                    let cpfCns = '-';
+                    if (membro.cpf) {
+                        cpfCns = String(membro.cpf);
+                    } else if (membro.cns) {
+                        cpfCns = String(membro.cns);
+                    }
+
+                    return [
+                        membro.nome || '-',
+                        sexoAbreviado,
+                        membro.idade || '0',
+                        cpfCns,
+                        membro.equipe || '-',
+                        membro.microarea || '-',
+                        '' // Coluna observação em branco
+                    ];
+                });
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Nome', 'Sexo', 'Idade', 'CPF/CNS', 'Equipe', 'Microárea', 'Observação']],
+                    body: membrosData,
+                    theme: 'grid',
+                    headStyles: {
+                        fillColor: [70, 130, 180],
+                        textColor: 255,
+                        fontSize: 8,
+                        fontStyle: 'bold',
+                        halign: 'center'
+                    },
+                    bodyStyles: {
+                        fontSize: 7,
+                        textColor: 50
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 80 }, // Nome
+                        1: { cellWidth: 15, halign: 'center' }, // Sexo
+                        2: { cellWidth: 18, halign: 'center' }, // Idade
+                        3: { cellWidth: 35, halign: 'center' }, // CPF/CNS
+                        4: { cellWidth: 50 }, // Equipe
+                        5: { cellWidth: 25, halign: 'center' }, // Microárea
+                        6: { cellWidth: 50 } // Observação
+                    },
+                    margin: { left: margin, right: margin },
+                    didParseCell: function(data) {
+                        // Colorir linha de amarelo se equipe OU microárea forem diferentes
+                        if (data.section === 'body') {
+                            const membro = familia.membros[data.row.index];
+                            const equipeDiferente = membro.equipe && membro.equipe !== equipePredominante;
+                            const microareaDiferente = membro.microarea && membro.microarea !== microareaPredominante;
+
+                            if (equipeDiferente || microareaDiferente) {
+                                data.cell.styles.fillColor = [255, 255, 153]; // Amarelo claro
+                            }
+                        }
+                    }
+                });
+
+                currentY = doc.lastAutoTable.finalY + 8;
+            });
+
+            // ==== RODAPÉ ====
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.setFont("helvetica", "normal");
+
+                const dataGeracao = new Date().toLocaleString('pt-BR');
+                doc.text(`Gerado em: ${dataGeracao}`, margin, 290);
+                doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 20, 290);
+            }
+
+            // Salvar PDF
+            const nomeArquivo = `domicilio_${domicilioCompleto.id_domicilio}_${new Date().getTime()}.pdf`;
+            doc.save(nomeArquivo);
 
             mostrarMensagemSucesso('PDF gerado com sucesso!');
 
         } catch (error) {
             console.error('Erro ao gerar PDF:', error);
-            mostrarMensagemErro('Erro ao gerar PDF');
+            mostrarMensagemErro('Erro ao gerar PDF: ' + error.message);
         }
     }
 
     /**
-     * Gera PDF em lote dos domicílios selecionados
+     * Abre modal de opções para geração de PDF em lote
      */
     function gerarPdfLote() {
+        const checkboxesMarcados = document.querySelectorAll('input[name="domicilio-checkbox"]:checked');
+
+        if (checkboxesMarcados.length === 0) {
+            mostrarMensagemErro('Selecione pelo menos um domicílio');
+            return;
+        }
+
+        // Atualizar quantidade no modal
+        elementos.pdfTotalSelecionados.textContent = checkboxesMarcados.length;
+
+        // Abrir modal
+        elementos.modalOpcoesPdf.classList.remove('hidden');
+    }
+
+    /**
+     * Fecha modal de opções de PDF
+     */
+    function fecharModalOpcoesPdf() {
+        elementos.modalOpcoesPdf.classList.add('hidden');
+    }
+
+    /**
+     * Confirma geração de PDF após escolher opção no modal
+     */
+    async function confirmarGerarPdfLote() {
         try {
+            // Fechar modal
+            fecharModalOpcoesPdf();
+
             const checkboxesMarcados = document.querySelectorAll('input[name="domicilio-checkbox"]:checked');
 
             if (checkboxesMarcados.length === 0) {
@@ -1082,18 +1337,289 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            console.log(`Gerando PDF para ${checkboxesMarcados.length} domicílios...`);
+            // Obter opção selecionada
+            const opcaoSelecionada = document.querySelector('input[name="pdf-layout"]:checked').value;
+            const umaPorPagina = opcaoSelecionada === 'uma-pagina';
 
-            // TODO: Implementar geração em lote
-            // Opções:
-            // 1. Gerar um PDF com todas as famílias
-            // 2. Gerar múltiplos PDFs (um por família)
+            console.log(`Gerando PDF para ${checkboxesMarcados.length} domicílios... Modo: ${opcaoSelecionada}`);
 
-            mostrarMensagemSucesso('PDFs gerados com sucesso!');
+            // Extrair IDs dos domicílios selecionados
+            const idsDomicilios = Array.from(checkboxesMarcados).map(cb => cb.value);
+
+            // Buscar dados completos de cada domicílio
+            const promises = idsDomicilios.map(id =>
+                fetch(`/api/domicilios/${id}/familia`).then(res => res.json())
+            );
+
+            const resultados = await Promise.all(promises);
+
+            // Verificar erros
+            const erros = resultados.filter(r => !r.sucesso);
+            if (erros.length > 0) {
+                throw new Error(`Erro ao buscar ${erros.length} domicílio(s)`);
+            }
+
+            // Gerar PDF único com todos os domicílios em PAISAGEM
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // 'l' = landscape (paisagem)
+            const pageWidth = 297; // Largura em paisagem
+            const pageHeight = 210; // Altura em paisagem
+            const margin = 10;
+            let currentY = 20;
+
+            // ==== PÁGINA DE CAPA ====
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.setTextColor(29, 112, 184);
+            doc.text('RELATÓRIO DE DOMICÍLIOS E FAMÍLIAS', pageWidth / 2, 80, { align: 'center' });
+
+            doc.setFontSize(14);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Sistema de Atenção Primária à Saúde', pageWidth / 2, 95, { align: 'center' });
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            const dataGeracao = new Date().toLocaleString('pt-BR');
+            doc.text(`Data: ${dataGeracao}`, pageWidth / 2, 130, { align: 'center' });
+            doc.text(`Total de Domicílios: ${resultados.length}`, pageWidth / 2, 140, { align: 'center' });
+
+            // ==== PROCESSAR CADA DOMICÍLIO ====
+            resultados.forEach((data, domicilioIndex) => {
+                const domicilioCompleto = data.domicilio;
+                const familias = data.familias || [];
+
+                // Nova página para cada domicílio (se opção selecionada) ou se sequencial e primeira iteração
+                if (umaPorPagina || domicilioIndex === 0) {
+                    doc.addPage();
+                    currentY = 20;
+                } else {
+                    // Modo sequencial: verificar se tem espaço na página atual (paisagem)
+                    if (currentY > 170) {
+                        doc.addPage();
+                        currentY = 20;
+                    } else {
+                        // Adicionar separador entre domicílios
+                        currentY += 5;
+                        doc.setDrawColor(150, 150, 150);
+                        doc.setLineWidth(0.5);
+                        doc.line(margin, currentY, pageWidth - margin, currentY);
+                        currentY += 8;
+                    }
+                }
+
+                // Cabeçalho do domicílio (tamanho ajustado conforme modo)
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(umaPorPagina ? 16 : 12);
+                doc.setTextColor(29, 112, 184);
+                if (umaPorPagina) {
+                    doc.text(`DOMICÍLIO ${domicilioIndex + 1}`, pageWidth / 2, currentY, { align: 'center' });
+                    currentY += 10;
+                } else {
+                    doc.text(`DOMICÍLIO ${domicilioIndex + 1}`, margin, currentY);
+                    currentY += 6;
+                }
+
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, currentY, pageWidth - margin, currentY);
+
+                // Informações do domicílio
+                currentY += umaPorPagina ? 10 : 6;
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(umaPorPagina ? 12 : 10);
+                doc.setTextColor(0, 0, 0);
+                if (umaPorPagina) {
+                    doc.text('Informações do Domicílio', margin, currentY);
+                }
+
+                currentY += 7;
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+
+                // Endereço
+                doc.setFont("helvetica", "bold");
+                doc.text('Endereço:', margin, currentY);
+                doc.setFont("helvetica", "normal");
+                const enderecoText = domicilioCompleto.endereco_completo || 'Não informado';
+                const splitEndereco = doc.splitTextToSize(enderecoText, pageWidth - margin - 30);
+                doc.text(splitEndereco, margin + 22, currentY);
+                currentY += (splitEndereco.length * 4.5) + 2;
+
+                // Bairro/CEP
+                if (domicilioCompleto.bairro || domicilioCompleto.cep) {
+                    doc.setFont("helvetica", "bold");
+                    doc.text('Bairro/CEP:', margin, currentY);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`${domicilioCompleto.bairro || '-'} - CEP: ${domicilioCompleto.cep || '-'}`, margin + 22, currentY);
+                    currentY += 5;
+                }
+
+                // Equipe
+                if (domicilioCompleto.equipes) {
+                    doc.setFont("helvetica", "bold");
+                    doc.text('Equipe:', margin, currentY);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`${domicilioCompleto.equipes}`, margin + 22, currentY);
+                    currentY += 5;
+                }
+
+                // Microárea
+                if (domicilioCompleto.microareas) {
+                    doc.setFont("helvetica", "bold");
+                    doc.text('Microárea:', margin, currentY);
+                    doc.setFont("helvetica", "normal");
+                    doc.text(`${domicilioCompleto.microareas}`, margin + 22, currentY);
+                    currentY += 5;
+                }
+
+                // Resumo
+                currentY += 3;
+                doc.setFillColor(240, 248, 255);
+                doc.rect(margin, currentY, pageWidth - (margin * 2), 10, 'F');
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text(`Famílias: ${familias.length}`, margin + 5, currentY + 6.5);
+                const totalCidadaos = familias.reduce((sum, fam) => sum + fam.membros.length, 0);
+                doc.text(`Cidadãos: ${totalCidadaos}`, margin + 60, currentY + 6.5);
+
+                currentY += 14;
+
+                // Determinar equipe e microárea predominante do domicílio
+                const equipesCount = {};
+                const microareasCount = {};
+                familias.forEach(fam => {
+                    fam.membros.forEach(m => {
+                        if (m.equipe) {
+                            equipesCount[m.equipe] = (equipesCount[m.equipe] || 0) + 1;
+                        }
+                        if (m.microarea) {
+                            microareasCount[m.microarea] = (microareasCount[m.microarea] || 0) + 1;
+                        }
+                    });
+                });
+
+                const equipePredominante = Object.keys(equipesCount).reduce((a, b) =>
+                    equipesCount[a] > equipesCount[b] ? a : b, null);
+                const microareaPredominante = Object.keys(microareasCount).reduce((a, b) =>
+                    microareasCount[a] > microareasCount[b] ? a : b, null);
+
+                // Famílias e membros
+                familias.forEach((familia, index) => {
+                    // Verificar se precisa de nova página (ajustado para paisagem)
+                    if (currentY > 175) { // Altura limite em paisagem
+                        doc.addPage();
+                        currentY = 20;
+                    }
+
+                    const responsavel = familia.membros.find(m => m.eh_responsavel === 1);
+                    const nomeFamilia = responsavel ? responsavel.nome : (familia.membros[0]?.nome || 'Família sem nome');
+
+                    // Cabeçalho da família
+                    doc.setFillColor(70, 130, 180);
+                    doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(10);
+                    doc.setTextColor(255, 255, 255);
+                    doc.text(`Família ${index + 1}: ${nomeFamilia}`, margin + 2, currentY + 5.5);
+
+                    currentY += 10;
+
+                    // Tabela de membros com novas colunas em formato paisagem
+                    const membrosData = familia.membros.map(membro => {
+                        // Determinar sexo (F ou M)
+                        const sexoCompleto = (membro.sexo || '').toUpperCase();
+                        let sexoAbreviado = '-';
+                        if (sexoCompleto.includes('FEMININO') || sexoCompleto.includes('F')) {
+                            sexoAbreviado = 'F';
+                        } else if (sexoCompleto.includes('MASCULINO') || sexoCompleto.includes('M')) {
+                            sexoAbreviado = 'M';
+                        }
+
+                        // Priorizar CPF, senão CNS (garantir que seja string)
+                        let cpfCns = '-';
+                        if (membro.cpf) {
+                            cpfCns = String(membro.cpf);
+                        } else if (membro.cns) {
+                            cpfCns = String(membro.cns);
+                        }
+
+                        return [
+                            membro.nome || '-',
+                            sexoAbreviado,
+                            membro.idade || '0',
+                            cpfCns,
+                            membro.equipe || '-',
+                            membro.microarea || '-',
+                            '' // Coluna observação em branco
+                        ];
+                    });
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [['Nome', 'Sexo', 'Idade', 'CPF/CNS', 'Equipe', 'Microárea', 'Observação']],
+                        body: membrosData,
+                        theme: 'grid',
+                        headStyles: {
+                            fillColor: [70, 130, 180],
+                            textColor: 255,
+                            fontSize: 8,
+                            fontStyle: 'bold',
+                            halign: 'center'
+                        },
+                        bodyStyles: {
+                            fontSize: 7,
+                            textColor: 50
+                        },
+                        columnStyles: {
+                            0: { cellWidth: 80 }, // Nome
+                            1: { cellWidth: 15, halign: 'center' }, // Sexo
+                            2: { cellWidth: 18, halign: 'center' }, // Idade
+                            3: { cellWidth: 35, halign: 'center' }, // CPF/CNS
+                            4: { cellWidth: 50 }, // Equipe
+                            5: { cellWidth: 25, halign: 'center' }, // Microárea
+                            6: { cellWidth: 50 } // Observação (em branco)
+                        },
+                        margin: { left: margin, right: margin },
+                        didParseCell: function(data) {
+                            // Colorir linha de amarelo se equipe OU microárea forem diferentes
+                            if (data.section === 'body') {
+                                const membro = familia.membros[data.row.index];
+                                const equipeDiferente = membro.equipe && membro.equipe !== equipePredominante;
+                                const microareaDiferente = membro.microarea && membro.microarea !== microareaPredominante;
+
+                                if (equipeDiferente || microareaDiferente) {
+                                    data.cell.styles.fillColor = [255, 255, 153]; // Amarelo claro
+                                }
+                            }
+                        }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 6;
+                });
+            });
+
+            // ==== RODAPÉ ====
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7);
+                doc.setTextColor(150, 150, 150);
+                doc.setFont("helvetica", "normal");
+
+                const dataGeracaoRodape = new Date().toLocaleString('pt-BR');
+                const rodapeY = pageHeight - 5; // Altura em paisagem (210mm)
+                doc.text(`Gerado em: ${dataGeracaoRodape}`, margin, rodapeY);
+                doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 20, rodapeY);
+            }
+
+            // Salvar PDF
+            const nomeArquivo = `relatorio_domicilios_${new Date().getTime()}.pdf`;
+            doc.save(nomeArquivo);
+
+            mostrarMensagemSucesso(`PDF gerado com ${resultados.length} domicílio(s)`);
 
         } catch (error) {
             console.error('Erro ao gerar PDFs:', error);
-            mostrarMensagemErro('Erro ao gerar PDFs');
+            mostrarMensagemErro('Erro ao gerar PDFs: ' + error.message);
         }
     }
 

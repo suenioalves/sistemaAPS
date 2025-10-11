@@ -534,12 +534,55 @@ def api_listar_domicilios():
         # Filtros
         equipe = request.args.get('equipe', 'Todas')
         microarea = request.args.get('microarea', 'Todas')
-        busca = request.args.get('busca', '')
+        busca = request.args.get('search', request.args.get('busca', ''))  # Aceita 'search' ou 'busca'
         status_filter = request.args.get('status', 'Todos')
+
+        print(f"[DEBUG] Parâmetro de busca recebido: '{busca}'")
+
+        # Montar CTE de filtro se houver busca por nome
+        params = []
+        cte_filtro = ""
+
+        if busca:
+            busca_param = f'%{busca}%'
+            # Busca por endereço/bairro
+            if any(keyword in busca.upper() for keyword in ['RUA', 'AVENIDA', 'CENTRO', 'BAIRRO', 'AV', 'R.']):
+                # Busca por endereço
+                cte_filtro = """
+                WITH domicilios_filtrados AS (
+                    SELECT DISTINCT d.co_seq_cds_cad_domiciliar
+                    FROM tb_cds_cad_domiciliar d
+                    WHERE d.st_versao_atual = 1
+                      AND (LOWER(d.no_logradouro) LIKE LOWER(%s) OR LOWER(d.no_bairro) LIKE LOWER(%s))
+                )
+                """
+                params.extend([busca_param, busca_param])
+            else:
+                # Busca por nome de responsável familiar
+                cte_filtro = """
+                WITH domicilios_filtrados AS (
+                    SELECT DISTINCT d.co_seq_cds_cad_domiciliar
+                    FROM tb_cds_cad_domiciliar d
+                    INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+                    INNER JOIN tb_cds_cad_individual ci_busca ON (
+                        ci_busca.nu_cpf_responsavel = df.nu_cpf_cidadao
+                        OR ci_busca.nu_cpf_cidadao = df.nu_cpf_cidadao
+                        OR ci_busca.nu_cartao_sus_responsavel = df.nu_cartao_sus
+                        OR ci_busca.nu_cns_cidadao = df.nu_cartao_sus
+                    )
+                    WHERE d.st_versao_atual = 1
+                      AND df.st_mudanca = 0
+                      AND ci_busca.st_versao_atual = 1
+                      AND ci_busca.st_ficha_inativa = 0
+                      AND ci_busca.st_responsavel_familiar = 1
+                      AND LOWER(ci_busca.no_cidadao) LIKE LOWER(%s)
+                )
+                """
+                params.append(busca_param)
 
         # Query principal baseada na documentação (Query 11 - Versão Agregada)
         # Modificada para incluir dados dos responsáveis familiares
-        query = """
+        query = cte_filtro + """
         SELECT
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
             COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
@@ -570,7 +613,10 @@ def api_listar_domicilios():
             OR ci.nu_cns_cidadao = df.nu_cartao_sus
         )
         LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
-        LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+        LEFT JOIN tb_cidadao c ON (
+            c.co_unico_ultima_ficha = ci.co_unico_ficha
+            AND c.st_ativo = 1
+        )
         LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
         LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
         WHERE d.st_versao_atual = 1
@@ -579,7 +625,9 @@ def api_listar_domicilios():
           AND ci.st_ficha_inativa = 0
         """
 
-        params = []
+        # Adicionar JOIN com CTE se houver busca
+        if busca:
+            query += " AND d.co_seq_cds_cad_domiciliar IN (SELECT co_seq_cds_cad_domiciliar FROM domicilios_filtrados)"
 
         # Filtro por equipe
         if equipe and equipe != 'Todas':
@@ -590,12 +638,6 @@ def api_listar_domicilios():
         if microarea and microarea != 'Todas':
             query += " AND ci.nu_micro_area = %s"
             params.append(microarea)
-
-        # Filtro por busca textual
-        if busca:
-            query += " AND (LOWER(d.no_logradouro) LIKE LOWER(%s) OR LOWER(d.no_bairro) LIKE LOWER(%s) OR LOWER(ci.no_cidadao) LIKE LOWER(%s))"
-            busca_param = f'%{busca}%'
-            params.extend([busca_param, busca_param, busca_param])
 
         query += """
         GROUP BY
@@ -623,8 +665,8 @@ def api_listar_domicilios():
         cur.execute(query, tuple(params))
         domicilios = cur.fetchall()
 
-        # Contar total de registros
-        count_query = """
+        # Contar total de registros (usar mesma CTE se houver busca)
+        count_query = cte_filtro + """
         SELECT COUNT(DISTINCT d.co_seq_cds_cad_domiciliar)
         FROM tb_cds_cad_domiciliar d
         INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
@@ -640,18 +682,25 @@ def api_listar_domicilios():
           AND ci.st_ficha_inativa = 0
         """
 
+        # Montar parâmetros da count_query (não incluir limit e offset)
         count_params = []
+
+        # Adicionar parâmetros da CTE se houver busca
+        if busca:
+            busca_param_count = f'%{busca}%'
+            if any(keyword in busca.upper() for keyword in ['RUA', 'AVENIDA', 'CENTRO', 'BAIRRO', 'AV', 'R.']):
+                count_params.extend([busca_param_count, busca_param_count])
+            else:
+                count_params.append(busca_param_count)
+            count_query += " AND d.co_seq_cds_cad_domiciliar IN (SELECT co_seq_cds_cad_domiciliar FROM domicilios_filtrados)"
+
         if equipe and equipe != 'Todas':
-            count_query += " AND EXISTS (SELECT 1 FROM tb_cidadao c LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine WHERE (c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao) AND e.no_equipe = %s)"
+            count_query += " AND EXISTS (SELECT 1 FROM tb_cidadao c LEFT JOIN tb_cds_cad_individual ci2 ON c.co_unico_ultima_ficha = ci2.co_unico_ficha LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine WHERE ci2.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual AND c.st_ativo = 1 AND e.no_equipe = %s)"
             count_params.append(equipe)
 
         if microarea and microarea != 'Todas':
             count_query += " AND ci.nu_micro_area = %s"
             count_params.append(microarea)
-
-        if busca:
-            count_query += " AND (LOWER(d.no_logradouro) LIKE LOWER(%s) OR LOWER(d.no_bairro) LIKE LOWER(%s) OR LOWER(ci.no_cidadao) LIKE LOWER(%s))"
-            count_params.extend([busca_param, busca_param, busca_param])
 
         cur.execute(count_query, tuple(count_params))
         total = cur.fetchone()[0]
@@ -732,9 +781,11 @@ def api_estatisticas_domicilios():
             AND EXISTS (
                 SELECT 1
                 FROM tb_cidadao c
+                LEFT JOIN tb_cds_cad_individual ci2 ON c.co_unico_ultima_ficha = ci2.co_unico_ficha
                 LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
                 LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
-                WHERE (c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao)
+                WHERE ci2.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
+                  AND c.st_ativo = 1
                   AND e.no_equipe = %s
             )
             """
@@ -788,7 +839,10 @@ def api_listar_equipes():
             cur.execute("""
                 SELECT DISTINCT ci.nu_micro_area
                 FROM tb_cds_cad_individual ci
-                LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+                LEFT JOIN tb_cidadao c ON (
+                    c.co_unico_ultima_ficha = ci.co_unico_ficha
+                    AND c.st_ativo = 1
+                )
                 LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
                 LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
                 WHERE e.nu_ine = %s
@@ -831,6 +885,7 @@ def api_detalhes_familia(id_domicilio):
 
         # Query baseada em queries_sql_esus.sql - Query 11 (Versão Completa)
         # Usa DISTINCT ON para eliminar duplicatas causadas pelos múltiplos JOINs
+        # CNS obtido de tb_cidadao (não de tb_cds_cad_individual que pode conter hash)
         query = """
         SELECT DISTINCT ON (ci.co_seq_cds_cad_individual)
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
@@ -844,7 +899,7 @@ def api_detalhes_familia(id_domicilio):
             ci.co_seq_cds_cad_individual AS id_cadastro_integrante,
             ci.no_cidadao AS nome_integrante,
             ci.nu_cpf_cidadao AS cpf_integrante,
-            ci.nu_cns_cidadao AS cns_integrante,
+            c.nu_cns AS cns_integrante,
             TO_CHAR(ci.dt_nascimento, 'DD/MM/YYYY') AS nascimento_integrante,
             EXTRACT(YEAR FROM AGE(ci.dt_nascimento)) AS idade_integrante,
             s.no_sexo AS sexo_integrante,
@@ -862,7 +917,10 @@ def api_detalhes_familia(id_domicilio):
             OR ci.nu_cns_cidadao = df.nu_cartao_sus
         )
         LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
-        LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
+        LEFT JOIN tb_cidadao c ON (
+            c.co_unico_ultima_ficha = ci.co_unico_ficha
+            AND c.st_ativo = 1
+        )
         LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
         LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
         WHERE d.co_seq_cds_cad_domiciliar = %s
@@ -879,12 +937,23 @@ def api_detalhes_familia(id_domicilio):
         if not membros:
             return jsonify({"sucesso": False, "erro": "Domicílio não encontrado"}), 404
 
+        # Coletar todas equipes e microáreas dos membros
+        equipes_set = set()
+        microareas_set = set()
+        for membro in membros:
+            if membro['equipe']:
+                equipes_set.add(membro['equipe'])
+            if membro['microarea']:
+                microareas_set.add(membro['microarea'])
+
         # Organizar dados do domicílio
         domicilio_info = {
             "id_domicilio": membros[0]['id_domicilio'],
             "endereco_completo": membros[0]['endereco_completo'],
             "bairro": membros[0]['bairro'],
-            "cep": membros[0]['cep']
+            "cep": membros[0]['cep'],
+            "equipes": ', '.join(sorted(equipes_set)) if equipes_set else 'Não informado',
+            "microareas": ', '.join(sorted(microareas_set)) if microareas_set else 'Não informado'
         }
 
         # Agrupar membros por família (id_familia)
@@ -901,17 +970,20 @@ def api_detalhes_familia(id_domicilio):
                     'membros': []
                 }
 
-            # Adicionar membro à família
+            # Adicionar membro à família (garantindo tipos corretos)
+            cpf_value = membro['cpf_integrante']
+            cns_value = membro['cns_integrante']
+
             familias_dict[id_familia]['membros'].append({
                 'id_cadastro': membro['id_cadastro_integrante'],
                 'nome': membro['nome_integrante'],
-                'cpf': membro['cpf_integrante'],
-                'cns': membro['cns_integrante'],
+                'cpf': str(cpf_value) if cpf_value else None,
+                'cns': str(cns_value) if cns_value else None,
                 'data_nascimento': membro['nascimento_integrante'],
-                'idade': membro['idade_integrante'],
+                'idade': int(membro['idade_integrante']) if membro['idade_integrante'] else 0,
                 'sexo': membro['sexo_integrante'],
                 'eh_responsavel': membro['eh_responsavel'],
-                'microarea': membro['microarea'],
+                'microarea': str(membro['microarea']) if membro['microarea'] else None,
                 'equipe': membro['equipe']
             })
 

@@ -10,7 +10,9 @@
       "Bash(python:*)",
       "Read(//c/Users/Pichau/Desktop/SISTEMA APS/sistemaPEC/**)",
       "Bash(test:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT ci.no_cidadao, ci.nu_cpf_cidadao, ci.nu_cns_cidadao, CAST(ci.nu_cns_cidadao AS VARCHAR) as cns_string FROM tb_cds_cad_individual ci WHERE ci.no_cidadao LIKE ''%MARIA JOSE DE ALMEIDA%'' LIMIT 1;\")",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": [],
