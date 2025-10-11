@@ -841,6 +841,17 @@ document.addEventListener('DOMContentLoaded', function () {
         elementos.modalCodDomicilio.textContent = domicilio.id_domicilio || '-';
         elementos.modalCnsDomicilio.textContent = `Renda: ${familias.length > 0 ? (familias[0].renda_familiar || '-') : '-'}`;
 
+        // Determinar equipe e microárea predominantes do domicílio (dos responsáveis)
+        let equipePredominante = null;
+        let microareaPredominante = null;
+        if (familias.length > 0) {
+            const responsaveis = familias.flatMap(f => f.membros.filter(m => m.eh_responsavel === 1));
+            if (responsaveis.length > 0) {
+                equipePredominante = responsaveis[0].equipe;
+                microareaPredominante = responsaveis[0].microarea;
+            }
+        }
+
         // Pegar container para substituir conteúdo
         const container = document.getElementById('container-familias');
         if (!container) {
@@ -911,10 +922,19 @@ document.addEventListener('DOMContentLoaded', function () {
                                     corBadge = 'bg-orange-100 text-orange-700';
                                 }
 
-                                console.log(`Membro: ${membro.nome}, Idade: ${idade}, Ícone: ${icone}, Sexo: ${sexo}`);
+                                // Verificar se equipe/microárea diferem do domicílio
+                                const equipeDiferente = membro.equipe && equipePredominante && membro.equipe !== equipePredominante;
+                                const microareaDiferente = membro.microarea && microareaPredominante && membro.microarea !== microareaPredominante;
+                                const temInconsistencia = equipeDiferente || microareaDiferente;
+
+                                // Estilo de borda se houver inconsistência
+                                const bordaClasse = temInconsistencia ? 'border-2 border-yellow-400 bg-yellow-50' : (isResponsavel ? 'bg-blue-50 border-2 border-blue-500' : 'bg-white border border-gray-200');
+
+                                console.log(`Membro: ${membro.nome}, Equipe: ${membro.equipe}, MicroArea: ${membro.microarea}`);
 
                                 return `
-                                    <div class="${isResponsavel ? 'bg-blue-50 border-2 border-blue-500' : 'bg-white border border-gray-200'} rounded-lg p-3">
+                                    <div class="${bordaClasse} rounded-lg p-3 relative">
+                                        ${temInconsistencia ? '<div class="absolute top-2 right-2"><i class="ri-alert-line text-yellow-600 text-xl"></i></div>' : ''}
                                         <div class="flex items-start space-x-3">
                                             <!-- Ícone representativo -->
                                             <div class="flex-shrink-0 mt-1">
@@ -938,6 +958,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 <p class="text-xs text-gray-500 mt-1">
                                                     CPF: ${membro.cpf || '-'}
                                                 </p>
+                                                <div class="mt-2 flex items-center gap-3 text-xs">
+                                                    <span class="${equipeDiferente ? 'text-red-600 font-semibold' : 'text-gray-600'}">
+                                                        <i class="ri-team-line"></i> Equipe: ${membro.equipe || '-'}
+                                                    </span>
+                                                    <span class="${microareaDiferente ? 'text-red-600 font-semibold' : 'text-gray-600'}">
+                                                        <i class="ri-map-pin-line"></i> Microárea: ${membro.microarea || '-'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
