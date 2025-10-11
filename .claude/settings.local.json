@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Bash(python:*)",
       "Read(//c/Users/Pichau/Desktop/SISTEMA APS/sistemaPEC/**)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": [],

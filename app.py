@@ -538,6 +538,7 @@ def api_listar_domicilios():
         status_filter = request.args.get('status', 'Todos')
 
         # Query principal baseada na documentação (Query 11 - Versão Agregada)
+        # Modificada para incluir dados dos responsáveis familiares
         query = """
         SELECT
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
@@ -548,11 +549,15 @@ def api_listar_domicilios():
             COUNT(DISTINCT ci.co_seq_cds_cad_individual) AS total_integrantes,
             STRING_AGG(DISTINCT e.no_equipe, ', ') AS equipes,
             STRING_AGG(DISTINCT ci.nu_micro_area, ', ') AS microareas,
+            -- Lista de responsáveis com idade e sexo
             STRING_AGG(
-                ci.no_cidadao ||
-                CASE WHEN ci.st_responsavel_familiar = 1 THEN ' (RESPONSÁVEL)' ELSE '' END,
-                '; '
-            ) AS lista_integrantes,
+                DISTINCT CASE
+                    WHEN ci.st_responsavel_familiar = 1
+                    THEN ci.no_cidadao || '|' || COALESCE(EXTRACT(YEAR FROM AGE(ci.dt_nascimento))::text, '0') || '|' || COALESCE(s.no_sexo, 'Não informado')
+                    ELSE NULL
+                END,
+                ';;'
+            ) FILTER (WHERE ci.st_responsavel_familiar = 1) AS responsaveis_info,
             MAX(ci.st_responsavel_familiar) AS tem_responsavel,
             TO_CHAR(d.dt_cad_domiciliar, 'DD/MM/YYYY') AS data_cadastro
         FROM tb_cds_cad_domiciliar d
@@ -564,6 +569,7 @@ def api_listar_domicilios():
             OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
             OR ci.nu_cns_cidadao = df.nu_cartao_sus
         )
+        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
         LEFT JOIN tb_cidadao c ON c.nu_cpf = ci.nu_cpf_cidadao OR c.nu_cns = ci.nu_cns_cidadao
         LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
         LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
@@ -769,9 +775,8 @@ def api_listar_equipes():
             SELECT DISTINCT
                 e.nu_ine,
                 e.no_equipe AS nome,
-                e.nu_area AS area
+                e.ds_area AS area
             FROM tb_equipe e
-            WHERE e.st_registro_valido = 1
             ORDER BY e.no_equipe
         """)
 
@@ -825,8 +830,9 @@ def api_detalhes_familia(id_domicilio):
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
         # Query baseada em queries_sql_esus.sql - Query 11 (Versão Completa)
+        # Usa DISTINCT ON para eliminar duplicatas causadas pelos múltiplos JOINs
         query = """
-        SELECT
+        SELECT DISTINCT ON (ci.co_seq_cds_cad_individual)
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
             COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
             d.no_bairro AS bairro,
@@ -864,7 +870,7 @@ def api_detalhes_familia(id_domicilio):
           AND df.st_mudanca = 0
           AND ci.st_versao_atual = 1
           AND ci.st_ficha_inativa = 0
-        ORDER BY ci.st_responsavel_familiar DESC, ci.no_cidadao
+        ORDER BY ci.co_seq_cds_cad_individual, ci.st_responsavel_familiar DESC, ci.no_cidadao
         """
 
         cur.execute(query, (id_domicilio,))
@@ -873,22 +879,56 @@ def api_detalhes_familia(id_domicilio):
         if not membros:
             return jsonify({"sucesso": False, "erro": "Domicílio não encontrado"}), 404
 
-        # Organizar dados
+        # Organizar dados do domicílio
         domicilio_info = {
             "id_domicilio": membros[0]['id_domicilio'],
             "endereco_completo": membros[0]['endereco_completo'],
             "bairro": membros[0]['bairro'],
-            "cep": membros[0]['cep'],
-            "qtd_membros_declarada": membros[0]['qtd_membros_declarada'],
-            "renda_familiar": membros[0]['renda_familiar']
+            "cep": membros[0]['cep']
         }
 
-        membros_lista = [dict(m) for m in membros]
+        # Agrupar membros por família (id_familia)
+        familias_dict = {}
+        for membro in membros:
+            id_familia = membro['id_familia']
+
+            if id_familia not in familias_dict:
+                familias_dict[id_familia] = {
+                    'id_familia': id_familia,
+                    'cpf_responsavel': membro['cpf_responsavel'],
+                    'qtd_membros_declarada': membro['qtd_membros_declarada'],
+                    'renda_familiar': membro['renda_familiar'],
+                    'membros': []
+                }
+
+            # Adicionar membro à família
+            familias_dict[id_familia]['membros'].append({
+                'id_cadastro': membro['id_cadastro_integrante'],
+                'nome': membro['nome_integrante'],
+                'cpf': membro['cpf_integrante'],
+                'cns': membro['cns_integrante'],
+                'data_nascimento': membro['nascimento_integrante'],
+                'idade': membro['idade_integrante'],
+                'sexo': membro['sexo_integrante'],
+                'eh_responsavel': membro['eh_responsavel'],
+                'microarea': membro['microarea'],
+                'equipe': membro['equipe']
+            })
+
+        # Converter dict para lista
+        familias = list(familias_dict.values())
+
+        # Ordenar membros de cada família (responsável primeiro, depois por idade decrescente)
+        for familia in familias:
+            familia['membros'].sort(key=lambda m: (
+                0 if m['eh_responsavel'] == 1 else 1,  # Responsável primeiro
+                -(m['idade'] or 0)  # Depois por idade (negativo para ordem decrescente)
+            ))
 
         return jsonify({
             "sucesso": True,
             "domicilio": domicilio_info,
-            "membros": membros_lista
+            "familias": familias
         })
 
     except Exception as e:

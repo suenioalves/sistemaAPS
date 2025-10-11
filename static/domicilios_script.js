@@ -429,7 +429,11 @@ document.addEventListener('DOMContentLoaded', function () {
             elementos.totalDomiciliosCard.textContent = stats.total_domicilios || 0;
             elementos.totalFamiliasCard.textContent = stats.total_familias || 0;
             elementos.totalCidadaosCard.textContent = stats.total_cidadaos || 0;
-            elementos.mediaCidadaosCard.textContent = (stats.media_por_domicilio || 0).toFixed(1);
+
+            // Converter para número antes de usar toFixed
+            const media = parseFloat(stats.media_por_domicilio || 0);
+            elementos.mediaCidadaosCard.textContent = media.toFixed(1);
+
             elementos.totalInconsistenciasCard.textContent = stats.inconsistencias || 0;
 
         } catch (error) {
@@ -553,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Mensagem quando não há dados
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                     <div class="flex flex-col items-center">
                         <i class="ri-home-4-line text-4xl mb-2"></i>
                         <p>Nenhum domicílio encontrado</p>
@@ -569,6 +573,34 @@ document.addEventListener('DOMContentLoaded', function () {
             const tr = criarLinhaDomicilio(domicilio);
             tbody.appendChild(tr);
         });
+    }
+
+    /**
+     * Função auxiliar para obter ícone e cor baseado em idade e sexo
+     */
+    function obterIconeResponsavel(idade, sexo) {
+        idade = parseInt(idade) || 0;
+        const sexoUpper = (sexo || '').toUpperCase();
+        const isFeminino = sexoUpper.includes('FEMININO') || sexoUpper.includes('F');
+
+        let icone = '';
+        let cor = '';
+
+        if (idade < 2) {
+            icone = 'ri-baby-line';
+            cor = 'text-pink-500';
+        } else if (idade < 12) {
+            icone = 'ri-user-smile-line';
+            cor = 'text-purple-500';
+        } else if (idade < 65) {
+            icone = isFeminino ? 'ri-user-3-line' : 'ri-user-line';
+            cor = isFeminino ? 'text-pink-600' : 'text-blue-600';
+        } else {
+            icone = isFeminino ? 'ri-user-3-line' : 'ri-user-line';
+            cor = 'text-orange-600';
+        }
+
+        return { icone, cor };
     }
 
     /**
@@ -590,40 +622,64 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const statusBadge = obterBadgeStatus(status);
 
+        // Processar responsáveis
+        let responsaveisHtml = '<span class="text-gray-400 text-xs">Nenhum responsável cadastrado</span>';
+        if (domicilio.responsaveis_info) {
+            const responsaveis = domicilio.responsaveis_info.split(';;').filter(r => r && r.trim());
+            if (responsaveis.length > 0) {
+                responsaveisHtml = responsaveis.map(resp => {
+                    const [nome, idade, sexo] = resp.split('|');
+                    const { icone, cor } = obterIconeResponsavel(idade, sexo);
+                    return `
+                        <div class="flex items-center space-x-1.5 py-0.5">
+                            <i class="${icone} ${cor} text-base"></i>
+                            <span class="text-xs text-gray-900">${nome || 'Sem nome'}, ${idade || '0'} anos</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
         tr.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-4 py-4 whitespace-nowrap align-top">
                 <input type="checkbox" name="domicilio-checkbox" value="${domicilio.id_domicilio}"
                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
             </td>
-            <td class="px-6 py-4">
-                <div class="text-sm font-medium text-gray-900">${domicilio.endereco_completo || '-'}</div>
-                <div class="text-xs text-gray-500">${domicilio.bairro || ''} ${domicilio.cep ? '- CEP: ' + domicilio.cep : ''}</div>
+            <td class="px-4 py-4 align-top">
+                <div class="flex items-start space-x-2">
+                    <i class="ri-home-4-line text-blue-600 text-lg mt-0.5"></i>
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">${domicilio.endereco_completo || '-'}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">${domicilio.bairro || ''} ${domicilio.cep ? '- CEP: ' + domicilio.cep : ''}</div>
+                        <div class="text-xs text-gray-600 mt-1">
+                            <span class="font-medium">Equipe:</span> ${domicilio.equipes || '-'} -
+                            <span class="font-medium">Microárea:</span> ${domicilio.microareas || '-'}
+                        </div>
+                    </div>
+                </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                ${domicilio.equipes || '-'}
+            <td class="px-4 py-4 align-top">
+                ${responsaveisHtml}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                ${domicilio.microareas || '-'}
+            <td class="px-4 py-4 text-center align-top">
+                <div class="text-xs text-gray-900">
+                    <div class="font-medium">Nº de famílias: ${domicilio.total_familias || 0}</div>
+                    <div class="text-gray-600 mt-0.5">Nº de cidadãos: ${domicilio.total_integrantes || 0}</div>
+                </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                ${domicilio.total_familias || 0}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                ${domicilio.total_integrantes || 0}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-4 py-4 text-center whitespace-nowrap align-top">
                 ${statusBadge}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
                 <div class="flex justify-end space-x-2">
                     <button class="btn-visualizar text-blue-600 hover:text-blue-900" data-cod="${domicilio.id_domicilio}" title="Visualizar família">
-                        <i class="ri-eye-line"></i>
+                        <i class="ri-eye-line text-lg"></i>
                     </button>
                     <button class="btn-gerar-pdf text-green-600 hover:text-green-900" data-cod="${domicilio.id_domicilio}" title="Gerar PDF">
-                        <i class="ri-file-pdf-line"></i>
+                        <i class="ri-file-pdf-line text-lg"></i>
                     </button>
                     <button class="btn-editar text-amber-600 hover:text-amber-900" data-cod="${domicilio.id_domicilio}" title="Editar">
-                        <i class="ri-edit-line"></i>
+                        <i class="ri-edit-line text-lg"></i>
                     </button>
                 </div>
             </td>
@@ -755,34 +811,141 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     function abrirModalVisualizarFamilia(data) {
         const domicilio = data.domicilio || {};
-        const membros = data.membros || [];
+        const familias = data.familias || [];
 
         // Preencher informações do domicílio
         elementos.modalEndereco.textContent = domicilio.endereco_completo || '-';
-        elementos.modalEquipeMicroarea.textContent = `Equipe/Microárea: ${membros.length > 0 ? (membros[0].equipe || '-') + ' / ' + (membros[0].microarea || '-') : '-'}`;
+
+        // Pegar equipe/microarea do primeiro membro da primeira família
+        let equipeMicroarea = '-';
+        if (familias.length > 0 && familias[0].membros.length > 0) {
+            const primeiroMembro = familias[0].membros[0];
+            equipeMicroarea = `${primeiroMembro.equipe || '-'} / ${primeiroMembro.microarea || '-'}`;
+        }
+        elementos.modalEquipeMicroarea.textContent = `Equipe/Microárea: ${equipeMicroarea}`;
+
         elementos.modalCodDomicilio.textContent = domicilio.id_domicilio || '-';
-        elementos.modalCnsDomicilio.textContent = `Renda: ${domicilio.renda_familiar || '-'}`;
+        elementos.modalCnsDomicilio.textContent = `Renda: ${familias.length > 0 ? (familias[0].renda_familiar || '-') : '-'}`;
 
-        // Preencher tabela de membros
-        const tbody = elementos.modalMembrosTbody;
-        tbody.innerHTML = '';
+        // Pegar container para substituir conteúdo
+        const container = document.getElementById('container-familias');
+        if (!container) {
+            console.error('Container familias não encontrado');
+            return;
+        }
 
-        if (membros.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-gray-500">Nenhum membro cadastrado</td></tr>';
+        // Criar container de famílias
+        let familiasHtml = '';
+
+        if (familias.length === 0) {
+            familiasHtml = '<div class="text-center py-8 text-gray-500">Nenhuma família cadastrada</div>';
         } else {
-            membros.forEach(membro => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-4 py-3 text-sm text-gray-900">${membro.nome_integrante || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${membro.cns_integrante || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${membro.nascimento_integrante || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${membro.idade_integrante || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${membro.sexo_integrante || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${membro.eh_responsavel === 1 ? 'Sim' : 'Não'}</td>
+            familias.forEach((familia, index) => {
+                const responsavel = familia.membros.find(m => m.eh_responsavel === 1);
+                const nomeFamilia = responsavel ? responsavel.nome : (familia.membros[0]?.nome || 'Família sem nome');
+
+                familiasHtml += `
+                    <div class="mb-4 border border-gray-200 rounded-lg overflow-hidden bg-white">
+                        <!-- Cabeçalho da Família -->
+                        <div class="bg-blue-50 border-b border-blue-200 px-4 py-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-gray-900">Família de ${nomeFamilia}</h4>
+                                <div class="flex items-center space-x-4 text-sm text-gray-600">
+                                    <span>Nº prontuário: ${familia.id_familia || 'Não informado'}</span>
+                                    <span>Renda: ${familia.renda_familiar || 'Não informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Membros da Família -->
+                        <div class="p-4 space-y-3">
+                            ${familia.membros.map(membro => {
+                                const isResponsavel = membro.eh_responsavel === 1;
+                                const idade = parseInt(membro.idade) || 0;
+                                const sexo = (membro.sexo || '').toUpperCase();
+                                const isFeminino = sexo.includes('FEMININO') || sexo.includes('F');
+
+                                // Determinar ícone e cor baseado em idade e sexo
+                                let icone = '';
+                                let corIcone = '';
+                                let labelIdade = '';
+                                let corBadge = '';
+
+                                if (idade < 2) {
+                                    // Bebê (0-1 ano)
+                                    icone = 'ri-baby-line';
+                                    corIcone = 'text-pink-500';
+                                    labelIdade = 'Bebê';
+                                    corBadge = 'bg-pink-100 text-pink-700';
+                                } else if (idade < 12) {
+                                    // Criança (2-11 anos)
+                                    icone = 'ri-user-smile-line';
+                                    corIcone = 'text-purple-500';
+                                    labelIdade = 'Criança';
+                                    corBadge = 'bg-purple-100 text-purple-700';
+                                } else if (idade < 65) {
+                                    // Adulto (12-64 anos)
+                                    icone = isFeminino ? 'ri-user-3-line' : 'ri-user-line';
+                                    corIcone = isFeminino ? 'text-pink-600' : 'text-blue-600';
+                                    labelIdade = 'Adulto';
+                                    corBadge = isFeminino ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700';
+                                } else {
+                                    // Idoso (65+ anos)
+                                    icone = isFeminino ? 'ri-user-3-line' : 'ri-user-line';
+                                    corIcone = 'text-orange-600';
+                                    labelIdade = 'Idoso';
+                                    corBadge = 'bg-orange-100 text-orange-700';
+                                }
+
+                                console.log(`Membro: ${membro.nome}, Idade: ${idade}, Ícone: ${icone}, Sexo: ${sexo}`);
+
+                                return `
+                                    <div class="${isResponsavel ? 'bg-blue-50 border-2 border-blue-500' : 'bg-white border border-gray-200'} rounded-lg p-3">
+                                        <div class="flex items-start space-x-3">
+                                            <!-- Ícone representativo -->
+                                            <div class="flex-shrink-0 mt-1">
+                                                <i class="${icone} ${corIcone} text-3xl"></i>
+                                            </div>
+
+                                            <!-- Informações do membro -->
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                                    ${isResponsavel ? '<span class="px-2 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full">Responsável familiar</span>' : ''}
+                                                    <span class="px-2 py-1 ${corBadge} text-xs font-semibold rounded-full">
+                                                        ${labelIdade}
+                                                    </span>
+                                                </div>
+                                                <p class="font-semibold text-gray-900">${membro.nome || '-'}</p>
+                                                <p class="text-sm text-gray-600">
+                                                    ${membro.sexo || '-'} |
+                                                    ${membro.idade || '-'} anos |
+                                                    Nasceu em ${membro.data_nascimento || '-'}
+                                                </p>
+                                                <p class="text-xs text-gray-500 mt-1">
+                                                    CPF: ${membro.cpf || '-'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
                 `;
-                tbody.appendChild(tr);
             });
         }
+
+        // Substituir conteúdo com scroll
+        container.innerHTML = `
+            <div>
+                <h4 class="text-lg font-medium text-gray-900 mb-3">
+                    Famílias e Cidadãos do Imóvel
+                </h4>
+                <div class="max-h-96 overflow-y-auto pr-2">
+                    ${familiasHtml}
+                </div>
+            </div>
+        `;
 
         // Exibir modal
         elementos.modalVisualizarFamilia.classList.remove('hidden');

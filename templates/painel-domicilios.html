@@ -388,35 +388,27 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <!-- Coluna: Checkbox para seleção -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                                     <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                 </th>
-                                <!-- Coluna: Endereço -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Endereço
+                                <!-- Coluna: Domicílio (endereço completo, bairro, CEP, equipe e microárea) -->
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Domicílio
                                 </th>
-                                <!-- Coluna: Equipe -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Equipe
+                                <!-- Coluna: Responsáveis Familiares (com ícones e idade) -->
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Responsáveis Familiares
                                 </th>
-                                <!-- Coluna: Microárea -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Microárea
-                                </th>
-                                <!-- Coluna: Famílias -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Famílias
-                                </th>
-                                <!-- Coluna: Cidadãos -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Cidadãos
+                                <!-- Coluna: Famílias e Cidadãos (número de famílias e total de cidadãos) -->
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                                    Composição
                                 </th>
                                 <!-- Coluna: Status -->
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                                     Status
                                 </th>
                                 <!-- Coluna: Ações -->
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                                     Ações
                                 </th>
                             </tr>
@@ -510,27 +502,13 @@
                     </div>
 
                     <!-- Lista de membros da família -->
-                    <div>
-                        <h4 class="text-lg font-medium text-gray-900 mb-3">Membros da Família</h4>
-
-                        <!-- Tabela de membros (populada via JavaScript) -->
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNS</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Nascimento</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Idade</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sexo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Responsável</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="modal-membros-tbody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Linhas serão populadas via JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- Conteúdo será substituído via JavaScript -->
+                    <div id="container-familias">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <tbody id="modal-membros-tbody" class="bg-white divide-y divide-gray-200">
+                                <!-- Conteúdo será completamente substituído via JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
