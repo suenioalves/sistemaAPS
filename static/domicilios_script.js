@@ -1093,9 +1093,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const familias = data.familias || [];
 
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const pageWidth = 210;
-            const margin = 15;
+            const doc = new jsPDF('l', 'mm', 'a4'); // 'l' = landscape (paisagem)
+            const pageWidth = 297; // Largura em paisagem (A4)
+            const pageHeight = 210; // Altura em paisagem (A4)
+            const margin = 10;
             let currentY = 20;
 
             // ==== CABEÇALHO ====
