@@ -591,7 +591,8 @@ def api_listar_domicilios():
             COUNT(DISTINCT df.co_seq_cds_domicilio_familia) AS total_familias,
             COUNT(DISTINCT ci.co_seq_cds_cad_individual) AS total_integrantes,
             STRING_AGG(DISTINCT e.no_equipe, ', ') AS equipes,
-            STRING_AGG(DISTINCT ci.nu_micro_area, ', ') AS microareas,
+            -- Pegar microárea apenas dos responsáveis familiares (um domicílio = uma microárea)
+            STRING_AGG(DISTINCT ci.nu_micro_area, ', ') FILTER (WHERE ci.st_responsavel_familiar = 1) AS microareas,
             -- Lista de responsáveis com idade e sexo
             STRING_AGG(
                 DISTINCT CASE
@@ -937,14 +938,16 @@ def api_detalhes_familia(id_domicilio):
         if not membros:
             return jsonify({"sucesso": False, "erro": "Domicílio não encontrado"}), 404
 
-        # Coletar todas equipes e microáreas dos membros
+        # Coletar equipes e microáreas apenas dos responsáveis familiares
         equipes_set = set()
         microareas_set = set()
         for membro in membros:
-            if membro['equipe']:
-                equipes_set.add(membro['equipe'])
-            if membro['microarea']:
-                microareas_set.add(membro['microarea'])
+            # Apenas considerar responsáveis familiares para equipe e microárea
+            if membro['eh_responsavel'] == 1:
+                if membro['equipe']:
+                    equipes_set.add(membro['equipe'])
+                if membro['microarea']:
+                    microareas_set.add(membro['microarea'])
 
         # Organizar dados do domicílio
         domicilio_info = {
