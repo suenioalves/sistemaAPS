@@ -12,7 +12,10 @@
       "Bash(test:*)",
       "Bash(psql:*)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT ci.no_cidadao, ci.nu_cpf_cidadao, ci.nu_cns_cidadao, CAST(ci.nu_cns_cidadao AS VARCHAR) as cns_string FROM tb_cds_cad_individual ci WHERE ci.no_cidadao LIKE ''%MARIA JOSE DE ALMEIDA%'' LIMIT 1;\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT ci.no_cidadao, ci.nu_micro_area, ci.co_unico_ficha, c.co_seq_cidadao, c.st_ativo, ve.nu_ine, e.no_equipe FROM tb_cds_cad_individual ci LEFT JOIN tb_cidadao c ON (c.co_unico_ultima_ficha = ci.co_unico_ficha AND c.st_ativo = 1) LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine WHERE ci.no_cidadao LIKE ''%DAVI LUIS FERREIRA FREITAS%'' AND ci.st_versao_atual = 1 AND ci.st_ficha_inativa = 0;\")"
     ],
     "deny": [],
     "ask": [],

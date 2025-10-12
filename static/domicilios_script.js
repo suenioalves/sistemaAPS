@@ -52,6 +52,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Controle de modais
         domicilioAtualModal: null,         // Dados do domicílio exibido no modal
+
+        // Controle de seleção global
+        todosSelecionados: false,          // Se "Selecionar Todos" foi ativado (todos os filtrados)
+        idsSelecionados: new Set(),        // IDs específicos selecionados manualmente
     };
 
     // ========================================================================

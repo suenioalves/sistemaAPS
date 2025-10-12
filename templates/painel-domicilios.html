@@ -51,6 +51,12 @@
 
     <!-- Script principal do painel (módulo ES6) -->
     <script type="module" src="{{ url_for('static', filename='domicilios_script.js') }}" defer></script>
+
+    <!-- Gerenciamento de seleção de domicílios -->
+    <script src="{{ url_for('static', filename='domicilios_selecao.js') }}" defer></script>
+
+    <!-- Melhorias do painel (barra de progresso, PDF por microárea, etc) -->
+    <script src="{{ url_for('static', filename='domicilios_melhorias.js') }}" defer></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen">

@@ -590,7 +590,8 @@ def api_listar_domicilios():
             d.nu_cep AS cep,
             COUNT(DISTINCT df.co_seq_cds_domicilio_familia) AS total_familias,
             COUNT(DISTINCT ci.co_seq_cds_cad_individual) AS total_integrantes,
-            STRING_AGG(DISTINCT e.no_equipe, ', ') AS equipes,
+            -- Pegar equipe apenas dos responsáveis familiares
+            STRING_AGG(DISTINCT e.no_equipe, ', ') FILTER (WHERE ci.st_responsavel_familiar = 1) AS equipes,
             -- Pegar microárea apenas dos responsáveis familiares (um domicílio = uma microárea)
             STRING_AGG(DISTINCT ci.nu_micro_area, ', ') FILTER (WHERE ci.st_responsavel_familiar = 1) AS microareas,
             -- Lista de responsáveis com idade e sexo
@@ -630,16 +631,6 @@ def api_listar_domicilios():
         if busca:
             query += " AND d.co_seq_cds_cad_domiciliar IN (SELECT co_seq_cds_cad_domiciliar FROM domicilios_filtrados)"
 
-        # Filtro por equipe
-        if equipe and equipe != 'Todas':
-            query += " AND e.no_equipe = %s"
-            params.append(equipe)
-
-        # Filtro por microárea
-        if microarea and microarea != 'Todas':
-            query += " AND ci.nu_micro_area = %s"
-            params.append(microarea)
-
         query += """
         GROUP BY
             d.co_seq_cds_cad_domiciliar,
@@ -660,7 +651,62 @@ def api_listar_domicilios():
         elif status_filter == 'Inconsistencias':
             query += " AND MAX(ci.st_responsavel_familiar) = 0"  # Sem responsável
 
-        query += " ORDER BY d.dt_cad_domiciliar DESC LIMIT %s OFFSET %s"
+        # Filtro por equipe (apenas responsáveis familiares)
+        if equipe and equipe != 'Todas':
+            query += """
+            AND EXISTS (
+                SELECT 1
+                FROM tb_cds_domicilio_familia df2
+                INNER JOIN tb_cds_cad_individual ci2 ON (
+                    ci2.nu_cpf_responsavel = df2.nu_cpf_cidadao
+                    OR ci2.nu_cpf_cidadao = df2.nu_cpf_cidadao
+                    OR ci2.nu_cartao_sus_responsavel = df2.nu_cartao_sus
+                    OR ci2.nu_cns_cidadao = df2.nu_cartao_sus
+                )
+                LEFT JOIN tb_cidadao c2 ON (c2.co_unico_ultima_ficha = ci2.co_unico_ficha AND c2.st_ativo = 1)
+                LEFT JOIN tb_cidadao_vinculacao_equipe ve2 ON ve2.co_cidadao = c2.co_seq_cidadao
+                LEFT JOIN tb_equipe e2 ON e2.nu_ine = ve2.nu_ine
+                WHERE df2.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+                  AND ci2.st_responsavel_familiar = 1
+                  AND ci2.st_versao_atual = 1
+                  AND ci2.st_ficha_inativa = 0
+                  AND e2.no_equipe = %s
+            )
+            """
+            params.append(equipe)
+
+        # Filtro por microárea (apenas responsáveis familiares)
+        if microarea and microarea != 'Todas':
+            query += """
+            AND EXISTS (
+                SELECT 1
+                FROM tb_cds_domicilio_familia df3
+                INNER JOIN tb_cds_cad_individual ci3 ON (
+                    ci3.nu_cpf_responsavel = df3.nu_cpf_cidadao
+                    OR ci3.nu_cpf_cidadao = df3.nu_cpf_cidadao
+                    OR ci3.nu_cartao_sus_responsavel = df3.nu_cartao_sus
+                    OR ci3.nu_cns_cidadao = df3.nu_cartao_sus
+                )
+                WHERE df3.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+                  AND ci3.st_responsavel_familiar = 1
+                  AND ci3.st_versao_atual = 1
+                  AND ci3.st_ficha_inativa = 0
+                  AND ci3.nu_micro_area = %s
+            )
+            """
+            params.append(microarea)
+
+        # Ordenar por logradouro alfabeticamente e depois por número do domicílio
+        query += """
+        ORDER BY
+            d.no_logradouro ASC,
+            CASE
+                WHEN d.nu_domicilio ~ '^[0-9]+$' THEN CAST(d.nu_domicilio AS INTEGER)
+                ELSE 999999
+            END ASC,
+            d.nu_domicilio ASC
+        LIMIT %s OFFSET %s
+        """
         params.extend([limit, offset])
 
         cur.execute(query, tuple(params))
