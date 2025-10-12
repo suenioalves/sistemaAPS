@@ -582,7 +582,27 @@ def api_listar_domicilios():
 
         # Query principal baseada na documentação (Query 11 - Versão Agregada)
         # Modificada para incluir dados dos responsáveis familiares
-        query = cte_filtro + """
+        # CTE para pegar apenas o domicilio mais recente de cada familia (caso st_mudanca esteja inconsistente)
+        
+        # Se ja tem CTE de busca, adiciona com virgula; senao cria novo WITH
+        if cte_filtro:
+            cte_domicilios_recentes = """,
+        domicilios_mais_recentes AS ("""
+        else:
+            cte_domicilios_recentes = """
+        WITH domicilios_mais_recentes AS ("""
+        
+        query = cte_filtro + cte_domicilios_recentes + """
+            SELECT DISTINCT ON (df.nu_cpf_cidadao)
+                df.co_seq_cds_domicilio_familia,
+                df.co_cds_cad_domiciliar,
+                df.nu_cpf_cidadao
+            FROM tb_cds_domicilio_familia df
+            INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE df.st_mudanca = 0
+              AND d.st_versao_atual = 1
+            ORDER BY df.nu_cpf_cidadao, d.dt_cad_domiciliar DESC, df.co_seq_cds_domicilio_familia DESC
+        )
         SELECT
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
             COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
@@ -608,6 +628,7 @@ def api_listar_domicilios():
         FROM tb_cds_cad_domiciliar d
         LEFT JOIN tb_tipo_logradouro tl ON tl.co_tipo_logradouro = d.tp_logradouro
         INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN domicilios_mais_recentes dmr ON dmr.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
         INNER JOIN tb_cds_cad_individual ci ON (
             ci.nu_cpf_responsavel = df.nu_cpf_cidadao
             OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
@@ -713,10 +734,41 @@ def api_listar_domicilios():
         domicilios = cur.fetchall()
 
         # Contar total de registros (usar mesma CTE se houver busca)
-        count_query = cte_filtro + """
+        # Adicionar CTE de domicilios_mais_recentes
+        if cte_filtro:
+            count_cte = cte_filtro + """,
+        domicilios_mais_recentes AS (
+            SELECT DISTINCT ON (df.nu_cpf_cidadao)
+                df.co_seq_cds_domicilio_familia,
+                df.co_cds_cad_domiciliar,
+                df.nu_cpf_cidadao
+            FROM tb_cds_domicilio_familia df
+            INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE df.st_mudanca = 0
+              AND d.st_versao_atual = 1
+            ORDER BY df.nu_cpf_cidadao, d.dt_cad_domiciliar DESC, df.co_seq_cds_domicilio_familia DESC
+        )
+        """
+        else:
+            count_cte = """
+        WITH domicilios_mais_recentes AS (
+            SELECT DISTINCT ON (df.nu_cpf_cidadao)
+                df.co_seq_cds_domicilio_familia,
+                df.co_cds_cad_domiciliar,
+                df.nu_cpf_cidadao
+            FROM tb_cds_domicilio_familia df
+            INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE df.st_mudanca = 0
+              AND d.st_versao_atual = 1
+            ORDER BY df.nu_cpf_cidadao, d.dt_cad_domiciliar DESC, df.co_seq_cds_domicilio_familia DESC
+        )
+        """
+        
+        count_query = count_cte + """
         SELECT COUNT(DISTINCT d.co_seq_cds_cad_domiciliar)
         FROM tb_cds_cad_domiciliar d
         INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN domicilios_mais_recentes dmr ON dmr.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
         INNER JOIN tb_cds_cad_individual ci ON (
             ci.nu_cpf_responsavel = df.nu_cpf_cidadao
             OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
@@ -934,6 +986,17 @@ def api_detalhes_familia(id_domicilio):
         # Usa DISTINCT ON para eliminar duplicatas causadas pelos múltiplos JOINs
         # CNS obtido de tb_cidadao (não de tb_cds_cad_individual que pode conter hash)
         query = """
+        WITH domicilios_mais_recentes AS (
+            SELECT DISTINCT ON (df.nu_cpf_cidadao)
+                df.co_seq_cds_domicilio_familia,
+                df.co_cds_cad_domiciliar,
+                df.nu_cpf_cidadao
+            FROM tb_cds_domicilio_familia df
+            INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE df.st_mudanca = 0
+              AND d.st_versao_atual = 1
+            ORDER BY df.nu_cpf_cidadao, d.dt_cad_domiciliar DESC, df.co_seq_cds_domicilio_familia DESC
+        )
         SELECT DISTINCT ON (ci.co_seq_cds_cad_individual)
             d.co_seq_cds_cad_domiciliar AS id_domicilio,
             COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
@@ -956,6 +1019,7 @@ def api_detalhes_familia(id_domicilio):
         FROM tb_cds_cad_domiciliar d
         LEFT JOIN tb_tipo_logradouro tl ON tl.co_tipo_logradouro = d.tp_logradouro
         INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN domicilios_mais_recentes dmr ON dmr.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
         LEFT JOIN tb_renda_familiar rf ON rf.co_renda_familiar = df.co_renda_familiar
         INNER JOIN tb_cds_cad_individual ci ON (
             ci.nu_cpf_responsavel = df.nu_cpf_cidadao
