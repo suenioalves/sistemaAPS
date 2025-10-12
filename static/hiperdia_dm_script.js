@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else if (codAcao === 5) { // Modificar tratamento
                     // Modificar tratamento agora apenas registra a ação na timeline
                     // O tratamento real será modificado através do modal de tratamento separadamente
-                } else if (codAcao === 7) { // Iniciar/Monitorar Insulinoterapia
+                } else if (codAcao === 13) { // Iniciar/Monitorar Insulinoterapia
                     // Exibir card informativo com botão para abrir Jornada da Insulina
                     const cardInfoContainer = document.getElementById('card-info-container-diabetes');
                     if (cardInfoContainer) {
@@ -1655,7 +1655,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Card de subtarefas dinâmico (busca do array de subtarefas)
                 let cardSubtarefasTimeline = '';
-                if (item.subtarefas && item.subtarefas.length > 0) {
+                if (item.cod_acao === 5) { // Modificar Tratamento - Lógica customizada
+                    const subtarefa1 = item.subtarefas.find(st => st.ordem === 1);
+                    const subtarefa2 = item.subtarefas.find(st => st.ordem === 2);
+                    const aderencia = item.aderencia; // Assumindo que o backend pode enviar 'boa' ou 'inadequada'
+
+                    const subtarefasHtml = `
+                        <label class="flex items-start cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                class="subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 focus:ring-offset-0"
+                                data-cod-subtarefa="${subtarefa1 ? subtarefa1.cod_subtarefa : ''}"
+                                data-obrigatoria="true"
+                                data-ordem="1"
+                                ${subtarefa1 && subtarefa1.concluida ? 'checked' : ''}
+                                ${item.status_acao === 'CANCELADA' ? 'disabled' : ''}
+                            >
+                            <span class="ml-2 text-xs text-amber-700 group-hover:text-amber-900">
+                                Nova receita dos medicamentos entregue ao paciente
+                                ${subtarefa1 && subtarefa1.concluida && subtarefa1.data_conclusao ?
+                                    `<span class="text-green-600 ml-1">✓ (${new Date(subtarefa1.data_conclusao).toLocaleDateString('pt-BR')})</span>` : ''}
+                            </span>
+                        </label>
+                        <label class="flex items-start cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                class="subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 focus:ring-offset-0"
+                                data-cod-subtarefa="${subtarefa2 ? subtarefa2.cod_subtarefa : ''}"
+                                data-obrigatoria="true"
+                                data-ordem="2"
+                                ${subtarefa2 && subtarefa2.concluida ? 'checked' : ''}
+                                ${item.status_acao === 'CANCELADA' ? 'disabled' : ''}
+                            >
+                            <span class="ml-2 text-xs text-amber-700 group-hover:text-amber-900">
+                                15 dias depois reavaliar aderencia do paciente
+                                ${subtarefa2 && subtarefa2.concluida && subtarefa2.data_conclusao ?
+                                    `<span class="text-green-600 ml-1">✓ (${new Date(subtarefa2.data_conclusao).toLocaleDateString('pt-BR')})</span>` : ''}
+                            </span>
+                        </label>
+                        <div class="ml-6 mt-2 space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="aderencia_${item.cod_acompanhamento}" value="boa" class="text-amber-600 focus:ring-amber-500 aderencia-radio" data-cod-acompanhamento="${item.cod_acompanhamento}" ${aderencia === 'boa' ? 'checked' : ''}>
+                                <span class="ml-2 text-xs text-gray-700">Boa aderência</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="aderencia_${item.cod_acompanhamento}" value="inadequada" class="text-amber-600 focus:ring-amber-500 aderencia-radio" data-cod-acompanhamento="${item.cod_acompanhamento}" ${aderencia === 'inadequada' ? 'checked' : ''}>
+                                <span class="ml-2 text-xs text-gray-700">Aderência inadequada</span>
+                            </label>
+                        </div>
+                    `;
+
+                    cardSubtarefasTimeline = `
+                        <div class="mt-3 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-md">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <i class="ri-task-line text-amber-600 text-lg"></i>
+                                </div>
+                                <div class="ml-2 flex-1">
+                                    <h5 class="text-xs font-semibold text-amber-800 mb-2">Subtarefas (marque se já realizado):</h5>
+                                    <div class="space-y-2">
+                                        ${subtarefasHtml}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (item.subtarefas && item.subtarefas.length > 0) {
                     const subtarefasHtml = item.subtarefas.map(st => `
                         <label class="flex items-start cursor-pointer group">
                             <input
@@ -1752,12 +1817,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 const subtarefasObrigatorias = item.subtarefas.filter(st => st.obrigatoria);
                                                 if (subtarefasObrigatorias.length > 0) {
                                                     // Para cod_acao = 5 (Modificar Tratamento),
-                                                    // exigir que a subtarefa (ordem 1) esteja concluída
+                                                    // a lógica agora depende da aderência
                                                     if (item.cod_acao === 5) {
-                                                        const subtarefa = item.subtarefas.find(st => st.ordem === 1);
-                                                        podeCompletar = subtarefa && subtarefa.concluida;
+                                                        podeCompletar = item.aderencia === 'boa';
                                                         if (!podeCompletar) {
-                                                            tituloDisabled = "Complete a subtarefa 'Nova receita dos medicamentos entregue ao paciente' antes de concluir";
+                                                            tituloDisabled = "A ação só pode ser concluída se a aderência for 'Boa'.";
                                                         }
                                                     } else if (item.cod_acao === 7) {
                                                         // Para cod_acao = 7 (Encaminhar para Endocrinologia),
@@ -1830,6 +1894,26 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             elements.timelineContent.innerHTML = timelineHTML;
+
+            document.querySelectorAll('.aderencia-radio').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const codAcompanhamento = this.dataset.codAcompanhamento;
+                    const completeButton = document.querySelector(`.timeline-action-complete[data-cod-acompanhamento="${codAcompanhamento}"]`);
+                    if (!completeButton) return;
+
+                    if (this.value === 'boa' && this.checked) {
+                        completeButton.disabled = false;
+                        completeButton.classList.remove('bg-gray-400', 'text-gray-200', 'cursor-not-allowed');
+                        completeButton.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700', 'cursor-pointer');
+                        completeButton.title = 'Marcar como concluída';
+                    } else {
+                        completeButton.disabled = true;
+                        completeButton.classList.add('bg-gray-400', 'text-gray-200', 'cursor-not-allowed');
+                        completeButton.classList.remove('bg-green-600', 'text-white', 'hover:bg-green-700', 'cursor-pointer');
+                        completeButton.title = "A ação só pode ser concluída se a aderência for 'Boa'.";
+                    }
+                });
+            });
             
             // Adicionar event listeners para os botões de expandir/recolher MRG
             document.querySelectorAll('.mrg-toggle-btn').forEach(button => {
@@ -1983,44 +2067,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
 
-            // Adicionar listener apenas UMA VEZ usando flag
-            if (!subtarefaListenerAdded) {
-                elements.timelineContent.addEventListener('change', async function(event) {
-                    // Verificar se o elemento clicado é um checkbox de subtarefa
-                    if (event.target.classList.contains('subtarefa-checkbox')) {
-                        const checkbox = event.target;
-                        console.log('=== CHECKBOX CLICADO ===');
+            // Adicionar event listeners para os checkboxes de subtarefas
+            document.querySelectorAll('.subtarefa-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', async function() {
+                    console.log('--- CHECKBOX CHANGE EVENT ---');
+                    const checkbox = this;
+                    console.log('Elemento clicado:', checkbox);
+                    console.log('Está marcado? (this.checked):', checkbox.checked);
 
-                        const codSubtarefa = checkbox.getAttribute('data-cod-subtarefa');
-                        const concluida = checkbox.checked;
-                        const obrigatoria = checkbox.getAttribute('data-obrigatoria');
-                        console.log('Cod subtarefa:', codSubtarefa, 'Concluída:', concluida, 'Obrigatória:', obrigatoria);
+                    const codSubtarefa = checkbox.getAttribute('data-cod-subtarefa');
+                    const concluida = checkbox.checked;
+                    
+                    if (!codSubtarefa) {
+                        console.error('Código da subtarefa não encontrado no elemento:', checkbox);
+                        return;
+                    }
 
-                        if (!codSubtarefa) {
-                            console.error('Código da subtarefa não encontrado');
-                            return;
-                        }
+                    console.log('Chamando updateCompleteButtonState...');
+                    updateCompleteButtonState(checkbox);
 
-                        // Atualizar o botão IMEDIATAMENTE ao clicar
-                        console.log('Chamando updateCompleteButtonState...');
+                    try {
+                        await handleSubtarefaUpdate(codSubtarefa, concluida, checkbox);
+                    } catch (error) {
+                        console.error('Erro ao atualizar subtarefa:', error);
+                        alert('Erro ao atualizar subtarefa. Tente novamente.');
+                        checkbox.checked = !concluida;
+                        console.log('Checkbox revertido. Chamando updateCompleteButtonState novamente...');
                         updateCompleteButtonState(checkbox);
-
-                        try {
-                            await handleSubtarefaUpdate(codSubtarefa, concluida, checkbox);
-                        } catch (error) {
-                            console.error('Erro ao atualizar subtarefa:', error);
-                            alert('Erro ao atualizar subtarefa. Tente novamente.');
-                            // Reverter checkbox em caso de erro
-                            checkbox.checked = !concluida;
-                            // Atualizar botão novamente após reverter
-                            updateCompleteButtonState(checkbox);
-                        }
                     }
                 });
-
-                subtarefaListenerAdded = true;
-                console.log('✅ Event listener de subtarefas adicionado');
-            }
+            });
         } catch (error) {
             console.error('Erro ao carregar timeline:', error);
             elements.timelineContent.innerHTML = '<div class="p-4 text-center text-red-500">Erro ao carregar timeline</div>';
@@ -2105,104 +2181,41 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Filtrar timeline por:', filterType);
     }
 
-    // Função para atualizar estado do botão "Ação Concluída" baseado nas subtarefas obrigatórias
     function updateCompleteButtonState(checkboxElement) {
-        console.log('🔍 updateCompleteButtonState - iniciando...');
+        const timelineCard = checkboxElement.closest('.border-l-4.border-amber-500');
+        if (!timelineCard) return;
 
-        // Pegar o cod_subtarefa para identificar o cod_acompanhamento
-        const codSubtarefa = checkboxElement.getAttribute('data-cod-subtarefa');
-        console.log('📌 Cod subtarefa:', codSubtarefa);
+        const completeButton = timelineCard.querySelector('.timeline-action-complete');
+        if (!completeButton) return;
 
-        // Buscar o botão pelo cod_acompanhamento em toda a timeline
-        // Primeiro, vamos encontrar qual ação essa subtarefa pertence
-        // através do data-cod-acompanhamento que deve estar nos botões
-
-        // Tentar encontrar o card pai
-        let timelineCard = checkboxElement.closest('.border-l-4');
-
-        if (!timelineCard) {
-            console.error('❌ timelineCard não encontrado!');
-            return;
-        }
-
-        console.log('📦 timelineCard encontrado');
-
-        // Buscar botão em toda a timeline content ao invés de só no card
-        const completeButton = document.querySelector(`.timeline-action-complete[data-cod-acompanhamento]`);
-
-        // Debug: mostrar todos os botões
-        const allTimelineButtons = document.querySelectorAll('.timeline-action-btn');
-        console.log('Total de botões na timeline:', allTimelineButtons.length);
-
-        const cardButtons = timelineCard.querySelectorAll('button');
-        console.log('Total de botões no card específico:', cardButtons.length);
-
-        if (!completeButton) {
-            console.error('❌ Nenhum botão completeButton encontrado na timeline!');
-            return;
-        }
-
-        console.log('✅ Botão encontrado:', completeButton.textContent.trim());
-
-        // Obter cod_acao do botão para determinar lógica de validação
-        const codAcompanhamento = completeButton.getAttribute('data-cod-acompanhamento');
         const codAcao = completeButton.getAttribute('data-cod-acao');
 
-        // Verificar se tem pelo menos uma subtarefa obrigatória marcada
-        const subtarefaCheckboxes = timelineCard.querySelectorAll('.subtarefa-checkbox');
-        let temSubtarefaObrigatoriaConcluida = false;
+        let podeCompletar = false;
 
-        // Buscar checkboxes obrigatórias (data-obrigatoria="true")
-        console.log('Total de checkboxes:', subtarefaCheckboxes.length);
-        console.log('cod_acao:', codAcao);
-
-        // Para cod_acao = 5 (Modificar Tratamento), exigir a subtarefa (ordem 1)
-        if (codAcao === '5') {
-            const checkbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '1');
-            temSubtarefaObrigatoriaConcluida = checkbox && checkbox.checked;
-            console.log('Verificação especial cod_acao 5 - subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
-        } else if (codAcao === '7') {
-            // Para cod_acao = 7 (Encaminhar para Endocrinologia), exigir a última subtarefa (ordem 6)
-            const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '6');
-            temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
-            console.log('Verificação especial cod_acao 7 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
-        } else if (codAcao === '8') {
-            // Para cod_acao = 8 (Encaminhar para Nutrição), exigir a última subtarefa (ordem 2)
-            const ultimaCheckbox = Array.from(subtarefaCheckboxes).find(cb => cb.getAttribute('data-ordem') === '2');
-            temSubtarefaObrigatoriaConcluida = ultimaCheckbox && ultimaCheckbox.checked;
-            console.log('Verificação especial cod_acao 8 - última subtarefa concluída?', temSubtarefaObrigatoriaConcluida);
-        } else {
-            // Para outras ações, pelo menos uma obrigatória deve estar concluída
-            subtarefaCheckboxes.forEach((checkbox, index) => {
-                const isObrigatoria = checkbox.getAttribute('data-obrigatoria');
-                const isChecked = checkbox.checked;
-                console.log(`Checkbox ${index + 1}: obrigatoria="${isObrigatoria}", checked=${isChecked}`);
-
-                if (isObrigatoria === 'true' && checkbox.checked) {
-                    temSubtarefaObrigatoriaConcluida = true;
-                }
-            });
+        if (codAcao === '5') { // Modificar Tratamento
+            return; 
         }
 
-        console.log('Resultado final - Tem obrigatória concluída?', temSubtarefaObrigatoriaConcluida);
+        const subtarefaCheckboxes = timelineCard.querySelectorAll('.subtarefa-checkbox');
+        const subtarefasObrigatorias = Array.from(subtarefaCheckboxes).filter(cb => cb.getAttribute('data-obrigatoria') === 'true');
+        
+        if (subtarefasObrigatorias.length > 0) {
+            podeCompletar = subtarefasObrigatorias.some(cb => cb.checked);
+        } else {
+            // Se não há subtarefas obrigatórias, qualquer uma marcada é suficiente
+            podeCompletar = Array.from(subtarefaCheckboxes).some(cb => cb.checked);
+        }
 
-        // Habilitar/desabilitar botão
-        if (temSubtarefaObrigatoriaConcluida) {
-            completeButton.disabled = false;
-            completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-green-600 text-white hover:bg-green-700 cursor-pointer';
+        completeButton.disabled = !podeCompletar;
+
+        if (podeCompletar) {
+            completeButton.classList.remove('bg-gray-400', 'text-gray-200', 'cursor-not-allowed');
+            completeButton.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700', 'cursor-pointer');
             completeButton.title = 'Marcar como concluída';
         } else {
-            completeButton.disabled = true;
-            completeButton.className = 'timeline-action-btn timeline-action-complete text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-gray-400 text-gray-200 cursor-not-allowed';
-            let mensagem = 'Complete pelo menos uma subtarefa obrigatória (Exames ou MGR) antes de concluir';
-            if (codAcao === '5') {
-                mensagem = "Complete a subtarefa 'Nova receita dos medicamentos entregue ao paciente' antes de concluir";
-            } else if (codAcao === '7') {
-                mensagem = "Complete a subtarefa 'Consulta com endocrinologia realizada' antes de concluir";
-            } else if (codAcao === '8') {
-                mensagem = "Complete a subtarefa 'Consulta com a Nutrição realizada' antes de concluir";
-            }
-            completeButton.title = mensagem;
+            completeButton.classList.add('bg-gray-400', 'text-gray-200', 'cursor-not-allowed');
+            completeButton.classList.remove('bg-green-600', 'text-white', 'hover:bg-green-700', 'cursor-pointer');
+            completeButton.title = 'Complete pelo menos uma subtarefa antes de concluir';
         }
     }
 

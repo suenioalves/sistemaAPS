@@ -1,0 +1,16 @@
+@static/hiperdiaApi.js @static/hiperdia_dm_script.js @templates/painel-hiperdia-dm.html @static/hiperdiaDom.js @app.py @bd_sistema_aps/Scripts/Hiperdia/Diabetes/ @docs/                                                           
+
+Você um desenvolvedor senior de aplicações.
+Baseado nos melhores agentes, com auxilio dos @docs/ *.md, realize esta tarefa:
+
+--- CHECKBOX CHANGE EVENT ---
+hiperdia_dm_script.js:2075 Elemento clicado: <input type=​"checkbox" class=​"subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:​ring-amber-500 focus:​ring-offset-0" data-cod-subtarefa=​"306" data-obrigatoria=​"true" data-ordem=​"3">​
+hiperdia_dm_script.js:2076 Está marcado? (this.checked): true
+hiperdia_dm_script.js:2086 Chamando updateCompleteButtonState...
+hiperdia_dm_script.js:2185 --- DENTRO DE updateCompleteButtonState ---
+hiperdia_dm_script.js:2186 Recebido checkboxElement: <input type=​"checkbox" class=​"subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:​ring-amber-500 focus:​ring-offset-0" data-cod-subtarefa=​"306" data-obrigatoria=​"true" data-ordem=​"3">​
+hiperdia_dm_script.js:2187 Está marcado? (checkboxElement.checked): true
+hiperdia_dm_script.js:2194 Card da timeline encontrado: <div class=​"mt-3 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-md">​…​</div>​
+hiperdia_dm_script.js:2198 ERRO: Botão "Ação Concluída" (.timeline-action-complete) não foi encontrado dentro do card.
+updateCompleteButtonState @ hiperdia_dm_script.js:2198
+(anônimo) @ hiperdia_dm_script.js:2087

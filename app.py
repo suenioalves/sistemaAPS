@@ -40,15 +40,19 @@ TIPO_ACAO_MAP_PY = {
 
 # Global map for diabetes action types (Hiperdia Diabetes)
 TIPO_ACAO_DIABETES_MAP_PY = {
-    1: "Agendar Novo Acompanhamento",
-    2: "Solicitar Hemoglobina Glicada, Glicemia Média e Glicemia de Jejum",
+    1: "Agendar Novo Acompanhamento DM",
+    2: "Aguardando Coleta de Exames e Glicemias Residenciais",
     3: "Solicitar Mapeamento Residencial de Glicemias",
-    4: "Avaliar Tratamento",
-    5: "Modificar Tratamento",
-    6: "Finalizar Acompanhamento",
-    7: "Iniciar/Monitorar Insulinoterapia",
-    8: "Encaminhar para Endocrinologia",
-    9: "Encaminhar para Nutrição"
+    4: "Avaliar Tratamento DM",
+    5: "Modificar Tratamento DM",
+    6: "Finalizar Acompanhamento DM", # Mantido por compatibilidade, mas 12 é o novo padrão
+    7: "Encaminhar para Endocrinologia",
+    8: "Encaminhar para Nutrição",
+    9: "Agendar novo acompanhamento", # Mantido por compatibilidade, mas 1 é o novo padrão
+    10: "Encaminhar Cardiologia",
+    11: "Registrar Cardiologia",
+    12: "Finalizar Acompanhamento",
+    13: "Iniciar/Monitorar Insulinoterapia"
 }
 
 # Global map for Plafam action types
@@ -7269,20 +7273,30 @@ def api_diabetes_registrar_acao():
             rows_inserted = cur.rowcount
             print(f"[DEBUG] {rows_inserted} subtarefas inseridas para endocrinologia")
 
-        # Se cod_acao = 5 (Modificar Tratamento), criar subtarefas automaticamente
+        # Se cod_acao = 5 (Modificar Tratamento), criar subtarefas manualmente
         if data['cod_acao_atual'] == 5:
-            print(f"[DEBUG] Criando subtarefas para cod_acao=5, cod_acompanhamento={cod_acompanhamento}")
-            query_subtarefas_modificar = """
+            print(f"[DEBUG] Criando subtarefas manualmente para cod_acao=5, cod_acompanhamento={cod_acompanhamento}")
+            
+            subtarefas = [
+                (1, 'Nova receita dos medicamentos entregue ao paciente', True),
+                (2, '15 dias depois reavaliar aderencia do paciente', True)
+            ]
+            
+            query_subtarefas_manual = """
                 INSERT INTO sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas
                 (cod_acompanhamento, ordem, descricao, obrigatoria, concluida)
-                SELECT %(cod_acompanhamento)s, ordem, descricao, obrigatoria, FALSE
-                FROM sistemaaps.vw_subtarefas_template
-                WHERE cod_acao = 5
-                ORDER BY ordem
+                VALUES (%(cod_acompanhamento)s, %(ordem)s, %(descricao)s, %(obrigatoria)s, FALSE)
             """
-            cur.execute(query_subtarefas_modificar, {'cod_acompanhamento': cod_acompanhamento})
-            rows_inserted = cur.rowcount
-            print(f"[DEBUG] {rows_inserted} subtarefas inseridas para modificar tratamento")
+            
+            for ordem, descricao, obrigatoria in subtarefas:
+                cur.execute(query_subtarefas_manual, {
+                    'cod_acompanhamento': cod_acompanhamento,
+                    'ordem': ordem,
+                    'descricao': descricao,
+                    'obrigatoria': obrigatoria
+                })
+            
+            print(f"[DEBUG] {len(subtarefas)} subtarefas inseridas manualmente para modificar tratamento")
 
         # Se cod_acao = 8 (Encaminhar para Nutrição), criar subtarefas automaticamente
         if data['cod_acao_atual'] == 8:
