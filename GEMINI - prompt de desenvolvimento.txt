@@ -1,16 +1,20 @@
-@static/hiperdiaApi.js @static/hiperdia_dm_script.js @templates/painel-hiperdia-dm.html @static/hiperdiaDom.js @app.py @bd_sistema_aps/Scripts/Hiperdia/Diabetes/ @docs/                                                           
+@static/hiperdiaApi.js @static/hiperdia_dm_script.js @templates/painel-hiperdia-dm.html @static/hiperdiaDom.js @app.py @bd_sistema_aps/Scripts/Hiperdia/Diabetes/ @docs/
+@static/insulinoterapia.js                                                            
 
 Você um desenvolvedor senior de aplicações.
 Baseado nos melhores agentes, com auxilio dos @docs/ *.md, realize esta tarefa:
 
---- CHECKBOX CHANGE EVENT ---
-hiperdia_dm_script.js:2075 Elemento clicado: <input type=​"checkbox" class=​"subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:​ring-amber-500 focus:​ring-offset-0" data-cod-subtarefa=​"306" data-obrigatoria=​"true" data-ordem=​"3">​
-hiperdia_dm_script.js:2076 Está marcado? (this.checked): true
-hiperdia_dm_script.js:2086 Chamando updateCompleteButtonState...
-hiperdia_dm_script.js:2185 --- DENTRO DE updateCompleteButtonState ---
-hiperdia_dm_script.js:2186 Recebido checkboxElement: <input type=​"checkbox" class=​"subtarefa-checkbox mt-0.5 rounded border-amber-300 text-amber-600 focus:​ring-amber-500 focus:​ring-offset-0" data-cod-subtarefa=​"306" data-obrigatoria=​"true" data-ordem=​"3">​
-hiperdia_dm_script.js:2187 Está marcado? (checkboxElement.checked): true
-hiperdia_dm_script.js:2194 Card da timeline encontrado: <div class=​"mt-3 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-md">​…​</div>​
-hiperdia_dm_script.js:2198 ERRO: Botão "Ação Concluída" (.timeline-action-complete) não foi encontrado dentro do card.
-updateCompleteButtonState @ hiperdia_dm_script.js:2198
-(anônimo) @ hiperdia_dm_script.js:2087
+Agora vamos trablahar o modal Jornada da Insulina;
+
+1) modifique o Titulo para Insulinoterapia (retirar Jornada da insulina)
+
+2) modifique tambem "Bem-vindo à Jornada da Insulinoterapia! " para "Bem-vindo a seu ajudante de Insulinoterapia! "
+
+3) Modifique o botão Iniciar Minha Jornada para Iniciar Insulinoterapia
+
+4) Ao clicar neste botão Iniciar Insulinoterapia 
+
+5) quando não tem nenhuma insulinoterapia prescrita aparece esta mensagem "Nenhuma prescrição de insulina encontrada. Registre uma prescrição antes de iniciar a jornada."
+
+6) Deve tambem aparecer uma chamada para o modal  Gerenciar Tratamento do paciente. apos eu inserir o tratamento com a insulina ai ele volta para o modal de insulinoterapia ja atualizado com as doses da insulinas usadas. 
+

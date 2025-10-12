@@ -197,61 +197,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Modificar tratamento agora apenas registra a ação na timeline
                     // O tratamento real será modificado através do modal de tratamento separadamente
                 } else if (codAcao === 13) { // Iniciar/Monitorar Insulinoterapia
-                    // Exibir card informativo com botão para abrir Jornada da Insulina
+                    // Nenhuma ação visual extra é necessária aqui, apenas permitir salvar.
                     const cardInfoContainer = document.getElementById('card-info-container-diabetes');
                     if (cardInfoContainer) {
-                        cardInfoContainer.innerHTML = `
-                            <div class="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-md">
-                                <div class="flex items-start">
-                                    <div class="flex-shrink-0">
-                                        <i class="ri-information-line text-orange-600 text-xl"></i>
-                                    </div>
-                                    <div class="ml-3 flex-1">
-                                        <h4 class="text-sm font-semibold text-orange-800 mb-2">Jornada da Insulina</h4>
-                                        <p class="text-sm text-orange-700 mb-3">
-                                            Esta ação abrirá uma interface interativa especial para acompanhamento do processo
-                                            de ajuste de insulina, baseado nas diretrizes brasileiras de diabetes.
-                                        </p>
-                                        <button type="button"
-                                                id="btn-abrir-jornada-insulina"
-                                                class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors inline-flex items-center">
-                                            <i class="ri-syringe-line mr-2"></i>
-                                            Abrir Jornada da Insulina
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        cardInfoContainer.classList.remove('hidden');
-
-                        // Adicionar event listener ao botão após criar o HTML
-                        setTimeout(() => {
-                            const btnJornada = document.getElementById('btn-abrir-jornada-insulina');
-                            if (btnJornada) {
-                                btnJornada.addEventListener('click', function() {
-                                    console.log('[DEBUG] Botão Jornada clicado');
-                                    console.log('[DEBUG] JornadaInsulinoterapia:', window.JornadaInsulinoterapia);
-                                    console.log('[DEBUG] hiperdiaDom:', hiperdiaDom);
-                                    console.log('[DEBUG] Paciente atual:', hiperdiaDom.currentPacienteForModal);
-
-                                    if (window.JornadaInsulinoterapia && hiperdiaDom.currentPacienteForModal) {
-                                        window.JornadaInsulinoterapia.iniciar(hiperdiaDom.currentPacienteForModal);
-                                        document.getElementById('register-action-modal-diabetes').classList.add('hidden');
-                                    } else {
-                                        console.error('[ERRO] JornadaInsulinoterapia ou paciente não disponível');
-                                        console.error('[ERRO] JornadaInsulinoterapia existe?', !!window.JornadaInsulinoterapia);
-                                        console.error('[ERRO] Paciente existe?', !!hiperdiaDom.currentPacienteForModal);
-                                        alert('Erro ao abrir Jornada da Insulina. Verifique o console para detalhes.');
-                                    }
-                                });
-                            }
-                        }, 100);
+                        cardInfoContainer.innerHTML = '';
+                        cardInfoContainer.classList.add('hidden');
                     }
-
-                    // Ocultar botão "Salvar Ação"
                     const saveBtn = document.getElementById('save-action-btn-diabetes');
                     if (saveBtn) {
-                        saveBtn.style.display = 'none';
+                        saveBtn.style.display = '';
                     }
                 } else {
                     // Para outras ações, limpar o card e mostrar botão salvar
@@ -1795,17 +1749,32 @@ document.addEventListener('DOMContentLoaded', function () {
 
                                 <!-- Botões de ação da timeline -->
                                 <div class="flex flex-wrap gap-2 mt-3 pt-2 border-t border-gray-200">
-                                    ${/* Botão especial "Avaliar Tratamento" para ação 4 em status AGUARDANDO */ ''}
-                                    ${(item.cod_acao === 4 && item.status_acao === 'AGUARDANDO') ? `
-                                        <button
-                                            class="avaliar-tratamento-btn text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-cyan-600 text-white hover:bg-cyan-700 cursor-pointer"
-                                            data-cod-acompanhamento="${item.cod_acompanhamento}"
-                                            title="Abrir modal para avaliar o tratamento"
-                                        >
-                                            <i class="ri-stethoscope-line mr-1"></i>
-                                            Avaliar Tratamento
-                                        </button>
-                                    ` : ''}
+                                ${(() => {
+                                            // Botão especial para Abrir Jornada da Insulina
+                                            if (item.cod_acao === 13) {
+                                                return `<button
+                                                    class="abrir-jornada-insulina-btn text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-orange-500 text-white hover:bg-orange-600 cursor-pointer"
+                                                    data-paciente='${JSON.stringify(currentPacienteForModal)}'
+                                                    title="Abrir a Jornada da Insulina para este paciente"
+                                                >
+                                                    <i class="ri-syringe-line mr-1"></i>
+                                                    Abrir Insulinoterapia
+                                                </button>`;
+                                            }
+
+                                            // Botão de "Avaliar Tratamento" para ação 4 em status AGUARDANDO
+                                            if (item.cod_acao === 4 && item.status_acao === 'AGUARDANDO') {
+                                                return `<button
+                                                    class="avaliar-tratamento-btn text-xs px-3 py-1 rounded-md transition-colors duration-200 flex items-center bg-cyan-600 text-white hover:bg-cyan-700 cursor-pointer"
+                                                    data-cod-acompanhamento="${item.cod_acompanhamento}"
+                                                    title="Abrir modal para avaliar o tratamento"
+                                                >
+                                                    <i class="ri-stethoscope-line mr-1"></i>
+                                                    Avaliar Tratamento
+                                                </button>`;
+                                            }
+                                            return '';
+                                        })()}
 
                                     ${(item.status_acao !== 'REALIZADA' && item.status_acao !== 'FINALIZADO') ? `
                                         ${(() => {
@@ -1894,6 +1863,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             elements.timelineContent.innerHTML = timelineHTML;
+
+            // Adicionar event listener para o novo botão da Jornada da Insulina
+            elements.timelineContent.addEventListener('click', function(event) {
+                const target = event.target.closest('.abrir-jornada-insulina-btn');
+                if (target) {
+                    const pacienteData = JSON.parse(target.dataset.paciente);
+                    abrirJornadaInsulina(pacienteData);
+                }
+            });
 
             document.querySelectorAll('.aderencia-radio').forEach(radio => {
                 radio.addEventListener('change', function() {
