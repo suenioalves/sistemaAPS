@@ -98,7 +98,7 @@ const JornadaInsulinoterapia = {
      */
     criarModal() {
         const modalHTML = `
-            <div id="modal-jornada-insulina" class="fixed z-50 inset-0 overflow-y-auto hidden">
+            <div id="modal-jornada-insulina" class="fixed z-40 inset-0 overflow-y-auto hidden">
                 <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                     <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="JornadaInsulinoterapia.fecharModal()"></div>
 
@@ -111,7 +111,7 @@ const JornadaInsulinoterapia = {
                                     </div>
                                     <div class="ml-4">
                                         <h3 class="text-xl font-bold text-white" id="titulo-jornada-insulina">
-                                            Jornada da Insulina
+                                            Insulinoterapia
                                         </h3>
                                         <p class="text-sm text-orange-100" id="subtitulo-jornada-insulina"></p>
                                     </div>
@@ -204,7 +204,7 @@ const JornadaInsulinoterapia = {
                         </div>
                         <div class="ml-4 flex-1">
                             <h4 class="text-lg font-bold text-gray-800 mb-2">
-                                Bem-vindo à Jornada da Insulinoterapia! 🎯
+                                Bem-vindo a seu ajudante de Insulinoterapia! 🎯
                             </h4>
                             <p class="text-gray-700 leading-relaxed">
                                 Vamos ajudá-lo a encontrar as doses ideais de insulina de forma segura e gradual,
@@ -261,7 +261,7 @@ const JornadaInsulinoterapia = {
                             id="btn-iniciar-jornada"
                             class="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="ri-play-circle-line mr-2"></i>
-                        Iniciar Minha Jornada
+                        Iniciar Insulinoterapia
                     </button>
                 </div>
             </div>
@@ -391,7 +391,11 @@ const JornadaInsulinoterapia = {
         return `
             <div class="space-y-2">
                 ${registros.map(r => {
-                    const data = new Date(r.data_registro).toLocaleDateString('pt-BR');
+                    const date = new Date(r.data_registro);
+                    const day = String(date.getUTCDate()).padStart(2, '0');
+                    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const year = date.getUTCFullYear();
+                    const data = `${day}/${month}/${year}`;
                     const valor = r.valor_glicemia;
                     let corClass = 'text-gray-700';
                     let icon = '⚪';
@@ -473,6 +477,128 @@ const JornadaInsulinoterapia = {
      * Renderiza Fase 2: Mapeamento
      */
     renderFase2Mapeamento() {
+        const registrosFase2 = this.registros.filter(r => r.fase_tratamento === this.FASES.FASE2_MAPEAMENTO);
+
+        // Group by date
+        const registrosPorData = registrosFase2.reduce((acc, r) => {
+            if (r.data_registro) {
+                const date = new Date(r.data_registro);
+                const day = String(date.getUTCDate()).padStart(2, '0');
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                const year = date.getUTCFullYear();
+                const dataFormatada = `${day}/${month}/${year}`;
+
+                if (!acc[dataFormatada]) {
+                    acc[dataFormatada] = [];
+                }
+                acc[dataFormatada].push(r);
+            }
+            return acc;
+        }, {});
+
+        let historicoHtml = '<p class="text-gray-500 text-sm">Nenhum mapeamento registrado ainda</p>';
+        if (Object.keys(registrosPorData).length > 0) {
+            const tiposGlicemia = ['Jejum', 'Antes Almoco', '2h Apos Almoco', 'Antes Jantar', '2h Apos Jantar', 'Ao Deitar'];
+            
+            historicoHtml = `
+                <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th scope="col" class="px-4 py-3">Data</th>
+                                ${tiposGlicemia.map(tipo => `<th scope="col" class="px-4 py-3 text-center">${tipo.replace(' ', '<br>')}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            historicoHtml += Object.entries(registrosPorData).map(([data, registros]) => {
+                const row = `
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <th scope="row" class="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">${data}</th>
+                `;
+
+                const rowData = tiposGlicemia.map(tipo => {
+                    const registro = registros.find(r => r.tipo_glicemia && r.tipo_glicemia.replace(/_/g, ' ') === tipo);
+                    const valor = registro ? registro.valor_glicemia : '-';
+                    let corClasse = 'text-gray-700';
+                    if (registro) {
+                        const valorNum = parseFloat(valor);
+                        const isPrePrandial = tipo.includes('Jejum') || tipo.includes('Antes');
+
+                        if (isPrePrandial) {
+                            if (valorNum < this.METAS.HIPOGLICEMIA) {
+                                corClasse = 'text-red-600 font-bold'; // Hipoglicemia
+                            } else if (valorNum >= this.METAS.JEJUM_MIN && valorNum <= this.METAS.JEJUM_MAX) {
+                                corClasse = 'text-green-600 font-semibold'; // Meta
+                            } else if (valorNum > this.METAS.JEJUM_MAX) {
+                                corClasse = 'text-red-600 font-bold'; // Alta
+                            }
+                        } else { // Pós-prandial or Ao Deitar
+                            if (valorNum < this.METAS.HIPOGLICEMIA) {
+                                corClasse = 'text-red-600 font-bold'; // Hipoglicemia
+                            } else if (valorNum <= this.METAS.POS_PRANDIAL_MAX) {
+                                corClasse = 'text-green-600 font-semibold'; // Meta
+                            } else {
+                                corClasse = 'text-red-600 font-bold'; // Alta
+                            }
+                        }
+                    }
+
+                    return `<td class="px-4 py-4 text-center ${corClasse}">${valor}</td>`;
+                }).join('');
+
+                return row + rowData + '</tr>';
+            }).join('');
+
+            historicoHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Analise Inteligente
+        let analiseHtml = 'Preencha as medições para ver a análise';
+        if (registrosFase2.length > 0) {
+            const jejum = registrosFase2.filter(r => r.tipo_glicemia === this.TIPOS_GLICEMIA.JEJUM);
+            const posPrandial = registrosFase2.filter(r => r.tipo_glicemia && r.tipo_glicemia.includes('Apos'));
+            const hipoglicemias = registrosFase2.filter(r => r.valor_glicemia < this.METAS.HIPOGLICEMIA);
+
+            let summary = [];
+
+            // Analyze fasting glucose
+            if (jejum.length > 0) {
+                const mediaJejum = jejum.reduce((acc, r) => acc + r.valor_glicemia, 0) / jejum.length;
+                if (mediaJejum > this.METAS.JEJUM_MAX) {
+                    summary.push('Glicemia de jejum elevada, sugere ajuste na insulina basal (NPH).');
+                } else if (mediaJejum < this.METAS.JEJUM_MIN && mediaJejum > this.METAS.HIPOGLICEMIA) {
+                    summary.push('Glicemia de jejum tende a baixa, monitorar e considerar ajuste fino.');
+                }
+            }
+
+            // Analyze postprandial glucose
+            if (posPrandial.length > 0) {
+                const picos = posPrandial.filter(r => r.valor_glicemia > this.METAS.POS_PRANDIAL_MAX);
+                if (picos.length > 0) {
+                    const refeicao = picos[0].tipo_glicemia.includes('Almoco') ? 'almoço' : 'jantar';
+                    summary.push(`Picos de hiperglicemia após as refeições (${refeicao}), avaliar necessidade de insulina rápida.`);
+                }
+            }
+
+            // Analyze hypoglycemia
+            if (hipoglicemias.length > 0) {
+                const momento = hipoglicemias[0].tipo_glicemia ? hipoglicemias[0].tipo_glicemia.replace(/_/g, ' ') : 'em algum momento';
+                summary.push(`Atenção: Risco de hipoglicemia detectado (${momento}). Necessário reavaliar doses.`);
+            }
+
+            if (summary.length === 0 && registrosFase2.length > 0) {
+                analiseHtml = '<p class="text-green-600 font-semibold">🎉 Bom controle geral! As glicemias estão maioritariamente dentro das metas estabelecidas.</p>';
+            } else if (summary.length > 0) {
+                analiseHtml = '<ul>' + summary.slice(0, 3).map(s => `<li class="mb-1">- ${s}</li>`).join('') + '</ul>';
+            }
+        }
+
         return `
             <div class="space-y-6">
                 <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
@@ -486,6 +612,13 @@ const JornadaInsulinoterapia = {
                             </p>
                         </div>
                     </div>
+                </div>
+
+                ${this.renderDosesInsulinaCard()}
+
+                <div class="mb-4">
+                    <label for="data-mapeamento" class="block text-sm font-medium text-gray-700 mb-1">Data do Registro</label>
+                    <input type="date" id="data-mapeamento" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" value="${new Date().toISOString().split('T')[0]}">
                 </div>
 
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -503,13 +636,20 @@ const JornadaInsulinoterapia = {
                     Salvar Mapeamento
                 </button>
 
+                <div id="historico-mapeamento" class="bg-white border border-gray-200 rounded-lg p-4">
+                    <h5 class="font-bold text-gray-800 mb-3">Histórico de Mapeamentos</h5>
+                    <div id="lista-mapeamento">
+                        ${historicoHtml}
+                    </div>
+                </div>
+
                 <div id="analise-mapeamento" class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-lg p-4">
                     <h5 class="font-bold text-gray-800 mb-3 flex items-center">
                         <i class="ri-bar-chart-line text-blue-600 mr-2"></i>
                         Análise Inteligente
                     </h5>
                     <div id="resultado-analise" class="text-sm text-gray-700">
-                        Preencha as medições para ver a análise
+                        ${analiseHtml}
                     </div>
                 </div>
             </div>
@@ -550,7 +690,7 @@ const JornadaInsulinoterapia = {
      * Salva mapeamento completo do dia
      */
     async salvarMapeamento() {
-        const tiposGlicemia = [
+        const dataRegistro = document.getElementById('data-mapeamento').value;        const tiposGlicemia = [
             { tipo: 'JEJUM', nome: 'Jejum' },
             { tipo: 'ANTES_ALMOCO', nome: 'Antes do Almoço' },
             { tipo: 'APOS_ALMOCO_2H', nome: '2h após Almoço' },
@@ -598,6 +738,7 @@ const JornadaInsulinoterapia = {
                         tipo_glicemia: medicao.tipo,
                         valor_glicemia: medicao.valor,
                         sugestao_sistema: `Medição de ${medicao.nome}: ${medicao.valor} mg/dL`,
+                        data_registro: dataRegistro || null,
                         responsavel_registro: 'Sistema'
                     })
                 });
@@ -617,6 +758,35 @@ const JornadaInsulinoterapia = {
         } catch (error) {
             console.error('[ERRO] Erro ao salvar mapeamento:', error);
             alert('Erro ao salvar mapeamento');
+        }
+    },
+
+    /**
+     * Abre o modal de gerenciamento de tratamento e observa o fechamento
+     */
+    abrirGerenciarTratamento() {
+        if (window.abrirModalTratamentoDiabetes) {
+            window.abrirModalTratamentoDiabetes(this.pacienteAtual);
+
+            const treatmentModal = document.getElementById('diabetes-treatmentModal');
+            if (treatmentModal) {
+                const observer = new MutationObserver((mutationsList, observer) => {
+                    for (const mutation of mutationsList) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const isHidden = treatmentModal.classList.contains('hidden');
+                            if (isHidden) {
+                                this.iniciar(this.pacienteAtual);
+                                observer.disconnect();
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                observer.observe(treatmentModal, { attributes: true });
+            }
+        } else {
+            alert('Funcionalidade de gerenciamento de tratamento não está disponível.');
         }
     },
 
@@ -735,9 +905,16 @@ const JornadaInsulinoterapia = {
                     <div class="flex items-start">
                         <i class="ri-alert-line text-yellow-600 text-xl mr-3"></i>
                         <div>
-                            <p class="text-sm text-yellow-800">
-                                Nenhuma prescrição de insulina encontrada. Registre uma prescrição antes de iniciar a jornada.
+                            <p class="text-sm text-yellow-800 font-semibold">
+                                Nenhuma prescrição de insulina encontrada.
                             </p>
+                            <p class="text-sm text-yellow-700 mt-1">
+                                Registre uma prescrição antes de iniciar a jornada.
+                            </p>
+                            <button onclick="JornadaInsulinoterapia.abrirGerenciarTratamento()" class="mt-3 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium">
+                                <i class="ri-edit-line mr-1"></i>
+                                Gerenciar Tratamento
+                            </button>
                         </div>
                     </div>
                 </div>

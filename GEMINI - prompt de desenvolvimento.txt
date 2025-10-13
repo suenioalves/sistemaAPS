@@ -4,17 +4,8 @@
 Você um desenvolvedor senior de aplicações.
 Baseado nos melhores agentes, com auxilio dos @docs/ *.md, realize esta tarefa:
 
-Agora vamos trablahar o modal Jornada da Insulina;
-
-1) modifique o Titulo para Insulinoterapia (retirar Jornada da insulina)
-
-2) modifique tambem "Bem-vindo à Jornada da Insulinoterapia! " para "Bem-vindo a seu ajudante de Insulinoterapia! "
-
-3) Modifique o botão Iniciar Minha Jornada para Iniciar Insulinoterapia
-
-4) Ao clicar neste botão Iniciar Insulinoterapia 
-
-5) quando não tem nenhuma insulinoterapia prescrita aparece esta mensagem "Nenhuma prescrição de insulina encontrada. Registre uma prescrição antes de iniciar a jornada."
-
-6) Deve tambem aparecer uma chamada para o modal  Gerenciar Tratamento do paciente. apos eu inserir o tratamento com a insulina ai ele volta para o modal de insulinoterapia ja atualizado com as doses da insulinas usadas. 
-
+[ERRO] Erro ao iniciar jornada: TypeError: Cannot read properties of null (reading 'replace')
+    at Object.renderFase2Mapeamento (insulinoterapia.js:567:64)
+    at Object.renderizarConteudo (insulinoterapia.js:163:48)
+    at Object.abrirModal (insulinoterapia.js:85:14)
+    at Object.iniciar (insulinoterapia.js:69:18)

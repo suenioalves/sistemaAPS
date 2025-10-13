@@ -1077,7 +1077,6 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             let doses = dosesEstruturadas;
             
-            // Se for string JSON, fazer parse
             if (typeof dosesEstruturadas === 'string') {
                 try {
                     doses = JSON.parse(dosesEstruturadas);
@@ -1087,22 +1086,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
             
-            // Verificar se é array válido
             if (!Array.isArray(doses) || doses.length === 0) {
                 return 'Dose não definida';
             }
             
-            // Formatar doses no formato U (unidades)
             const dosesFormatadas = doses
                 .map(dose => {
-                    if (dose && typeof dose.dose === 'number') {
-                        return `${dose.dose}U`;
+                    if (dose && typeof dose.dose === 'number' && dose.horario) {
+                        return `${dose.dose}U ${dose.horario}`;
                     } else {
                         console.warn('Dose inválida encontrada:', dose);
-                        return '0U';
+                        return 'Dose inválida';
                     }
                 })
-                .join('/');
+                .join(' / ');
                 
             return dosesFormatadas || 'Dose não definida';
             
@@ -2518,9 +2515,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Função para carregar medicamentos atuais do paciente diabético
     async function loadMedicamentosAtuaisDiabetes(codCidadao) {
-        const container = document.getElementById('diabetes-medicamentosAtuaisContainer');
-        const countDiv = document.getElementById('diabetes-medicamentosAtivosCount');
-        const noMedicamentosMessage = document.getElementById('diabetes-noMedicamentosMessage');
+        const treatmentModal = document.getElementById('diabetes-treatmentModal');
+        if (!treatmentModal) {
+            console.error('Modal de tratamento (diabetes-treatmentModal) não encontrado no DOM.');
+            return;
+        }
+
+        const container = treatmentModal.querySelector('#diabetes-medicamentosAtuaisContainer');
+        const countDiv = treatmentModal.querySelector('#diabetes-medicamentosAtivosCount');
+        const noMedicamentosMessage = treatmentModal.querySelector('#diabetes-noMedicamentosMessage');
         
         if (!container) {
             console.error('Container diabetes-medicamentosAtuaisContainer não encontrado');
@@ -3105,7 +3108,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <h6 class="font-medium text-gray-900">${insulina.tipo_insulina}</h6>
                                 </div>
                                 <p class="text-sm text-gray-600">
-                                    ${insulina.doses_resumo || 'Dosagem não configurada'}
+                                    ${formatInsulinDoses(insulina.doses_estruturadas)}
                                 </p>
                                 <p class="text-xs text-gray-500">Início: ${dataInicio}</p>
                                 ${insulina.observacoes ? `<p class="text-xs text-gray-600 mt-1">${insulina.observacoes}</p>` : ''}
