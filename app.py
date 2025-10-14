@@ -4279,7 +4279,7 @@ def api_registrar_acao_hiperdia():
                     # 2. Criar "Iniciar MRPA" como REALIZADA com a data de hoje
                     print(f"[LOG] Criando ação 'Iniciar MRPA' como REALIZADA")
                     # Usar observação do usuário se fornecida, senão usar texto padrão
-                    observacao_iniciar_mrpa = observacoes_atuais if observacoes_atuais and observacoes_atuais.strip() else 'Iniciar MRPA para monitorização da pressão arterial.'
+                    observacao_iniciar_mrpa = observacoes if observacoes and observacoes.strip() else 'Iniciar MRPA para monitorização da pressão arterial.'
                     sql_insert_iniciar_mrpa_realizada = """
                         INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
                         (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
@@ -4735,10 +4735,9 @@ def api_registrar_acao_hiperdia():
                 cod_acompanhamento_criado = cur.fetchone()[0]
                 print(f"[LOG] Nova ação PENDENTE criada - cod_acompanhamento: {cod_acompanhamento_criado}, data_agendamento: {data_realizacao_acao}")
             else:
-                sql_insert_acompanhamento = """
-                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
+                sql_insert_acompanhamento = """                    INSERT INTO sistemaaps.tb_hiperdia_has_acompanhamento
                     (cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao)
-                    VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_realizacao)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
+                    VALUES (%(cod_cidadao)s, %(cod_acao)s, %(status_acao)s, %(data_agendamento)s, %(data_realizacao)s, %(observacoes)s, %(responsavel_pela_acao)s)
                     RETURNING cod_acompanhamento;
                 """
                 print(f"[LOG] Executando INSERT REALIZADA na tabela tb_hiperdia_has_acompanhamento")
@@ -4746,6 +4745,7 @@ def api_registrar_acao_hiperdia():
                     'cod_cidadao': cod_cidadao,
                     'cod_acao': cod_acao_atual,
                     'status_acao': status_acao,
+                    'data_agendamento': data_realizacao_acao,
                     'data_realizacao': data_realizacao_acao,
                     'observacoes': observacoes,
                     'responsavel_pela_acao': responsavel_pela_acao
@@ -4871,6 +4871,8 @@ def api_registrar_acao_hiperdia():
     except Exception as e:
         if conn: conn.rollback()
         print(f"[LOG] ERRO ao registrar ação do Hiperdia: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"sucesso": False, "erro": f"Erro no servidor: {str(e)}"}), 500
     finally:
         if cur: cur.close()
