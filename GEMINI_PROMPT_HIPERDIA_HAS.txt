@@ -1,0 +1,26 @@
+Você um desenvolvedor senior de aplicações.
+Baseado nos melhores agentes, com auxilio dos @docs/ *.md, realize esta tarefa:
+
+No painel Hiperdia - Hipertensos:
+
+@static/hiperdiaApi.js @static/hiperdiaDom.js @static/hiperdia_has_script.js                                   │
+│   @templates/painel-hiperdia-has.html @bd_sistema_aps/Scripts/Hiperdia/ @app.py 
+
+127.0.0.1 - - [14/Oct/2025 16:41:50] "GET /api/hiperdia/medicamentos/2443 HTTP/1.1" 200 -
+[LOG] Iniciando api_registrar_acao_hiperdia - cod_cidadao: 2443, cod_acao_atual: 1
+[LOG] Dados recebidos: {'cod_cidadao': 2443, 'cod_acao_atual': 1, 'data_acao_atual': '2025-10-14', 'observacoes': 'asdf', 'responsavel_pela_acao': 'sdaf', 'status_acao': 'REALIZADA', 'data_realizacao': '2025-10-14'}
+[LOG] Processando Iniciar MRPA (cod_acao = 1)
+[LOG] Verificando se existe 'Iniciar MRPA' PENDENTE para atualizar
+[LOG] Fluxo normal: marcando 'Agendar Hiperdia' como realizada e criando novo 'Iniciar MRPA' como REALIZADA
+[LOG] Marcando ações 'Agendar Hiperdia' pendentes como realizadas
+[LOG] Ações 'Agendar Hiperdia' pendentes marcadas como realizadas
+[LOG] Criando ação 'Iniciar MRPA' como REALIZADA
+[LOG] ERRO ao registrar ação do Hiperdia: name 'observacoes_atuais' is not defined
+Traceback (most recent call last):
+  File "C:\Users\Pichau\Desktop\SISTEMA APS\sistemaAPS\app.py", line 4282, in api_registrar_acao_hiperdia
+    observacao_iniciar_mrpa = observacoes_atuais if observacoes_atuais and observacoes_atuais.strip() else 'Iniciar MRPA para 
+monitorização da pressão arterial.'
+                                                    ^^^^^^^^^^^^^^^^^^
+NameError: name 'observacoes_atuais' is not defined
+127.0.0.1 - - [14/Oct/2025 16:41:56] "POST /api/hiperdia/registrar_acao HTTP/1.1" 500 -
+            

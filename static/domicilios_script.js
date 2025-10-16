@@ -646,7 +646,25 @@ document.addEventListener('DOMContentLoaded', function () {
             const responsaveis = domicilio.responsaveis_info.split(';;').filter(r => r && r.trim());
             if (responsaveis.length > 0) {
                 responsaveisHtml = responsaveis.map(resp => {
-                    const [nome, idade, sexo] = resp.split('|');
+                    // Formato: ID_CADASTRO::NOME|IDADE|SEXO
+                    // Primeiro separar o ID do resto
+                    const partes = resp.split('::');
+                    let nome, idade, sexo;
+
+                    if (partes.length === 2) {
+                        // Tem ID (novo formato)
+                        const dados = partes[1].split('|');
+                        nome = dados[0];
+                        idade = dados[1];
+                        sexo = dados[2];
+                    } else {
+                        // Formato antigo sem ID (fallback)
+                        const dados = resp.split('|');
+                        nome = dados[0];
+                        idade = dados[1];
+                        sexo = dados[2];
+                    }
+
                     const { icone, cor } = obterIconeResponsavel(idade, sexo);
                     return `
                         <div class="flex items-center space-x-1.5 py-0.5">

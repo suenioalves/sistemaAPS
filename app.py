@@ -620,11 +620,7 @@ def api_listar_domicilios():
             STRING_AGG(DISTINCT ci.nu_micro_area, ', ') FILTER (WHERE ci.st_responsavel_familiar = 1) AS microareas,
             -- Lista de responsáveis com idade e sexo
             STRING_AGG(
-                DISTINCT CASE
-                    WHEN ci.st_responsavel_familiar = 1
-                    THEN ci.no_cidadao || '|' || COALESCE(EXTRACT(YEAR FROM AGE(ci.dt_nascimento))::text, '0') || '|' || COALESCE(s.no_sexo, 'Não informado')
-                    ELSE NULL
-                END,
+                DISTINCT ci.co_seq_cds_cad_individual || '::' || ci.no_cidadao || '|' || COALESCE(EXTRACT(YEAR FROM AGE(ci.dt_nascimento))::text, '0') || '|' || COALESCE(s.no_sexo, 'Não informado'),
                 ';;'
             ) FILTER (WHERE ci.st_responsavel_familiar = 1) AS responsaveis_info,
             MAX(ci.st_responsavel_familiar) AS tem_responsavel,

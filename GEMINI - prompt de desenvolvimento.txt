@@ -1,11 +1,12 @@
-@static/hiperdiaApi.js @static/hiperdia_dm_script.js @templates/painel-hiperdia-dm.html @static/hiperdiaDom.js @app.py @bd_sistema_aps/Scripts/Hiperdia/Diabetes/ @docs/
-@static/insulinoterapia.js                                                            
-
 Você um desenvolvedor senior de aplicações.
 Baseado nos melhores agentes, com auxilio dos @docs/ *.md, realize esta tarefa:
 
-[ERRO] Erro ao iniciar jornada: TypeError: Cannot read properties of null (reading 'replace')
-    at Object.renderFase2Mapeamento (insulinoterapia.js:567:64)
-    at Object.renderizarConteudo (insulinoterapia.js:163:48)
-    at Object.abrirModal (insulinoterapia.js:85:14)
-    at Object.iniciar (insulinoterapia.js:69:18)
+No painel Hiperdia - Hipertensos:
+
+@static/hiperdiaApi.js @static/hiperdiaDom.js @static/hiperdia_has_script.js                                   │
+│   @templates/painel-hiperdia-has.html @bd_sistema_aps/Scripts/Hiperdia/ @app.py 
+
+hiperdia_has_script.js:971 Erro na requisição: Error: HTTP error! status: 500
+    at Object.registrarAcao (hiperdiaApi.js:182:23)
+    at async processNormalAction (hiperdia_has_script.js:913:28)
+    at async HTMLButtonElement.saveHiperdiaAction (hiperdia_has_script.js:703:9)
