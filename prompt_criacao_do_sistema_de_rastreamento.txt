@@ -1,0 +1,20 @@
+Você um desenvolvedor senior de aplicações.
+Baseado nos melhores agentes de IA, considere todas nossas documentações @docs/ *.md, realize esta tarefa:
+
+Baseado no sistema atual, e no seu formato, suas tecnologias, suas interfaces, sua base de dados:
+
+Vamos desenvolver um Painel de Rastreamento de Risco Cardiovascular, Hipertensão e Diabetes.
+Este sistema vai nos ajudar a rastrear cidadãos que possam ser hipertensos, diabeticos e classificar o paciente quanto ao seu Risco Cardiovascular.
+
+Vamos desenvolver um painel geral para estas condições e iremos implementar este rastreamento em fases:
+
+1) Rastreamento de Hipertensão (iremos desenvolver esta fase primeiro)
+2) Rastreamento de Diabetes
+3) Rastreamento de Risco Cardiovascular 
+
+
+Rastreamento de Hipertensão
+1) O rastreamento vai ser feito por família presente em um domicilio.
+2) Então eu vou selecionar a equipe e a micro-area. Vou escolher um domicilio e vou selecionar aquela familia para ser realizado o rastreamento domiciliar. 
+2) Será monitorado a pressão arterial dos integrantes de uma familia que sejam >= 20 anos de idade, e que ainda não foram diagnosticados como hipertensos.
+3) Serão aferidos a pressão arterial 1x por dia por 3 a 5 dias. Realizado uma media, e caso o paciente tenha MRPA > 

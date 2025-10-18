@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreamento Cardiovascular - Sistema APS</title>
+
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#10b981',
+                        cardiovascular: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- RemixIcon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+
+    <!-- Script principal -->
+    <script type="module" src="{{ url_for('static', filename='rastreamento_cardiovascular_script.js') }}" defer></script>
+
+    <!-- Funções de renderização dos steps -->
+    <script src="{{ url_for('static', filename='rastreamento_steps.js') }}" defer></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 flex items-center justify-center bg-red-100 rounded-xl">
+                    <i class="ri-heart-pulse-line text-2xl text-red-600"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-red-600">Rastreamento Cardiovascular</h1>
+                    <p class="text-sm text-gray-600">Hipertensão, Diabetes e Risco Cardiovascular</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-600">{{ data_atual }}</span>
+                <button class="text-gray-600 hover:text-gray-800">
+                    <i class="ri-menu-line text-2xl"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TABS DE FASE DO RASTREAMENTO -->
+        <div class="bg-white rounded-lg shadow-sm mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-4 px-6" aria-label="Tabs">
+                    <button data-tab="hipertensao" class="tab-button active flex items-center px-4 py-4 text-sm font-medium border-b-2 border-red-500 text-red-600">
+                        <i class="ri-heart-pulse-line mr-2"></i>
+                        Rastreamento Hipertensão
+                    </button>
+                    <button data-tab="diabetes" class="tab-button flex items-center px-4 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="ri-test-tube-line mr-2"></i>
+                        Rastreamento Diabetes
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">Em breve</span>
+                    </button>
+                    <button data-tab="risco" class="tab-button flex items-center px-4 py-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="ri-heart-line mr-2"></i>
+                        Risco Cardiovascular
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">Em breve</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- TAB: RASTREAMENTO HIPERTENSÃO -->
+        <div id="tab-content-hipertensao" class="tab-content">
+
+            <!-- FILTROS -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="ri-filter-3-line mr-2"></i>Seleção de Família para Rastreamento
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Equipe</label>
+                        <select id="filtro-equipe" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">Todas as equipes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Microárea</label>
+                        <select id="filtro-microarea" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">Todas as microáreas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Buscar por Endereço ou Nome</label>
+                        <input type="text" id="filtro-busca" placeholder="Digite o endereço ou nome do morador..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    </div>
+                    <div class="flex items-end">
+                        <button id="btn-buscar-domicilios" class="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors">
+                            <i class="ri-search-line mr-2"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LISTA DE DOMICÍLIOS -->
+            <div id="container-domicilios" class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="ri-home-4-line mr-2"></i>Domicílios Disponíveis
+                </h3>
+                <div id="lista-domicilios" class="space-y-3">
+                    <!-- Domicílios serão renderizados aqui via JS -->
+                </div>
+                <div id="loading-domicilios" class="hidden text-center py-8">
+                    <div class="inline-flex items-center gap-2 text-gray-600">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        <span>Carregando domicílios...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WIZARD DE RASTREAMENTO -->
+            <div id="wizard-rastreamento" class="hidden">
+
+                <!-- INDICADOR DE PROGRESSO -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Progresso do Rastreamento</span>
+                                <span class="text-sm font-medium text-gray-700"><span id="progress-percentage">0</span>%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="progress-bar" class="bg-red-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEPS -->
+                    <div class="flex items-center justify-between mt-4">
+                        <div class="step-item active flex flex-col items-center" data-step="1">
+                            <div class="w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center mb-2">
+                                <i class="ri-user-add-line"></i>
+                            </div>
+                            <span class="text-xs text-center">Selecionar<br>Integrantes</span>
+                        </div>
+                        <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                        <div class="step-item flex flex-col items-center" data-step="2">
+                            <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
+                                <i class="ri-stethoscope-line"></i>
+                            </div>
+                            <span class="text-xs text-center">Aferições<br>MRPA</span>
+                        </div>
+                        <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                        <div class="step-item flex flex-col items-center" data-step="3">
+                            <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
+                                <i class="ri-bar-chart-line"></i>
+                            </div>
+                            <span class="text-xs text-center">Análise<br>MRPA</span>
+                        </div>
+                        <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                        <div class="step-item flex flex-col items-center" data-step="4">
+                            <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
+                                <i class="ri-time-line"></i>
+                            </div>
+                            <span class="text-xs text-center">MAPA<br>5 Dias</span>
+                        </div>
+                        <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                        <div class="step-item flex flex-col items-center" data-step="5">
+                            <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
+                                <i class="ri-checkbox-circle-line"></i>
+                            </div>
+                            <span class="text-xs text-center">Resultado<br>Final</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ÁREA DE CONTEÚDO DO STEP ATUAL -->
+                <div id="step-content" class="bg-white rounded-lg shadow-sm p-6">
+                    <!-- Conteúdo dinâmico de cada step -->
+                </div>
+
+                <!-- BOTÕES DE NAVEGAÇÃO -->
+                <div class="flex justify-between mt-6">
+                    <button id="btn-voltar" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md transition-colors hidden">
+                        <i class="ri-arrow-left-line mr-2"></i>Voltar
+                    </button>
+                    <div class="flex-1"></div>
+                    <button id="btn-proximo" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                        Próximo<i class="ri-arrow-right-line ml-2"></i>
+                    </button>
+                    <button id="btn-finalizar" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors hidden">
+                        <i class="ri-check-line mr-2"></i>Finalizar Rastreamento
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB: DIABETES (Em breve) -->
+        <div id="tab-content-diabetes" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm p-12 text-center">
+                <i class="ri-test-tube-line text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-2xl font-semibold text-gray-700 mb-2">Rastreamento de Diabetes</h3>
+                <p class="text-gray-500">Esta funcionalidade será implementada na Fase 2</p>
+            </div>
+        </div>
+
+        <!-- TAB: RISCO CARDIOVASCULAR (Em breve) -->
+        <div id="tab-content-risco" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm p-12 text-center">
+                <i class="ri-heart-line text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-2xl font-semibold text-gray-700 mb-2">Rastreamento de Risco Cardiovascular</h3>
+                <p class="text-gray-500">Esta funcionalidade será implementada na Fase 3</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL: ENTRADA MANUAL DE RESULTADOS -->
+    <div id="modal-entrada-manual" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                <div class="flex items-center justify-between p-6 border-b">
+                    <h3 class="text-lg font-semibold text-gray-900">Entrada Manual de Resultados</h3>
+                    <button class="text-gray-400 hover:text-gray-600" onclick="fecharModalManual()">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-gray-600 mb-4">
+                        Use esta opção quando o paciente trouxer aferições realizadas por outros médicos ou em outros formatos (7 dias, 10 dias, 2x/dia, 5x/dia, etc).
+                    </p>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Média PAS (mmHg)</label>
+                            <input type="number" id="manual-pas" min="50" max="300" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Média PAD (mmHg)</label>
+                            <input type="number" id="manual-pad" min="30" max="200" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Medição</label>
+                        <input type="text" id="manual-tipo" placeholder="Ex: 7 dias 2x/dia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Origem/Observações</label>
+                        <textarea id="manual-obs" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Ex: Solicitado por cardiologista Dr. João"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Classificação</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="manual-classificacao" value="HIPERTENSO" class="mr-2">
+                                <span>Hipertenso</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="manual-classificacao" value="NAO_HIPERTENSO" class="mr-2">
+                                <span>Não Hipertenso</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+                    <button onclick="fecharModalManual()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancelar</button>
+                    <button onclick="salvarResultadoManual()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

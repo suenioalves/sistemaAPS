@@ -744,91 +744,6 @@ def api_listar_equipes():
         if conn: conn.close()
 
 
-# -------------------------------------------------------------------------
-# API: Buscar equipes disponíveis
-# -------------------------------------------------------------------------
-@app.route('/api/domicilios/equipes')
-def api_domicilios_equipes():
-    """Retorna lista de equipes únicas da materialized view"""
-    conn = None
-    cur = None
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        query = """
-            SELECT DISTINCT TRIM(equipe_valor) AS equipe
-            FROM mv_domicilios_resumo,
-                 LATERAL unnest(string_to_array(equipes, ',')) AS equipe_valor
-            WHERE equipes IS NOT NULL
-            ORDER BY equipe
-        """
-        
-        cur.execute(query)
-        equipes = [row['equipe'] for row in cur.fetchall() if row['equipe']]
-        
-        return jsonify({
-            'success': True,
-            'equipes': equipes
-        })
-        
-    except Exception as e:
-        print(f'Erro ao buscar equipes: {e}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
-
-# -------------------------------------------------------------------------
-# API: Buscar microáreas por equipe
-# -------------------------------------------------------------------------
-@app.route('/api/domicilios/microareas')
-def api_domicilios_microareas():
-    """Retorna lista de microáreas de uma equipe"""
-    conn = None
-    cur = None
-    try:
-        equipe = request.args.get('equipe')
-        
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        query = """
-            SELECT DISTINCT TRIM(microarea_valor) AS microarea
-            FROM mv_domicilios_resumo,
-                 LATERAL unnest(string_to_array(microareas, ',')) AS microarea_valor
-            WHERE microareas IS NOT NULL
-        """
-        
-        params = []
-        if equipe:
-            query += " AND equipes LIKE %s"
-            params.append(f'%{equipe}%')
-        
-        query += " ORDER BY microarea"
-        
-        cur.execute(query, params)
-        microareas = [row['microarea'] for row in cur.fetchall() if row['microarea']]
-        
-        return jsonify({
-            'success': True,
-            'microareas': microareas
-        })
-        
-    except Exception as e:
-        print(f'Erro ao buscar microáreas: {e}')
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e)}), 500
-    finally:
-        if cur: cur.close()
-        if conn: conn.close()
-
-
-
 @app.route('/api/domicilios/<int:id_domicilio>/familia')
 def api_detalhes_familia(id_domicilio):
     """API para retornar detalhes completos de uma família em um domicílio"""
@@ -9973,7 +9888,9 @@ def api_diabetes_avaliar_tratamento():
         if cur: cur.close()
         if conn: conn.close()
 
-
+if __name__ == '__main__':
+    app.run(debug=True, port=3030, host='0.0.0.0')
+# ============================================================================
 # MÓDULO DE RASTREAMENTO CARDIOVASCULAR
 # ============================================================================
 
@@ -10021,18 +9938,17 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
                 ci.nu_cpf_cidadao,
                 ci.nu_cns_cidadao,
 
-                -- Verificar se já tem diagnóstico de hipertensão (usando view materializada)
+                -- Verificar se já tem diagnóstico de hipertensão ou diabetes
                 COALESCE(
-                    (SELECT TRUE FROM sistemaaps.mv_hiperdia_hipertensao
-                     WHERE cod_paciente = c.co_seq_cidadao
+                    (SELECT TRUE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                     WHERE cod_cidadao = c.co_seq_cidadao
                      LIMIT 1),
                     FALSE
                 ) AS tem_diagnostico_hipertensao,
 
-                -- Verificar se já tem diagnóstico de diabetes (usando view materializada)
                 COALESCE(
-                    (SELECT TRUE FROM sistemaaps.mv_hiperdia_diabetes
-                     WHERE cod_paciente = c.co_seq_cidadao
+                    (SELECT TRUE FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+                     WHERE cod_cidadao = c.co_seq_cidadao
                      LIMIT 1),
                     FALSE
                 ) AS tem_diagnostico_diabetes
@@ -10055,7 +9971,7 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
               AND ci.st_ficha_inativa = 0
               AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
 
-            ORDER BY ci.dt_nascimento ASC
+            ORDER BY ci.no_cidadao
         """
 
         cur.execute(query, (id_domicilio,))
@@ -10090,9 +10006,3 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
         if cur: cur.close()
         if conn: conn.close()
 
-
-
-# ============================================================================
-
-if __name__ == '__main__':
-    app.run(debug=True, port=3030, host='0.0.0.0')
