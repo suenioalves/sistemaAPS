@@ -562,7 +562,7 @@ def api_listar_domicilios():
                 """
                 params.extend([busca_param, busca_param])
             else:
-                # Busca por nome de responsável familiar
+                # Busca por nome de QUALQUER morador (responsável ou não)
                 cte_filtro = """
                 WITH domicilios_filtrados AS (
                     SELECT DISTINCT d.co_seq_cds_cad_domiciliar
@@ -578,7 +578,6 @@ def api_listar_domicilios():
                       AND df.st_mudanca = 0
                       AND ci_busca.st_versao_atual = 1
                       AND ci_busca.st_ficha_inativa = 0
-                      AND ci_busca.st_responsavel_familiar = 1
                       AND LOWER(ci_busca.no_cidadao) LIKE LOWER(%s)
                 )
                 """
