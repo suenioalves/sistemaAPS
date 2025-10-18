@@ -463,12 +463,12 @@ function validarAfericoesMAPA() {
         return true;
     }
 
-    // Verificar se todos os cidadãos suspeitos completaram 5 dias (30 aferições)
+    // Verificar se todos os cidadãos suspeitos completaram 5 dias
     for (const cidadao of estadoApp.cidadaosSuspeitos) {
-        const afericoes = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual] || [];
+        const dados = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual];
 
-        if (afericoes.length < 30) {
-            const diasCompletos = Math.floor(afericoes.length / 6);
+        if (!dados || !dados.dias || dados.dias.length < 5) {
+            const diasCompletos = dados?.dias?.length || 0;
             mostrarNotificacao(
                 `${cidadao.nome_cidadao} precisa completar 5 dias de MAPA (atualmente ${diasCompletos} dias)`,
                 'warning'

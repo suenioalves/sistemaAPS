@@ -1,11 +1,11 @@
 
 // ============================================================================
-// STEP 2: AFERIÇÕES MRPA
+// STEP 2: AFERIÇÕES MRPA (TRIAGEM SIMPLES)
 // ============================================================================
 function renderizarStepAfericoesMRPA(container) {
     container.innerHTML = `
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            <i class="ri-stethoscope-line mr-2"></i>Aferições MRPA - Monitorização Residencial
+            <i class="ri-stethoscope-line mr-2"></i>Aferições MRPA - Triagem Residencial
         </h3>
         <p class="text-sm text-gray-600 mb-4">
             Registre <strong>1 aferição por dia</strong> durante <strong>3 a 5 dias</strong> para cada integrante selecionado.
@@ -35,7 +35,7 @@ function criarCardCidadaoMRPA(cidadao, index) {
     const div = document.createElement('div');
     div.className = 'border border-gray-300 rounded-lg p-5 bg-white shadow-sm';
 
-    // Inicializar aferições se não existir
+    // Inicializar aferições se não existir (array simples de aferições)
     if (!estadoApp.afericoesMRPA[cidadao.co_seq_cds_cad_individual]) {
         estadoApp.afericoesMRPA[cidadao.co_seq_cds_cad_individual] = [];
     }
@@ -136,7 +136,7 @@ function criarCardCidadaoMRPA(cidadao, index) {
     return div;
 }
 
-// Função global para adicionar aferição MRPA
+// Função global para adicionar aferição MRPA (1 por dia)
 window.adicionarAfericaoMRPA = function(codIndividual) {
     const pasInput = document.getElementById(`pas-${codIndividual}`);
     const padInput = document.getElementById(`pad-${codIndividual}`);
@@ -403,229 +403,305 @@ function renderizarStepAfericoesMAPA(container) {
 
 function criarCardCidadaoMAPA(cidadao) {
     const div = document.createElement('div');
-    div.className = 'border border-orange-300 rounded-lg p-5 bg-orange-50/30 shadow-sm';
+    div.className = 'border-2 border-gray-400 rounded-lg bg-white shadow-md overflow-hidden';
 
-    // Inicializar aferições MAPA se não existir
+    // Inicializar aferições MAPA se não existir (agora com dias estruturados)
     if (!estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual]) {
-        estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual] = [];
+        estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual] = {
+            dias: [] // Array: { data, manha: [{pas, pad}, {pas, pad}, {pas, pad}], noite: [{pas, pad}, {pas, pad}, {pas, pad}] }
+        };
     }
 
-    const afericoes = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual];
-
-    // Contar dias completos (6 aferições por dia)
-    const diasCompletos = Math.floor(afericoes.length / 6);
-    const numDiaAtual = diasCompletos + 1;
-    const afericoesNoDiaAtual = afericoes.length % 6;
+    const dados = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual];
+    const diasRegistrados = dados.dias.length;
+    const numDiaAtual = diasRegistrados + 1;
 
     const resultadoMRPA = estadoApp.resultados[cidadao.co_seq_cds_cad_individual]?.mrpa;
 
     div.innerHTML = `
-        <div class="flex items-start justify-between mb-4">
-            <div>
-                <h4 class="font-semibold text-gray-900">${cidadao.nome_cidadao}</h4>
-                <p class="text-sm text-gray-600">${cidadao.idade} anos</p>
-                ${resultadoMRPA ? `
-                    <p class="text-sm text-orange-700 mt-1">
-                        <i class="ri-alert-line mr-1"></i>MRPA: ${resultadoMRPA.media_pas}x${resultadoMRPA.media_pad} (SUSPEITO)
-                    </p>
-                ` : ''}
-            </div>
-            <span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-                Dia ${numDiaAtual}/5
-            </span>
-        </div>
-
-        <!-- Progresso -->
-        <div class="mb-4">
-            <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
-                <span>Progresso total</span>
-                <span>${afericoes.length}/30 aferições</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-orange-600 h-2 rounded-full transition-all" style="width: ${(afericoes.length / 30) * 100}%"></div>
-            </div>
-        </div>
-
-        <!-- Formulário de entrada MAPA -->
-        ${numDiaAtual <= 5 ? `
-            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h5 class="text-sm font-semibold text-gray-900">
-                        Dia ${numDiaAtual} - ${afericoesNoDiaAtual < 3 ? 'Manhã' : 'Noite'}
-                        (Aferição ${(afericoesNoDiaAtual % 3) + 1}/3)
-                    </h5>
-                    ${numDiaAtual === 1 ? `
-                        <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Adaptação - Não conta na média</span>
+        <!-- Cabeçalho -->
+        <div class="bg-gray-200 px-4 py-3 border-b-2 border-gray-400">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-gray-900 text-lg">${cidadao.nome_cidadao.toUpperCase()}</h4>
+                    <p class="text-sm text-gray-700 font-semibold">${cidadao.idade} anos</p>
+                    ${resultadoMRPA ? `
+                        <p class="text-sm text-orange-700 mt-1">
+                            <i class="ri-alert-line mr-1"></i>MRPA: ${resultadoMRPA.media_pas}×${resultadoMRPA.media_pad} (SUSPEITO)
+                        </p>
                     ` : ''}
                 </div>
+                <span class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold shadow">
+                    Dia ${numDiaAtual}/5
+                </span>
+            </div>
+        </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-xs text-gray-600 mb-1">PAS (Sistólica)</label>
-                        <input type="number"
-                               id="mapa-pas-${cidadao.co_seq_cds_cad_individual}"
-                               placeholder="Ex: 120"
-                               min="50"
-                               max="300"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-600 mb-1">PAD (Diastólica)</label>
-                        <input type="number"
-                               id="mapa-pad-${cidadao.co_seq_cds_cad_individual}"
-                               placeholder="Ex: 80"
-                               min="30"
-                               max="200"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500">
-                    </div>
-                    <div class="flex items-end">
-                        <button onclick="adicionarAfericaoMAPA(${cidadao.co_seq_cds_cad_individual})"
-                                class="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
-                            <i class="ri-check-line mr-1"></i>Registrar
-                        </button>
-                    </div>
-                </div>
+        <!-- Aviso em destaque -->
+        <div class="bg-red-50 border-y-2 border-red-300 px-4 py-3">
+            <p class="text-sm font-bold text-red-900 text-center mb-1">
+                AFERIR APÓS SENTADO POR 5 MINUTOS EM REPOUSO
+            </p>
+            <p class="text-xs font-semibold text-red-800 text-center">
+                Intervalo de 1 minuto entre cada medida
+            </p>
+        </div>
+
+        <!-- Tabela de aferições (igual à imagem) -->
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border-2 border-gray-400 px-3 py-3 text-center font-bold text-gray-900" rowspan="2">DATA</th>
+                        <th class="border-2 border-gray-400 px-3 py-3 text-center font-bold text-gray-900" colspan="3">
+                            ANTES DO CAFÉ DA MANHÃ (EM JEJUM)
+                        </th>
+                        <th class="border-2 border-gray-400 px-3 py-3 text-center font-bold text-gray-900" colspan="3">
+                            ANTES DO JANTAR (EM JEJUM)
+                        </th>
+                        <th class="border-2 border-gray-400 px-2 py-3 text-center font-bold text-gray-900" rowspan="2">AÇÕES</th>
+                    </tr>
+                    <tr class="bg-gray-50">
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">1ª medida</th>
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">
+                            2ª medida<br/><span class="font-normal">(1 min depois)</span>
+                        </th>
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">
+                            3ª medida<br/><span class="font-normal">(1 min depois)</span>
+                        </th>
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">1ª medida</th>
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">
+                            2ª medida<br/><span class="font-normal">(1 min depois)</span>
+                        </th>
+                        <th class="border-2 border-gray-400 px-2 py-2 text-center text-xs font-semibold text-gray-700">
+                            3ª medida<br/><span class="font-normal">(1 min depois)</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${dados.dias.map((dia, diaIndex) => `
+                        <tr class="${dia.adaptacao ? 'bg-yellow-50' : diaIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                            <td class="border-2 border-gray-400 px-3 py-3 text-center font-semibold text-gray-900">
+                                ${dia.adaptacao ? `
+                                    <div class="text-xs bg-yellow-100 text-yellow-800 rounded px-2 py-1 mb-1">Adaptação</div>
+                                ` : ''}
+                                ${dia.data || '___/___/____'}
+                            </td>
+                            ${[0, 1, 2].map(i => `
+                                <td class="border-2 border-gray-400 px-2 py-2 text-center">
+                                    ${dia.manha[i] ?
+                                        `<div class="font-bold ${dia.manha[i].pas >= 130 || dia.manha[i].pad >= 80 ? 'text-red-600' : 'text-gray-900'}">
+                                            ${dia.manha[i].pas}×${dia.manha[i].pad}
+                                        </div>` :
+                                        '<span class="text-gray-400">---</span>'
+                                    }
+                                </td>
+                            `).join('')}
+                            ${[0, 1, 2].map(i => `
+                                <td class="border-2 border-gray-400 px-2 py-2 text-center">
+                                    ${dia.noite[i] ?
+                                        `<div class="font-bold ${dia.noite[i].pas >= 130 || dia.noite[i].pad >= 80 ? 'text-red-600' : 'text-gray-900'}">
+                                            ${dia.noite[i].pas}×${dia.noite[i].pad}
+                                        </div>` :
+                                        '<span class="text-gray-400">---</span>'
+                                    }
+                                </td>
+                            `).join('')}
+                            <td class="border-2 border-gray-400 px-2 py-2 text-center">
+                                <button onclick="removerDiaMAPA(${cidadao.co_seq_cds_cad_individual}, ${diaIndex})"
+                                        class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors text-xs">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Formulário de entrada -->
+        ${numDiaAtual <= 5 ? `
+            <div class="bg-gray-100 border-t-2 border-gray-400 p-4">
+                <h5 class="font-bold text-gray-900 mb-3 text-center">
+                    <i class="ri-add-circle-line mr-1"></i>ADICIONAR DIA ${numDiaAtual}
+                    ${numDiaAtual === 1 ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded ml-2">Adaptação - não conta na média</span>' : ''}
+                </h5>
+                ${renderizarFormularioMAPA(cidadao.co_seq_cds_cad_individual, numDiaAtual)}
             </div>
         ` : `
-            <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-4">
-                <i class="ri-check-circle-line text-green-600 mr-1"></i>
-                <span class="text-sm text-green-700 font-medium">5 dias completos registrados!</span>
+            <div class="bg-green-100 border-t-2 border-green-600 p-4 text-center">
+                <i class="ri-check-circle-fill text-green-600 text-2xl mr-2"></i>
+                <span class="text-green-800 font-bold">5 DIAS COMPLETOS REGISTRADOS</span>
             </div>
         `}
-
-        <!-- Tabela de aferições registradas -->
-        ${afericoes.length > 0 ? `
-            <div class="bg-white border border-gray-200 rounded-lg p-4">
-                <h5 class="text-sm font-semibold text-gray-700 mb-3">Aferições registradas:</h5>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-gray-50 border-b">
-                            <tr>
-                                <th class="px-2 py-2 text-left font-medium text-gray-600">Dia</th>
-                                <th class="px-2 py-2 text-left font-medium text-gray-600">Período</th>
-                                <th class="px-2 py-2 text-left font-medium text-gray-600">#</th>
-                                <th class="px-2 py-2 text-left font-medium text-gray-600">PAS</th>
-                                <th class="px-2 py-2 text-left font-medium text-gray-600">PAD</th>
-                                <th class="px-2 py-2 text-center font-medium text-gray-600">Status</th>
-                                <th class="px-2 py-2 text-center font-medium text-gray-600">Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${afericoes.map((afericao, index) => {
-                                const excluido = afericao.excluir_calculo;
-                                return `
-                                    <tr class="border-b border-gray-100 ${excluido ? 'bg-gray-50 opacity-60' : ''}">
-                                        <td class="px-2 py-2 font-medium text-gray-900">Dia ${afericao.dia}</td>
-                                        <td class="px-2 py-2 text-gray-700">${afericao.periodo}</td>
-                                        <td class="px-2 py-2 text-gray-700">${afericao.numero}</td>
-                                        <td class="px-2 py-2 text-gray-700">${afericao.pas}</td>
-                                        <td class="px-2 py-2 text-gray-700">${afericao.pad}</td>
-                                        <td class="px-2 py-2 text-center">
-                                            ${excluido ?
-                                                '<span class="text-xs px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Excluído</span>' :
-                                                '<span class="text-xs px-1 py-0.5 bg-green-100 text-green-700 rounded">Conta</span>'
-                                            }
-                                        </td>
-                                        <td class="px-2 py-2 text-center">
-                                            <button onclick="removerAfericaoMAPA(${cidadao.co_seq_cds_cad_individual}, ${index})"
-                                                    class="text-red-600 hover:text-red-800">
-                                                <i class="ri-delete-bin-line"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        ` : ''}
     `;
 
     return div;
 }
 
-// Função global para adicionar aferição MAPA
-window.adicionarAfericaoMAPA = function(codIndividual) {
-    const pasInput = document.getElementById(`mapa-pas-${codIndividual}`);
-    const padInput = document.getElementById(`mapa-pad-${codIndividual}`);
+function renderizarFormularioMAPA(codIndividual, numeroDia) {
+    return `
+        <div class="bg-white border-2 border-gray-300 rounded-lg p-4">
+            <!-- Data -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Data:</label>
+                <input type="date"
+                       id="mapa-data-${codIndividual}"
+                       value="${new Date().toISOString().split('T')[0]}"
+                       class="px-3 py-2 border-2 border-gray-300 rounded-md font-semibold focus:ring-2 focus:ring-orange-500">
+            </div>
 
-    const pas = parseInt(pasInput.value);
-    const pad = parseInt(padInput.value);
+            <!-- Manhã -->
+            <div class="mb-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+                <h6 class="font-bold text-gray-900 mb-3 text-center">☀️ ANTES DO CAFÉ DA MANHÃ (EM JEJUM)</h6>
+                <div class="grid grid-cols-3 gap-3">
+                    ${[1, 2, 3].map(n => `
+                        <div class="bg-white border-2 border-gray-300 rounded-lg p-3">
+                            <p class="text-xs font-bold text-center text-gray-700 mb-2">
+                                ${n}ª MEDIDA${n > 1 ? ' (1 min depois)' : ''}
+                            </p>
+                            <div class="space-y-2">
+                                <input type="number"
+                                       id="mapa-manha${n}-pas-${codIndividual}"
+                                       placeholder="PAS"
+                                       min="50" max="300"
+                                       class="w-full px-2 py-2 border-2 border-gray-300 rounded text-center font-bold focus:ring-2 focus:ring-orange-500">
+                                <input type="number"
+                                       id="mapa-manha${n}-pad-${codIndividual}"
+                                       placeholder="PAD"
+                                       min="30" max="200"
+                                       class="w-full px-2 py-2 border-2 border-gray-300 rounded text-center font-bold focus:ring-2 focus:ring-orange-500">
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
 
-    // Validações
-    if (!pas || !pad) {
-        mostrarNotificacao('Preencha PAS e PAD', 'warning');
+            <!-- Noite -->
+            <div class="mb-4 bg-indigo-50 border-2 border-indigo-300 rounded-lg p-3">
+                <h6 class="font-bold text-gray-900 mb-3 text-center">🌙 ANTES DO JANTAR (EM JEJUM)</h6>
+                <div class="grid grid-cols-3 gap-3">
+                    ${[1, 2, 3].map(n => `
+                        <div class="bg-white border-2 border-gray-300 rounded-lg p-3">
+                            <p class="text-xs font-bold text-center text-gray-700 mb-2">
+                                ${n}ª MEDIDA${n > 1 ? ' (1 min depois)' : ''}
+                            </p>
+                            <div class="space-y-2">
+                                <input type="number"
+                                       id="mapa-noite${n}-pas-${codIndividual}"
+                                       placeholder="PAS"
+                                       min="50" max="300"
+                                       class="w-full px-2 py-2 border-2 border-gray-300 rounded text-center font-bold focus:ring-2 focus:ring-orange-500">
+                                <input type="number"
+                                       id="mapa-noite${n}-pad-${codIndividual}"
+                                       placeholder="PAD"
+                                       min="30" max="200"
+                                       class="w-full px-2 py-2 border-2 border-gray-300 rounded text-center font-bold focus:ring-2 focus:ring-orange-500">
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Botão Salvar -->
+            <div class="text-center">
+                <button onclick="salvarDiaMAPA(${codIndividual}, ${numeroDia})"
+                        class="px-8 py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105">
+                    <i class="ri-save-line mr-2"></i>SALVAR DIA ${numeroDia}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Função global para salvar dia completo do MAPA
+window.salvarDiaMAPA = function(codIndividual, numeroDia) {
+    const data = document.getElementById(`mapa-data-${codIndividual}`)?.value;
+
+    if (!data) {
+        mostrarNotificacao('Selecione a data', 'warning');
         return;
     }
 
-    if (pas < 50 || pas > 300 || pad < 30 || pad > 200) {
-        mostrarNotificacao('Valores fora dos limites permitidos', 'warning');
-        return;
+    // Coletar medidas da manhã
+    const manha = [];
+    for (let i = 1; i <= 3; i++) {
+        const pas = parseInt(document.getElementById(`mapa-manha${i}-pas-${codIndividual}`)?.value);
+        const pad = parseInt(document.getElementById(`mapa-manha${i}-pad-${codIndividual}`)?.value);
+
+        if (!pas || !pad) {
+            mostrarNotificacao(`Preencha a ${i}ª medida da manhã (PAS e PAD)`, 'warning');
+            return;
+        }
+
+        if (pas < 50 || pas > 300 || pad < 30 || pad > 200) {
+            mostrarNotificacao(`Valores fora dos limites na ${i}ª medida da manhã`, 'warning');
+            return;
+        }
+
+        if (pad >= pas) {
+            mostrarNotificacao(`PAD deve ser menor que PAS na ${i}ª medida da manhã`, 'warning');
+            return;
+        }
+
+        manha.push({ pas, pad });
     }
 
-    if (pad >= pas) {
-        mostrarNotificacao('PAD deve ser menor que PAS', 'warning');
-        return;
+    // Coletar medidas da noite
+    const noite = [];
+    for (let i = 1; i <= 3; i++) {
+        const pas = parseInt(document.getElementById(`mapa-noite${i}-pas-${codIndividual}`)?.value);
+        const pad = parseInt(document.getElementById(`mapa-noite${i}-pad-${codIndividual}`)?.value);
+
+        if (!pas || !pad) {
+            mostrarNotificacao(`Preencha a ${i}ª medida da noite (PAS e PAD)`, 'warning');
+            return;
+        }
+
+        if (pas < 50 || pas > 300 || pad < 30 || pad > 200) {
+            mostrarNotificacao(`Valores fora dos limites na ${i}ª medida da noite`, 'warning');
+            return;
+        }
+
+        if (pad >= pas) {
+            mostrarNotificacao(`PAD deve ser menor que PAS na ${i}ª medida da noite`, 'warning');
+            return;
+        }
+
+        noite.push({ pas, pad });
     }
 
-    // Adicionar aferição
-    const afericoes = estadoApp.afericoesMAPA[codIndividual];
-    const numAfericoes = afericoes.length;
-
-    const dia = Math.floor(numAfericoes / 6) + 1;
-    const afericaoNoDia = numAfericoes % 6;
-    const periodo = afericaoNoDia < 3 ? 'Manhã' : 'Noite';
-    const numero = (afericaoNoDia % 3) + 1;
-
-    afericoes.push({
-        dia: dia,
-        periodo: periodo,
-        numero: numero,
-        pas: pas,
-        pad: pad,
-        excluir_calculo: dia === 1, // Dia 1 é excluído do cálculo
-        data_registro: new Date().toISOString()
+    // Salvar no estado
+    const dados = estadoApp.afericoesMAPA[codIndividual];
+    dados.dias.push({
+        data: data,
+        manha: manha,
+        noite: noite,
+        adaptacao: numeroDia === 1  // Dia 1 é adaptação
     });
-
-    // Limpar campos
-    pasInput.value = '';
-    padInput.value = '';
 
     // Re-renderizar
     renderizarStepAtual();
 
-    // Verificar se completou o dia
-    if (afericoes.length % 6 === 0) {
-        const diaCompleto = afericoes.length / 6;
-        mostrarNotificacao(`Dia ${diaCompleto} completo! (6 aferições)`, 'success');
-    } else {
-        mostrarNotificacao('Aferição registrada!', 'success');
-    }
+    mostrarNotificacao(`Dia ${numeroDia} registrado com sucesso! (6 medidas)`, 'success');
 };
 
-// Função global para remover aferição MAPA
-window.removerAfericaoMAPA = function(codIndividual, index) {
-    if (!confirm('Deseja realmente remover esta aferição?')) {
+// Função global para remover dia do MAPA
+window.removerDiaMAPA = function(codIndividual, diaIndex) {
+    if (!confirm('Deseja realmente remover todas as medidas deste dia?')) {
         return;
     }
 
-    const afericoes = estadoApp.afericoesMAPA[codIndividual];
-    afericoes.splice(index, 1);
+    const dados = estadoApp.afericoesMAPA[codIndividual];
+    dados.dias.splice(diaIndex, 1);
 
-    // Recalcular dias, períodos e números
-    afericoes.forEach((afericao, i) => {
-        const dia = Math.floor(i / 6) + 1;
-        const afericaoNoDia = i % 6;
-
-        afericao.dia = dia;
-        afericao.periodo = afericaoNoDia < 3 ? 'Manhã' : 'Noite';
-        afericao.numero = (afericaoNoDia % 3) + 1;
-        afericao.excluir_calculo = dia === 1;
+    // Recalcular flag de adaptação (sempre dia 1)
+    dados.dias.forEach((dia, i) => {
+        dia.adaptacao = (i === 0);
     });
 
     renderizarStepAtual();
-    mostrarNotificacao('Aferição removida', 'info');
+    mostrarNotificacao('Dia removido', 'info');
 };
 
 // ============================================================================
@@ -669,19 +745,36 @@ function renderizarStepResultadoFinal(container) {
 }
 
 function calcularResultadoMAPA(cidadao) {
-    const afericoes = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual] || [];
+    const dados = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual];
+    if (!dados || !dados.dias) return;
 
-    // Filtrar apenas aferições que contam (excluir dia 1)
-    const afericoesValidas = afericoes.filter(a => !a.excluir_calculo);
+    // Excluir dia 1 (adaptação) e calcular média dos dias 2-5
+    const diasValidos = dados.dias.filter((dia, index) => !dia.adaptacao);
 
-    if (afericoesValidas.length === 0) return;
+    if (diasValidos.length === 0) return;
 
-    // Calcular médias
-    const somaPAS = afericoesValidas.reduce((sum, a) => sum + a.pas, 0);
-    const somaPAD = afericoesValidas.reduce((sum, a) => sum + a.pad, 0);
+    // Calcular médias de TODAS as medidas (manhã e noite) dos dias válidos
+    let somaPAS = 0;
+    let somaPAD = 0;
+    let totalMedidas = 0;
 
-    const mediaPAS = Math.round(somaPAS / afericoesValidas.length);
-    const mediaPAD = Math.round(somaPAD / afericoesValidas.length);
+    diasValidos.forEach(dia => {
+        // Somar medidas da manhã
+        dia.manha.forEach(medida => {
+            somaPAS += medida.pas;
+            somaPAD += medida.pad;
+            totalMedidas++;
+        });
+        // Somar medidas da noite
+        dia.noite.forEach(medida => {
+            somaPAS += medida.pas;
+            somaPAD += medida.pad;
+            totalMedidas++;
+        });
+    });
+
+    const mediaPAS = Math.round(somaPAS / totalMedidas);
+    const mediaPAD = Math.round(somaPAD / totalMedidas);
 
     // Classificar
     const isHipertenso = mediaPAS >= LIMITE_PAS_HIPERTENSO || mediaPAD >= LIMITE_PAD_HIPERTENSO;
@@ -695,7 +788,8 @@ function calcularResultadoMAPA(cidadao) {
         media_pas: mediaPAS,
         media_pad: mediaPAD,
         classificacao: isHipertenso ? 'HIPERTENSO' : 'NAO_HIPERTENSO',
-        num_afericoes_validas: afericoesValidas.length
+        num_afericoes_validas: totalMedidas,
+        num_dias_validos: diasValidos.length
     };
 }
 
