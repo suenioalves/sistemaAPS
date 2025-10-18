@@ -20,7 +20,10 @@
       "Read(//c/Users/Pichau/Desktop/TESTES DOMICILIOS/**)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\":*)",
       "Bash(del teste_responsaveis.py)",
-      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"DROP MATERIALIZED VIEW IF EXISTS mv_domicilios_resumo CASCADE;\")"
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"DROP MATERIALIZED VIEW IF EXISTS mv_domicilios_resumo CASCADE;\")",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(chcp 65001)"
     ],
     "deny": [],
     "ask": [],

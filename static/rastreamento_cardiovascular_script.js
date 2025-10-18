@@ -441,16 +441,39 @@ function validarStepAtual() {
 }
 
 function validarAfericoesMRPA() {
-    // Verificar se todos os cidadãos selecionados têm pelo menos 3 dias de aferições
+    // Verificar se todos os cidadãos selecionados têm dados válidos
     for (const cidadao of estadoApp.cidadaosSelecionados) {
-        const afericoes = estadoApp.afericoesMRPA[cidadao.co_seq_cds_cad_individual] || [];
+        const dados = estadoApp.afericoesMRPA[cidadao.co_seq_cds_cad_individual];
 
-        if (afericoes.length < 3) {
+        if (!dados) {
             mostrarNotificacao(
-                `${cidadao.nome_cidadao} precisa de pelo menos 3 dias de aferições MRPA`,
+                `${cidadao.nome_cidadao} não tem dados de triagem registrados`,
                 'warning'
             );
             return false;
+        }
+
+        const tipoEntrada = dados.tipo || 'individual';
+
+        if (tipoEntrada === 'individual') {
+            // Verificar se tem pelo menos 3 dias de aferições
+            const afericoes = dados.afericoes || [];
+            if (afericoes.length < 3) {
+                mostrarNotificacao(
+                    `${cidadao.nome_cidadao} precisa de pelo menos 3 dias de aferições`,
+                    'warning'
+                );
+                return false;
+            }
+        } else if (tipoEntrada === 'media') {
+            // Verificar se informou a média manual
+            if (!dados.media_manual || !dados.media_manual.pas || !dados.media_manual.pad) {
+                mostrarNotificacao(
+                    `${cidadao.nome_cidadao}: Informe a média calculada (PAS e PAD)`,
+                    'warning'
+                );
+                return false;
+            }
         }
     }
 
@@ -463,17 +486,38 @@ function validarAfericoesMAPA() {
         return true;
     }
 
-    // Verificar se todos os cidadãos suspeitos completaram 5 dias
+    // Verificar se todos os suspeitos têm MRPA 5 dias registrado
     for (const cidadao of estadoApp.cidadaosSuspeitos) {
         const dados = estadoApp.afericoesMAPA[cidadao.co_seq_cds_cad_individual];
 
-        if (!dados || !dados.dias || dados.dias.length < 5) {
-            const diasCompletos = dados?.dias?.length || 0;
+        if (!dados) {
             mostrarNotificacao(
-                `${cidadao.nome_cidadao} precisa completar 5 dias de MAPA (atualmente ${diasCompletos} dias)`,
+                `${cidadao.nome_cidadao} não tem dados de MRPA 5 dias registrados`,
                 'warning'
             );
             return false;
+        }
+
+        const tipoEntrada = dados.tipo || 'individual';
+
+        if (tipoEntrada === 'individual') {
+            // Verificar se tem 5 dias completos (mínimo 4 dias considerando adaptação)
+            if (!dados.dias || dados.dias.length < 4) {
+                mostrarNotificacao(
+                    `${cidadao.nome_cidadao} precisa de pelo menos 4 dias de medições (dia 1 + 3 dias válidos)`,
+                    'warning'
+                );
+                return false;
+            }
+        } else if (tipoEntrada === 'media') {
+            // Verificar se informou a média manual
+            if (!dados.media_manual || !dados.media_manual.pas || !dados.media_manual.pad) {
+                mostrarNotificacao(
+                    `${cidadao.nome_cidadao}: Informe a média calculada (PAS e PAD)`,
+                    'warning'
+                );
+                return false;
+            }
         }
     }
 

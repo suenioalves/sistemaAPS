@@ -16,5 +16,28 @@ Vamos desenvolver um painel geral para estas condições e iremos implementar es
 Rastreamento de Hipertensão
 1) O rastreamento vai ser feito por família presente em um domicilio.
 2) Então eu vou selecionar a equipe e a micro-area. Vou escolher um domicilio e vou selecionar aquela familia para ser realizado o rastreamento domiciliar. 
-2) Será monitorado a pressão arterial dos integrantes de uma familia que sejam >= 20 anos de idade, e que ainda não foram diagnosticados como hipertensos.
-3) Serão aferidos a pressão arterial 1x por dia por 3 a 5 dias. Realizado uma media, e caso o paciente tenha MRPA > 
+3) Será monitorado a pressão arterial dos integrantes de uma familia que sejam >= 20 anos de idade, e que ainda não foram diagnosticados como hipertensos.
+4) Então para cada integrante, serão aferidos a pressão arterial 1x por dia por 3 a 5 dias. 
+5) Realizado uma media destas afericoes, e caso o paciente tenha MRPA >= 130x80 ele se torna suspeito ser hipertenso.
+6) Para diagnosticar, o aparelho agora vai ser deixado novamente na casa do paciente onde ele vai aferir nos seguintes horarios:
+7) Três medidas pela manhã e três medidas à noite por dia, por 5 dias.
+8) A média seria calculada:
+- exclui-se as afericoes de PA do primeiro dia
+- somaria todas as pressões arteriais dos outros 4 dias (tanto de manha quanto a noite), e calcularia a media.
+- se a média for PAS >= 130 e/ou PAD >= 80 o paciente será considerado hipertenso, mas é dado a opcao ao usuario de decidir se concorda com ele ser ou não hipertenso.
+9) se a media for PAS < 130 e PAD < 80 o paciente será considerado não hipertenso, e será agendado uma nova aferição após 1 ano (tambem tem que dar a opcao ao usuario fazer a analise final se concorda que ele não é hipertenso).
+10) O paciente hipertenso então ficará marcado como hipertenso e então deverá ser encaminhado para o hiperdia.
+11) caso o usuario não concorde com o resultado, ficará definido o que o usuárido difinir (hipertenso ou não hipertenso)
+
+Crie então uma interface que aborde esta sequencia de acompanhamentos, onde o usuário vai seguindo o passo a passo ate concluir o rastreamento.
+
+Outras situações:
+1) algumas vezes o paciente vem com as afericoes realizadas por ele solicitado por outros medicos, afericoes que podem seguir outros formatos, como 7 dias, 10 dias, 2x por dia 5x por dia etc. Neste caso o sistema deve apenas permitir que  o usuario entre com a media calculada e opcao para eu classificar o paciente como hipertenso ou não.  
+
+
+
+Ao finalizar o rastreamento voltar para o domicilio e colocar um destaque dizendo que a paciente ja foi rastreada e que não está hipertensa ou que esta hipertensa, mostrar o valor da media da pressão arterial na triagem ou .
+
+
+LEMBRETES
+CORRIGIR O MENU DE MEDICAMENTOS DE DIABETES PORQUE TEM INSULINA.

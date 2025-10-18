@@ -23,6 +23,11 @@ import unicodedata
 from pypdf import PdfWriter, PdfReader
 # Importação do docx2pdf será feita condicionalmente dentro da função
 
+# Configuração da API do Anthropic Claude para OCR avançado
+# IMPORTANTE: Defina a variável de ambiente ANTHROPIC_API_KEY
+# ou substitua None pela sua chave API
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', None)
+
 # Global map for action types (Hiperdia)
 TIPO_ACAO_MAP_PY = {
     1: "Iniciar MRPA",
@@ -10090,6 +10095,541 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
         if cur: cur.close()
         if conn: conn.close()
 
+
+# ============================================================================
+# API: PROCESSAR IMAGEM MAPA COM OCR
+# ============================================================================
+@app.route('/api/rastreamento/processar-imagem-mapa', methods=['POST'])
+def api_processar_imagem_mapa():
+    """
+    Processa imagem com valores de pressão arterial escritos à mão
+    Usa OCR para extrair os valores e normaliza (ex: 12x8 -> 120x80)
+    """
+    try:
+        data = request.get_json()
+        imagem_base64 = data.get('imagem', '')
+        num_dia = data.get('num_dia', 1)
+
+        if not imagem_base64:
+            return jsonify({'error': 'Imagem não fornecida'}), 400
+
+        # Remover prefixo data:image/...;base64,
+        if ',' in imagem_base64:
+            imagem_base64 = imagem_base64.split(',')[1]
+
+        import base64
+        imagem_bytes = base64.b64decode(imagem_base64)
+
+        # Estratégia de OCR:
+        # 1. Claude API (PAGO, melhor precisão 95%+) - ATIVO
+        # 2. Fallback: EasyOCR (gratuito, boa precisão 70-85%)
+        # 3. Fallback final: Tesseract (gratuito, baixa precisão 20-40%)
+
+        valores_extraidos = None
+        custo_api = None
+
+        # Tentar Claude API primeiro (SE configurado)
+        if ANTHROPIC_API_KEY:
+            print("Usando Claude API (visão multimodal, pago)...")
+            try:
+                resultado_claude = extrair_valores_pa_com_claude(imagem_base64)
+                valores_extraidos = resultado_claude.get('valores', {})
+                custo_api = resultado_claude.get('custo')
+                print(f"Claude API retornou: {valores_extraidos}")
+            except Exception as e:
+                print(f"Erro ao usar Claude API: {str(e)}")
+                print("Tentando fallback com EasyOCR...")
+
+        # Fallback 1: EasyOCR se Claude não configurado ou falhou
+        if not valores_extraidos or not any(valores_extraidos.values()):
+            print("Usando EasyOCR (gratuito, deep learning)...")
+            try:
+                valores_extraidos = extrair_valores_pa_com_easyocr(imagem_bytes)
+                print(f"EasyOCR retornou: {valores_extraidos}")
+            except Exception as e:
+                print(f"Erro ao usar EasyOCR: {str(e)}")
+                print("Tentando fallback com Tesseract OCR...")
+
+        # Fallback 2: Tesseract se tudo falhou
+        if not valores_extraidos or not any(valores_extraidos.values()):
+            print("Usando Tesseract OCR (fallback final)...")
+            valores_extraidos = extrair_valores_pa_da_imagem(imagem_bytes)
+
+        # Preparar resposta
+        resposta = {
+            'success': True,
+            'valores': valores_extraidos,
+            'num_dia': num_dia
+        }
+
+        # Adicionar informações de custo se Claude API foi usado
+        if custo_api:
+            resposta['custo'] = custo_api
+
+        return jsonify(resposta)
+
+    except Exception as e:
+        print(f"Erro ao processar imagem: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+def extrair_valores_pa_com_easyocr(imagem_bytes):
+    """
+    Extrai valores de pressão arterial usando EasyOCR (gratuito, deep learning)
+    Melhor que Tesseract para manuscritos (70-85% vs 20-40%)
+
+    Args:
+        imagem_bytes: bytes da imagem
+
+    Returns:
+        dict com valores para 6 medições:
+        {
+            'manha1': {'pas': 150, 'pad': 80},
+            'manha2': {'pas': 148, 'pad': 80},
+            ...
+        }
+    """
+    try:
+        import easyocr
+        from PIL import Image
+        import io
+        import cv2
+        import numpy as np
+
+        print("Inicializando EasyOCR...")
+
+        # Criar reader (português + inglês para números)
+        # gpu=False para usar CPU (funciona em qualquer máquina)
+        reader = easyocr.Reader(['pt', 'en'], gpu=False, verbose=False)
+
+        # Converter bytes para imagem PIL
+        imagem_pil = Image.open(io.BytesIO(imagem_bytes))
+
+        # Converter PIL para numpy array (formato OpenCV)
+        img_array = np.array(imagem_pil)
+
+        # Pré-processamento para melhorar OCR
+        if len(img_array.shape) == 2:
+            gray = img_array
+        elif img_array.shape[2] == 4:  # RGBA
+            gray = cv2.cvtColor(img_array, cv2.COLOR_RGBA2GRAY)
+        else:  # RGB
+            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+        # Aumentar contraste
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        contrasted = clahe.apply(gray)
+
+        # Binarização
+        _, binary = cv2.threshold(contrasted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        print("Executando OCR com EasyOCR...")
+
+        # Executar OCR
+        # result é lista de tuplas: (bbox, texto, confiança)
+        results = reader.readtext(binary)
+
+        print(f"EasyOCR encontrou {len(results)} regiões de texto")
+
+        # Extrair todo o texto
+        textos = []
+        for (bbox, texto, confianca) in results:
+            print(f"  - '{texto}' (confiança: {confianca:.2f})")
+            textos.append(texto)
+
+        # Juntar todo o texto
+        texto_completo = ' '.join(textos)
+        print(f"Texto completo extraído: {texto_completo}")
+
+        # Padrões para detectar valores de PA
+        padroes = [
+            r'(\d{2,3})\s*[x×X/]\s*(\d{2,3})',  # 120x80, 120×80, 120/80
+            r'(\d{1,2})\s*[x×X/]\s*(\d{1,2})(?!\d)',  # 12x8 (abreviado)
+            r'(\d{2,3})\s+(\d{2,3})'  # 120 80 (separado por espaço)
+        ]
+
+        # Encontrar todos os valores de PA no texto
+        valores_encontrados = []
+        for padrao in padroes:
+            matches = re.findall(padrao, texto_completo)
+            for pas_str, pad_str in matches:
+                pas, pad = normalizar_valor_pa(pas_str, pad_str)
+                if pas and pad:
+                    valores_encontrados.append({'pas': pas, 'pad': pad})
+                    print(f"  ✓ Valor PA encontrado: {pas}×{pad}")
+
+        print(f"Total de valores PA válidos encontrados: {len(valores_encontrados)}")
+
+        # Distribuir valores encontrados nas 6 posições (3 manhã + 3 noite)
+        keys = ['manha1', 'manha2', 'manha3', 'noite1', 'noite2', 'noite3']
+        resultado = {}
+
+        for i, key in enumerate(keys):
+            if i < len(valores_encontrados):
+                resultado[key] = valores_encontrados[i]
+            else:
+                resultado[key] = {}
+
+        return resultado
+
+    except Exception as e:
+        print(f"Erro ao usar EasyOCR: {str(e)}")
+        traceback.print_exc()
+        # Retornar estrutura vazia em caso de erro
+        return {
+            'manha1': {}, 'manha2': {}, 'manha3': {},
+            'noite1': {}, 'noite2': {}, 'noite3': {}
+        }
+
+
+def extrair_valores_pa_com_claude(imagem_base64):
+    """
+    Extrai valores de pressão arterial usando Claude API (visão multimodal)
+    Melhor para textos manuscritos
+
+    Args:
+        imagem_base64: String base64 da imagem (sem prefixo data:image)
+
+    Returns:
+        dict com valores para 6 medições:
+        {
+            'manha1': {'pas': 150, 'pad': 80},
+            'manha2': {'pas': 148, 'pad': 80},
+            ...
+        }
+    """
+    try:
+        from anthropic import Anthropic
+
+        if not ANTHROPIC_API_KEY:
+            raise Exception("ANTHROPIC_API_KEY não configurada")
+
+        client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+        # Prompt estruturado para extração de valores de PA
+        prompt = """Analise esta imagem de um formulário de Monitoramento Residencial de Pressão Arterial (MAPA/MRPA).
+
+Extraia TODOS os valores de pressão arterial escritos à mão na tabela. A tabela tem:
+- Coluna "ANTES DO CAFÉ DA MANHÃ (EM JEJUM)": com 3 medidas (1ª, 2ª, 3ª)
+- Coluna "ANTES DO JANTAR (EM JEJUM)": com 3 medidas (1ª, 2ª, 3ª)
+
+Os valores estão no formato "XXXxYY" ou "XXX×YY" onde:
+- XXX = Pressão Arterial Sistólica (PAS)
+- YY = Pressão Arterial Diastólica (PAD)
+
+IMPORTANTE:
+- Leia TODAS as linhas da tabela (geralmente 5 dias)
+- Retorne APENAS valores do PRIMEIRO DIA (primeira linha de medições após o cabeçalho)
+- Se um valor estiver ilegível ou faltando, use null
+
+Retorne APENAS um JSON válido no seguinte formato (sem texto adicional):
+{
+    "manha1": {"pas": 150, "pad": 80},
+    "manha2": {"pas": 148, "pad": 80},
+    "manha3": {"pas": 160, "pad": 90},
+    "noite1": {"pas": 142, "pad": 90},
+    "noite2": {"pas": 132, "pad": 90},
+    "noite3": {"pas": 140, "pad": 90}
+}"""
+
+        # Chamar Claude API com visão
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",  # Modelo com visão
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": imagem_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ],
+                }
+            ],
+        )
+
+        # Calcular custo da API
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
+
+        # Preços Claude API (claude-3-5-sonnet-20241022)
+        # Input: $3.00 por milhão de tokens
+        # Output: $15.00 por milhão de tokens
+        custo_input = (input_tokens / 1_000_000) * 3.00
+        custo_output = (output_tokens / 1_000_000) * 15.00
+        custo_total_usd = custo_input + custo_output
+
+        print(f"📊 Uso da API Claude:")
+        print(f"  - Tokens entrada: {input_tokens}")
+        print(f"  - Tokens saída: {output_tokens}")
+        print(f"  - Custo: ${custo_total_usd:.4f} USD")
+
+        # Extrair resposta
+        resposta_texto = message.content[0].text
+        print(f"Resposta bruta do Claude: {resposta_texto}")
+
+        # Parse JSON da resposta
+        # Claude pode retornar com ```json ou texto adicional, limpar isso
+        resposta_limpa = resposta_texto.strip()
+
+        # Remover markdown code blocks se existir
+        if '```json' in resposta_limpa:
+            resposta_limpa = resposta_limpa.split('```json')[1].split('```')[0].strip()
+        elif '```' in resposta_limpa:
+            resposta_limpa = resposta_limpa.split('```')[1].split('```')[0].strip()
+
+        # Parse JSON
+        valores = json.loads(resposta_limpa)
+
+        # Validar estrutura
+        keys_esperadas = ['manha1', 'manha2', 'manha3', 'noite1', 'noite2', 'noite3']
+        resultado = {}
+
+        for key in keys_esperadas:
+            if key in valores and valores[key] and 'pas' in valores[key] and 'pad' in valores[key]:
+                # Validar valores
+                pas = valores[key]['pas']
+                pad = valores[key]['pad']
+
+                if pas and pad and 50 <= pas <= 300 and 30 <= pad <= 200 and pad < pas:
+                    resultado[key] = {'pas': pas, 'pad': pad}
+                else:
+                    resultado[key] = {}
+            else:
+                resultado[key] = {}
+
+        # Retornar valores + informações de custo
+        return {
+            'valores': resultado,
+            'custo': {
+                'input_tokens': input_tokens,
+                'output_tokens': output_tokens,
+                'custo_usd': custo_total_usd
+            }
+        }
+
+    except Exception as e:
+        print(f"Erro ao usar Claude API para OCR: {str(e)}")
+        traceback.print_exc()
+        # Retornar estrutura vazia em caso de erro
+        return {
+            'valores': {
+                'manha1': {}, 'manha2': {}, 'manha3': {},
+                'noite1': {}, 'noite2': {}, 'noite3': {}
+            },
+            'custo': None
+        }
+
+
+def extrair_valores_pa_da_imagem(imagem_bytes):
+    """
+    Extrai valores de pressão arterial de uma imagem usando OCR
+    Retorna dicionário com manha1, manha2, manha3, noite1, noite2, noite3
+    Cada um contendo {pas, pad}
+    """
+    import re
+
+    try:
+        # Usar Tesseract OCR com pré-processamento de imagem
+        try:
+            import pytesseract
+            from PIL import Image
+            import io
+            import cv2
+            import numpy as np
+
+            # Configurar caminho do Tesseract no Windows
+            tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+            if os.path.exists(tesseract_path):
+                pytesseract.pytesseract.tesseract_cmd = tesseract_path
+
+            # Converter bytes para imagem PIL
+            imagem_original = Image.open(io.BytesIO(imagem_bytes))
+
+            # Converter PIL para numpy array (formato OpenCV)
+            img_array = np.array(imagem_original)
+
+            # Se imagem colorida, converter para RGB
+            if len(img_array.shape) == 2:
+                gray = img_array
+            elif img_array.shape[2] == 4:  # RGBA
+                gray = cv2.cvtColor(img_array, cv2.COLOR_RGBA2GRAY)
+            else:  # RGB
+                gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+            # PRÉ-PROCESSAMENTO PARA MELHORAR OCR
+
+            # 1. Redimensionar se imagem muito pequena (melhora precisão)
+            height, width = gray.shape
+            if height < 1000 or width < 1000:
+                scale_factor = 2.0
+                gray = cv2.resize(gray, None, fx=scale_factor, fy=scale_factor,
+                                 interpolation=cv2.INTER_CUBIC)
+
+            # 2. Aumentar contraste com CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+            contrasted = clahe.apply(gray)
+
+            # 3. Aplicar desfoque gaussiano leve para reduzir ruído
+            blurred = cv2.GaussianBlur(contrasted, (3, 3), 0)
+
+            # 4. Binarização adaptativa (melhor para iluminação irregular)
+            binary = cv2.adaptiveThreshold(
+                blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY, 11, 2
+            )
+
+            # 5. Operação morfológica para limpar ruídos pequenos
+            kernel = np.ones((2,2), np.uint8)
+            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+            # Converter de volta para PIL Image
+            imagem_processada = Image.fromarray(cleaned)
+
+            print("Imagem pré-processada com sucesso")
+
+            # MÚLTIPLAS TENTATIVAS DE OCR COM DIFERENTES CONFIGURAÇÕES
+
+            texto_extraido = ""
+
+            # Tentativa 1: OCR com PSM 6 (assume bloco uniforme de texto)
+            texto1 = pytesseract.image_to_string(
+                imagem_processada,
+                config='--psm 6 -c tessedit_char_whitelist=0123456789xX×/- '
+            )
+            print(f"Tentativa 1 (PSM 6): {texto1}")
+
+            # Tentativa 2: OCR com PSM 11 (texto esparso sem ordem)
+            texto2 = pytesseract.image_to_string(
+                imagem_processada,
+                config='--psm 11 -c tessedit_char_whitelist=0123456789xX×/- '
+            )
+            print(f"Tentativa 2 (PSM 11): {texto2}")
+
+            # Tentativa 3: OCR com PSM 12 (texto esparso com OSD)
+            texto3 = pytesseract.image_to_string(
+                imagem_processada,
+                config='--psm 12 -c tessedit_char_whitelist=0123456789xX×/- '
+            )
+            print(f"Tentativa 3 (PSM 12): {texto3}")
+
+            # Usar o resultado com mais caracteres
+            textos = [texto1, texto2, texto3]
+            texto_extraido = max(textos, key=lambda t: len(t.strip()))
+
+            print(f"Texto extraído da imagem (melhor tentativa): {texto_extraido}")
+
+        except ImportError as e:
+            # Se bibliotecas não estiverem instaladas
+            print(f"Erro ao importar bibliotecas OCR: {str(e)}")
+            print("SOLUÇÃO: Execute 'pip install opencv-python pytesseract'")
+            texto_extraido = ""
+        except Exception as e:
+            # Erro durante processamento
+            print(f"Erro durante OCR: {str(e)}")
+            # Fallback: tentar OCR simples sem pré-processamento
+            try:
+                import pytesseract
+                from PIL import Image
+                import io
+
+                tesseract_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                if os.path.exists(tesseract_path):
+                    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+
+                imagem_original = Image.open(io.BytesIO(imagem_bytes))
+                texto_extraido = pytesseract.image_to_string(
+                    imagem_original,
+                    config='--psm 6 -c tessedit_char_whitelist=0123456789xX×/- '
+                )
+                print(f"Fallback - Texto extraído sem pré-processamento: {texto_extraido}")
+            except Exception as e2:
+                print(f"Fallback também falhou: {str(e2)}")
+                texto_extraido = ""
+
+        # Processar texto extraído para encontrar valores de PA
+        valores = {
+            'manha1': {},
+            'manha2': {},
+            'manha3': {},
+            'noite1': {},
+            'noite2': {},
+            'noite3': {}
+        }
+
+        # Padrões para detectar valores de PA
+        # Exemplos: 120x80, 12x8, 120/80, 120 x 80, 120 80
+        padroes = [
+            r'(\d{2,3})\s*[x×X/]\s*(\d{2,3})',  # 120x80, 120×80, 120/80
+            r'(\d{1,2})\s*[x×X/]\s*(\d{1,2})(?!\d)',  # 12x8 (abreviado)
+            r'(\d{2,3})\s+(\d{2,3})'  # 120 80 (separado por espaço)
+        ]
+
+        # Encontrar todos os valores de PA no texto
+        valores_encontrados = []
+        for padrao in padroes:
+            matches = re.findall(padrao, texto_extraido)
+            for pas_str, pad_str in matches:
+                pas, pad = normalizar_valor_pa(pas_str, pad_str)
+                if pas and pad:
+                    valores_encontrados.append({'pas': pas, 'pad': pad})
+
+        # Distribuir valores encontrados nas 6 posições (3 manhã + 3 noite)
+        keys = ['manha1', 'manha2', 'manha3', 'noite1', 'noite2', 'noite3']
+        for i, key in enumerate(keys):
+            if i < len(valores_encontrados):
+                valores[key] = valores_encontrados[i]
+
+        return valores
+
+    except Exception as e:
+        print(f"Erro ao extrair valores: {str(e)}")
+        traceback.print_exc()
+        return {
+            'manha1': {}, 'manha2': {}, 'manha3': {},
+            'noite1': {}, 'noite2': {}, 'noite3': {}
+        }
+
+
+def normalizar_valor_pa(pas_str, pad_str):
+    """
+    Normaliza valores de PA
+    Exemplos:
+    - 12, 8 -> 120, 80
+    - 120, 80 -> 120, 80
+    - 13, 9 -> 130, 90
+    """
+    try:
+        pas = int(pas_str)
+        pad = int(pad_str)
+
+        # Se valores estão abreviados (12x8), multiplicar por 10
+        if pas < 20 and pad < 20:
+            pas *= 10
+            pad *= 10
+
+        # Validar limites
+        if not (50 <= pas <= 300 and 30 <= pad <= 200):
+            return None, None
+
+        # Validar que PAD < PAS
+        if pad >= pas:
+            return None, None
+
+        return pas, pad
+
+    except (ValueError, TypeError):
+        return None, None
 
 
 # ============================================================================
