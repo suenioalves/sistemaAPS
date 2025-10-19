@@ -11,15 +11,17 @@
 window.estadoApp = {
     currentStep: 1,
     totalSteps: 5,
-    familiaRastreamento: null,
     domicilioSelecionado: null,
+    familiasDisponiveis: [],         // Array de famílias do domicílio
+    familiasSelecionadas: [],        // Famílias selecionadas para rastreamento
     cidadaosSelecionados: [],
     cidadaosSuspeitos: [],
     cidadaosNormais: [],
-    integrantesDisponiveis: [],
+    integrantesDisponiveis: [],      // Todos integrantes de todas famílias
     afericoesMRPA: {},
     afericoesMAPA: {},
-    resultados: {}
+    resultados: {},
+    statusTriagemFamilias: {}        // { id_familia: 'nao_triada' | 'iniciada' | 'incompleta' | 'concluida' }
 };
 
 // ============================================================================
@@ -226,28 +228,43 @@ function criarCardDomicilio(domicilio) {
 // SELEÇÃO DE DOMICÍLIO E INÍCIO DO RASTREAMENTO
 // ============================================================================
 async function selecionarDomicilio(domicilio) {
-    estadoApp.domicilioSelecionado = domicilio;
-
-    // Buscar integrantes do domicílio
+    // Buscar FAMÍLIAS do domicílio
     try {
-        const response = await fetch(`/api/rastreamento/integrantes-domicilio/${domicilio.id_domicilio}`);
+        const response = await fetch(`/api/rastreamento/familias-domicilio/${domicilio.id_domicilio}`);
         const data = await response.json();
 
-        if (data.integrantes && data.integrantes.length > 0) {
-            estadoApp.integrantesDisponiveis = data.integrantes;
+        if (data.familias && data.familias.length > 0) {
+            // Adicionar famílias deste domicílio à lista disponível (sem duplicar)
+            data.familias.forEach(familia => {
+                const jaExiste = estadoApp.familiasDisponiveis.some(f => f.id_familia === familia.id_familia);
+                if (!jaExiste) {
+                    // Adicionar informações do domicílio à família
+                    familia.domicilio = {
+                        id_domicilio: domicilio.id_domicilio,
+                        endereco_completo: domicilio.endereco_completo
+                    };
+                    estadoApp.familiasDisponiveis.push(familia);
+                }
+            });
 
-            // Esconder lista de domicílios e mostrar wizard
-            document.getElementById('container-domicilios')?.classList.add('hidden');
+            // Mostrar wizard (mas MANTER lista de domicílios visível)
             document.getElementById('wizard-rastreamento')?.classList.remove('hidden');
 
-            // Ir para step 1: Seleção de integrantes
-            irParaStep(1);
+            // Ir para step 1 se ainda não estiver lá
+            if (estadoApp.currentStep !== 1) {
+                irParaStep(1);
+            } else {
+                // Re-renderizar step atual para mostrar novas famílias
+                renderizarStepAtual();
+            }
+
+            mostrarNotificacao(`${data.familias.length} família(s) adicionada(s) do domicílio selecionado`, 'success');
         } else {
-            mostrarNotificacao('Nenhum integrante elegível encontrado neste domicílio', 'warning');
+            mostrarNotificacao('Nenhuma família elegível encontrada neste domicílio', 'warning');
         }
     } catch (error) {
-        console.error('Erro ao buscar integrantes:', error);
-        mostrarNotificacao('Erro ao carregar integrantes do domicílio', 'error');
+        console.error('Erro ao buscar famílias:', error);
+        mostrarNotificacao('Erro ao carregar famílias do domicílio', 'error');
     }
 }
 
@@ -327,37 +344,274 @@ window.renderizarStepAtual = function() {
 };
 
 // ============================================================================
-// STEP 1: SELEÇÃO DE INTEGRANTES
+// STEP 1: SELEÇÃO DE FAMÍLIAS E INTEGRANTES
 // ============================================================================
 function renderizarStepSelecaoIntegrantes(container) {
+    const totalFamilias = estadoApp.familiasDisponiveis.length;
+    const totalSelecionadas = estadoApp.familiasSelecionadas.length;
+
     container.innerHTML = `
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            <i class="ri-user-add-line mr-2"></i>Selecione os Integrantes para Rastreamento
-        </h3>
-        <p class="text-sm text-gray-600 mb-4">
-            Selecione os integrantes da família com <strong>idade >= 20 anos</strong> que <strong>ainda não foram diagnosticados</strong> como hipertensos.
-        </p>
-        <div id="lista-integrantes" class="space-y-3">
-            <!-- Integrantes serão renderizados aqui -->
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="ri-group-line mr-2"></i>Selecione as Famílias e Integrantes para Rastreamento
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">
+                    <strong>${totalFamilias} família(s)</strong> disponível(is) •
+                    <strong>${totalSelecionadas} família(s)</strong> selecionada(s) •
+                    <strong>${estadoApp.cidadaosSelecionados.length} integrante(s)</strong> selecionado(s)
+                </p>
+            </div>
+            <button onclick="voltarParaBuscaDomicilios()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2">
+                <i class="ri-add-line"></i>
+                Adicionar Outra Família
+            </button>
+        </div>
+
+        <div id="lista-familias" class="space-y-6">
+            <!-- Famílias serão renderizadas aqui -->
         </div>
     `;
 
-    const listaIntegrantes = container.querySelector('#lista-integrantes');
+    const listaFamilias = container.querySelector('#lista-familias');
 
-    if (!estadoApp.integrantesDisponiveis || estadoApp.integrantesDisponiveis.length === 0) {
-        listaIntegrantes.innerHTML = `
+    if (!estadoApp.familiasDisponiveis || estadoApp.familiasDisponiveis.length === 0) {
+        listaFamilias.innerHTML = `
             <div class="text-center py-8 text-gray-500">
-                <p>Nenhum integrante elegível encontrado</p>
+                <i class="ri-home-4-line text-4xl mb-2"></i>
+                <p>Nenhuma família adicionada</p>
+                <p class="text-sm mt-2">Clique em "Adicionar Outra Família" para buscar domicílios</p>
             </div>
         `;
         return;
     }
 
-    estadoApp.integrantesDisponiveis.forEach(integrante => {
-        const card = criarCardIntegrante(integrante);
-        listaIntegrantes.appendChild(card);
+    estadoApp.familiasDisponiveis.forEach(familia => {
+        const cardFamilia = criarCardFamilia(familia);
+        listaFamilias.appendChild(cardFamilia);
     });
 }
+
+// Função para voltar à busca de domicílios (permitindo adicionar mais famílias)
+window.voltarParaBuscaDomicilios = function() {
+    // Rolar para o topo para mostrar os filtros
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    mostrarNotificacao('Busque outro domicílio para adicionar mais famílias', 'info');
+};
+
+function criarCardFamilia(familia) {
+    const div = document.createElement('div');
+    div.className = 'border-2 border-blue-300 rounded-lg bg-blue-50 overflow-hidden';
+
+    // Verificar se família está selecionada
+    const familiaSelecionada = estadoApp.familiasSelecionadas.some(f => f.id_familia === familia.id_familia);
+
+    div.innerHTML = `
+        <!-- Cabeçalho da Família -->
+        <div class="bg-blue-100 border-b-2 border-blue-300 px-4 py-3">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3 flex-1">
+                    <input type="checkbox"
+                           id="check-familia-${familia.id_familia}"
+                           ${familiaSelecionada ? 'checked' : ''}
+                           onchange="toggleFamilia(${familia.id_familia})"
+                           class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-1">
+                    <div class="flex-1">
+                        <h4 class="font-bold text-blue-900">
+                            <i class="ri-home-heart-line mr-1"></i>FAMÍLIA - ${familia.nome_responsavel_familiar.toUpperCase()}
+                        </h4>
+                        <p class="text-xs text-blue-600 mt-1">
+                            <i class="ri-map-pin-line mr-1"></i>${familia.domicilio?.endereco_completo || 'Endereço não disponível'}
+                        </p>
+                        <p class="text-sm text-blue-700 mt-1">
+                            Microárea: ${familia.microarea || 'N/A'} • ${familia.total_integrantes} integrante(s) elegível(is)
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="event.stopPropagation(); toggleDetalhesFamily(${familia.id_familia})"
+                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors">
+                        <i class="ri-arrow-down-s-line" id="icon-familia-${familia.id_familia}"></i>
+                        <span id="text-familia-${familia.id_familia}">Expandir</span>
+                    </button>
+                    <button onclick="event.stopPropagation(); removerFamilia(${familia.id_familia})"
+                            class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+                            title="Remover família">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Integrantes (inicialmente oculta) -->
+        <div id="integrantes-familia-${familia.id_familia}" class="hidden bg-white px-4 py-3 space-y-2">
+            ${familia.integrantes.map(integrante => criarItemIntegranteFamilia(integrante, familia.id_familia)).join('')}
+        </div>
+    `;
+
+    return div;
+}
+
+// Função para remover família da lista
+window.removerFamilia = function(idFamilia) {
+    if (!confirm('Deseja remover esta família e todos os seus integrantes da seleção?')) {
+        return;
+    }
+
+    const familia = estadoApp.familiasDisponiveis.find(f => f.id_familia === idFamilia);
+    if (!familia) return;
+
+    // Remover todos integrantes desta família
+    familia.integrantes.forEach(integrante => {
+        estadoApp.cidadaosSelecionados = estadoApp.cidadaosSelecionados.filter(
+            c => c.co_seq_cds_cad_individual !== integrante.co_seq_cds_cad_individual
+        );
+    });
+
+    // Remover família das listas
+    estadoApp.familiasSelecionadas = estadoApp.familiasSelecionadas.filter(f => f.id_familia !== idFamilia);
+    estadoApp.familiasDisponiveis = estadoApp.familiasDisponiveis.filter(f => f.id_familia !== idFamilia);
+
+    // Re-renderizar
+    renderizarStepAtual();
+    mostrarNotificacao('Família removida da seleção', 'info');
+};
+
+function criarItemIntegranteFamilia(integrante, idFamilia) {
+    const jaSelecionado = estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === integrante.co_seq_cds_cad_individual);
+    const resultado = estadoApp.resultados[integrante.co_seq_cds_cad_individual];
+    const jaAvaliado = !!resultado;
+    const isHipertenso = resultado?.mapa?.classificacao === 'HIPERTENSO';
+
+    let borderClass = 'border-gray-200';
+    let bgClass = 'bg-white';
+
+    if (jaAvaliado) {
+        if (isHipertenso) {
+            borderClass = 'border-red-300';
+            bgClass = 'bg-red-50';
+        } else {
+            borderClass = 'border-green-300';
+            bgClass = 'bg-green-50';
+        }
+    }
+
+    return `
+        <div class="border ${borderClass} ${bgClass} rounded-lg p-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                ${!jaAvaliado || !isHipertenso ? `
+                    <input type="checkbox"
+                           id="check-integrante-${integrante.co_seq_cds_cad_individual}"
+                           ${jaSelecionado ? 'checked' : ''}
+                           onchange="toggleIntegrante(${integrante.co_seq_cds_cad_individual}, ${idFamilia})"
+                           class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                           ${integrante.tem_diagnostico_hipertensao ? 'disabled' : ''}>
+                ` : `
+                    <div class="w-4 h-4"></div>
+                `}
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-900 text-sm">${integrante.nome_cidadao}</span>
+                        ${integrante.st_responsavel_familiar ?
+                            '<span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">Responsável</span>' :
+                            ''
+                        }
+                        ${jaAvaliado ? `
+                            ${isHipertenso ? `
+                                <span class="flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white rounded-full text-xs font-bold">
+                                    <i class="ri-alert-fill"></i>HIPERTENSO
+                                </span>
+                            ` : `
+                                <span class="flex items-center gap-1 px-2 py-0.5 bg-green-600 text-white rounded-full text-xs font-bold">
+                                    <i class="ri-check-fill"></i>NÃO HIPERTENSO
+                                </span>
+                            `}
+                        ` : ''}
+                    </div>
+                    <div class="flex items-center gap-3 mt-1 text-xs text-gray-600">
+                        <span><i class="ri-calendar-line mr-1"></i>${integrante.idade} anos</span>
+                        <span><i class="ri-user-line mr-1"></i>${integrante.sexo}</span>
+                        ${jaAvaliado && resultado.mapa ? `
+                            <span class="${isHipertenso ? 'text-red-700 font-bold' : 'text-green-700 font-bold'}">
+                                <i class="ri-pulse-line mr-1"></i>${resultado.mapa.media_pas}×${resultado.mapa.media_pad} mmHg
+                            </span>
+                        ` : ''}
+                    </div>
+                    ${jaAvaliado && isHipertenso ? `
+                        <div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs">
+                            <p class="text-red-900 font-semibold"><i class="ri-alert-line mr-1"></i>Encaminhar para HIPERDIA + Inserir CID no PEC</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div>
+                ${integrante.tem_diagnostico_hipertensao ?
+                    '<span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">Já diagnosticado</span>' :
+                    !jaAvaliado ?
+                        '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Elegível</span>' :
+                        ''
+                }
+            </div>
+        </div>
+    `;
+}
+
+// Função para expandir/recolher integrantes da família
+window.toggleDetalhesFamily = function(idFamilia) {
+    const divIntegrantes = document.getElementById(`integrantes-familia-${idFamilia}`);
+    const icon = document.getElementById(`icon-familia-${idFamilia}`);
+    const text = document.getElementById(`text-familia-${idFamilia}`);
+
+    if (divIntegrantes.classList.contains('hidden')) {
+        divIntegrantes.classList.remove('hidden');
+        icon.className = 'ri-arrow-up-s-line';
+        text.textContent = 'Recolher';
+    } else {
+        divIntegrantes.classList.add('hidden');
+        icon.className = 'ri-arrow-down-s-line';
+        text.textContent = 'Expandir';
+    }
+};
+
+// Função para selecionar/desselecionar família inteira
+window.toggleFamilia = function(idFamilia) {
+    const familia = estadoApp.familiasDisponiveis.find(f => f.id_familia === idFamilia);
+    if (!familia) return;
+
+    const checkbox = document.getElementById(`check-familia-${idFamilia}`);
+    const selecionada = checkbox.checked;
+
+    if (selecionada) {
+        // Adicionar família à lista de selecionadas
+        if (!estadoApp.familiasSelecionadas.some(f => f.id_familia === idFamilia)) {
+            estadoApp.familiasSelecionadas.push(familia);
+        }
+
+        // Selecionar todos os integrantes elegíveis da família
+        familia.integrantes.forEach(integrante => {
+            if (!integrante.tem_diagnostico_hipertensao) {
+                const jaAdicionado = estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === integrante.co_seq_cds_cad_individual);
+                if (!jaAdicionado) {
+                    estadoApp.cidadaosSelecionados.push(integrante);
+                }
+            }
+        });
+    } else {
+        // Remover família da lista de selecionadas
+        estadoApp.familiasSelecionadas = estadoApp.familiasSelecionadas.filter(f => f.id_familia !== idFamilia);
+
+        // Desselecionar todos os integrantes desta família
+        familia.integrantes.forEach(integrante => {
+            estadoApp.cidadaosSelecionados = estadoApp.cidadaosSelecionados.filter(
+                c => c.co_seq_cds_cad_individual !== integrante.co_seq_cds_cad_individual
+            );
+        });
+    }
+
+    // Re-renderizar para atualizar checkboxes dos integrantes
+    renderizarStepAtual();
+};
 
 function criarCardIntegrante(integrante) {
     const div = document.createElement('div');
@@ -459,16 +713,42 @@ function criarCardIntegrante(integrante) {
     return div;
 }
 
-window.toggleIntegrante = function(codIndividual) {
-    const integrante = estadoApp.integrantesDisponiveis.find(i => i.co_seq_cds_cad_individual === codIndividual);
+// Função para selecionar/desselecionar integrante individual
+window.toggleIntegrante = function(codIndividual, idFamilia) {
+    // Buscar integrante na família
+    const familia = estadoApp.familiasDisponiveis.find(f => f.id_familia === idFamilia);
+    if (!familia) return;
+
+    const integrante = familia.integrantes.find(i => i.co_seq_cds_cad_individual === codIndividual);
     if (!integrante) return;
 
     const index = estadoApp.cidadaosSelecionados.findIndex(c => c.co_seq_cds_cad_individual === codIndividual);
 
     if (index >= 0) {
+        // Remover integrante
         estadoApp.cidadaosSelecionados.splice(index, 1);
+
+        // Verificar se ainda há integrantes selecionados desta família
+        const integrantesDaFamilia = familia.integrantes.filter(i =>
+            estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === i.co_seq_cds_cad_individual)
+        );
+
+        // Se não houver mais nenhum integrante selecionado, desmarcar família
+        if (integrantesDaFamilia.length === 0) {
+            estadoApp.familiasSelecionadas = estadoApp.familiasSelecionadas.filter(f => f.id_familia !== idFamilia);
+            const checkboxFamilia = document.getElementById(`check-familia-${idFamilia}`);
+            if (checkboxFamilia) checkboxFamilia.checked = false;
+        }
     } else {
+        // Adicionar integrante
         estadoApp.cidadaosSelecionados.push(integrante);
+
+        // Garantir que a família está marcada como selecionada
+        if (!estadoApp.familiasSelecionadas.some(f => f.id_familia === idFamilia)) {
+            estadoApp.familiasSelecionadas.push(familia);
+            const checkboxFamilia = document.getElementById(`check-familia-${idFamilia}`);
+            if (checkboxFamilia) checkboxFamilia.checked = true;
+        }
     }
 };
 

@@ -10096,6 +10096,167 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
         if conn: conn.close()
 
 
+@app.route('/api/rastreamento/familias-domicilio/<int:id_domicilio>')
+def api_rastreamento_familias_domicilio(id_domicilio):
+    """
+    Retorna FAMÍLIAS do domicílio (um domicílio pode ter múltiplas famílias)
+    Para cada família, retorna:
+    - Informações da família (responsável, CNS)
+    - Integrantes elegíveis para rastreamento (idade >= 20 anos, sem diagnóstico)
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Query para buscar famílias distintas do domicílio
+        query_familias = """
+            SELECT DISTINCT
+                df.co_seq_cds_domicilio_familia AS id_familia,
+                df.nu_cpf_cidadao AS cpf_responsavel,
+                df.nu_cartao_sus AS cns_responsavel,
+                df.st_mudanca,
+
+                -- Nome do responsável familiar
+                (SELECT ci.no_cidadao
+                 FROM tb_cds_cad_individual ci
+                 WHERE (ci.nu_cpf_cidadao = df.nu_cpf_cidadao OR ci.nu_cns_cidadao = df.nu_cartao_sus)
+                   AND ci.st_versao_atual = 1
+                   AND ci.st_ficha_inativa = 0
+                   AND ci.st_responsavel_familiar = 1
+                 LIMIT 1) AS nome_responsavel_familiar,
+
+                -- Microárea da família
+                (SELECT ci.nu_micro_area
+                 FROM tb_cds_cad_individual ci
+                 WHERE (ci.nu_cpf_cidadao = df.nu_cpf_cidadao OR ci.nu_cns_cidadao = df.nu_cartao_sus)
+                   AND ci.st_versao_atual = 1
+                   AND ci.st_ficha_inativa = 0
+                 LIMIT 1) AS microarea
+
+            FROM tb_cds_cad_domiciliar d
+            INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+
+            WHERE d.co_seq_cds_cad_domiciliar = %s
+              AND d.st_versao_atual = 1
+              AND df.st_mudanca = 0
+
+            ORDER BY df.co_seq_cds_domicilio_familia
+        """
+
+        cur.execute(query_familias, (id_domicilio,))
+        familias = cur.fetchall()
+
+        resultado_familias = []
+
+        # Para cada família, buscar seus integrantes
+        for familia in familias:
+            id_familia = familia['id_familia']
+            cpf_responsavel = familia['cpf_responsavel']
+            cns_responsavel = familia['cns_responsavel']
+
+            # Query para buscar integrantes desta família específica
+            query_integrantes = """
+                SELECT
+                    ci.co_seq_cds_cad_individual,
+                    ci.no_cidadao AS nome_cidadao,
+                    ci.dt_nascimento AS data_nascimento,
+                    EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) AS idade,
+                    s.no_sexo AS sexo,
+                    ci.nu_cpf_cidadao,
+                    ci.nu_cns_cidadao,
+                    ci.st_responsavel_familiar,
+
+                    -- Verificar se já tem diagnóstico de hipertensão
+                    COALESCE(
+                        (SELECT TRUE FROM sistemaaps.mv_hiperdia_hipertensao
+                         WHERE cod_paciente = c.co_seq_cidadao
+                         LIMIT 1),
+                        FALSE
+                    ) AS tem_diagnostico_hipertensao,
+
+                    -- Verificar se já tem diagnóstico de diabetes
+                    COALESCE(
+                        (SELECT TRUE FROM sistemaaps.mv_hiperdia_diabetes
+                         WHERE cod_paciente = c.co_seq_cidadao
+                         LIMIT 1),
+                        FALSE
+                    ) AS tem_diagnostico_diabetes
+
+                FROM tb_cds_domicilio_familia df
+                INNER JOIN tb_cds_cad_individual ci ON (
+                    ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+                    OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+                    OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+                    OR ci.nu_cns_cidadao = df.nu_cartao_sus
+                )
+                LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+                LEFT JOIN tb_cidadao c ON c.co_unico_ultima_ficha = ci.co_unico_ficha AND c.st_ativo = 1
+
+                WHERE df.co_seq_cds_domicilio_familia = %s
+                  AND ci.st_versao_atual = 1
+                  AND ci.st_ficha_inativa = 0
+                  AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
+
+                ORDER BY
+                    ci.st_responsavel_familiar DESC,  -- Responsável primeiro
+                    ci.dt_nascimento ASC
+            """
+
+            cur.execute(query_integrantes, (id_familia,))
+            integrantes = cur.fetchall()
+
+            # Converter integrantes para formato adequado
+            integrantes_formatados = []
+            for integrante in integrantes:
+                integrantes_formatados.append({
+                    'co_seq_cds_cad_individual': integrante['co_seq_cds_cad_individual'],
+                    'nome_cidadao': integrante['nome_cidadao'],
+                    'data_nascimento': integrante['data_nascimento'].isoformat() if integrante['data_nascimento'] else None,
+                    'idade': int(integrante['idade']) if integrante['idade'] else 0,
+                    'sexo': integrante['sexo'] or 'Não informado',
+                    'st_responsavel_familiar': integrante['st_responsavel_familiar'],
+                    'tem_diagnostico_hipertensao': integrante['tem_diagnostico_hipertensao'],
+                    'tem_diagnostico_diabetes': integrante['tem_diagnostico_diabetes'],
+                    'elegivel_rastreamento': not integrante['tem_diagnostico_hipertensao']
+                })
+
+            # Adicionar família ao resultado
+            resultado_familias.append({
+                'id_familia': id_familia,
+                'nome_responsavel_familiar': familia['nome_responsavel_familiar'] or 'Responsável não identificado',
+                'cpf_responsavel': cpf_responsavel,
+                'cns_responsavel': cns_responsavel,
+                'microarea': familia['microarea'],
+                'total_integrantes': len(integrantes_formatados),
+                'integrantes': integrantes_formatados
+            })
+
+        return jsonify({
+            'success': True,
+            'id_domicilio': id_domicilio,
+            'total_familias': len(resultado_familias),
+            'familias': resultado_familias
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar famílias: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
 # ============================================================================
 # API: PROCESSAR IMAGEM MAPA COM OCR
 # ============================================================================
