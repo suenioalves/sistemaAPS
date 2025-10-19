@@ -28,11 +28,17 @@
     <!-- RemixIcon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
 
+    <!-- jsPDF - Biblioteca para geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <!-- Script principal -->
     <script type="module" src="{{ url_for('static', filename='rastreamento_cardiovascular_script.js') }}" defer></script>
 
     <!-- Funções de renderização dos steps -->
     <script src="{{ url_for('static', filename='rastreamento_steps.js') }}" defer></script>
+
+    <!-- Dashboard de acompanhamento -->
+    <script src="{{ url_for('static', filename='dashboard_rastreamento.js') }}" defer></script>
 
     <style>
         body {
@@ -92,8 +98,64 @@
         <!-- TAB: RASTREAMENTO HIPERTENSÃO -->
         <div id="tab-content-hipertensao" class="tab-content">
 
+            <!-- DASHBOARD DE ACOMPANHAMENTO -->
+            <div id="dashboard-acompanhamento" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+                <!-- CARD: Domicílios em Triagem -->
+                <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">
+                            <i class="ri-file-list-3-line mr-2 text-blue-600"></i>Em Triagem
+                        </h3>
+                        <span id="count-em-triagem" class="text-2xl font-bold text-blue-600">0</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Domicílios com triagem em andamento</p>
+                    <div id="lista-em-triagem" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Será preenchido via JavaScript -->
+                        <div class="text-sm text-gray-400 text-center py-4">
+                            Nenhum domicílio em triagem
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD: Domicílios Triados -->
+                <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">
+                            <i class="ri-checkbox-circle-line mr-2 text-green-600"></i>Triados
+                        </h3>
+                        <span id="count-triados" class="text-2xl font-bold text-green-600">0</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Domicílios com triagem completa</p>
+                    <div id="lista-triados" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Será preenchido via JavaScript -->
+                        <div class="text-sm text-gray-400 text-center py-4">
+                            Nenhum domicílio triado
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CARD: Hipertensos Diagnosticados -->
+                <div class="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">
+                            <i class="ri-alert-line mr-2 text-red-600"></i>Hipertensos
+                        </h3>
+                        <span id="count-hipertensos" class="text-2xl font-bold text-red-600">0</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Casos positivos identificados</p>
+                    <div id="lista-hipertensos" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Será preenchido via JavaScript -->
+                        <div class="text-sm text-gray-400 text-center py-4">
+                            Nenhum caso diagnosticado
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
             <!-- FILTROS -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div id="area-filtros-domicilios" class="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">
                     <i class="ri-filter-3-line mr-2"></i>Seleção de Família para Rastreamento
                 </h3>
@@ -166,26 +228,33 @@
                         <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
                         <div class="step-item flex flex-col items-center" data-step="2">
                             <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
+                                <i class="ri-file-pdf-line"></i>
+                            </div>
+                            <span class="text-xs text-center">Ficha de<br>Triagem</span>
+                        </div>
+                        <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
+                        <div class="step-item flex flex-col items-center" data-step="3">
+                            <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
                                 <i class="ri-stethoscope-line"></i>
                             </div>
                             <span class="text-xs text-center">Aferições<br>MRPA</span>
                         </div>
                         <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
-                        <div class="step-item flex flex-col items-center" data-step="3">
+                        <div class="step-item flex flex-col items-center" data-step="4">
                             <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
                                 <i class="ri-bar-chart-line"></i>
                             </div>
                             <span class="text-xs text-center">Análise<br>MRPA</span>
                         </div>
                         <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
-                        <div class="step-item flex flex-col items-center" data-step="4">
+                        <div class="step-item flex flex-col items-center" data-step="5">
                             <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
                                 <i class="ri-time-line"></i>
                             </div>
                             <span class="text-xs text-center">MRPA<br>5 Dias</span>
                         </div>
                         <div class="flex-1 h-0.5 bg-gray-300 mx-2"></div>
-                        <div class="step-item flex flex-col items-center" data-step="5">
+                        <div class="step-item flex flex-col items-center" data-step="6">
                             <div class="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center mb-2">
                                 <i class="ri-checkbox-circle-line"></i>
                             </div>

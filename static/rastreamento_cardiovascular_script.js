@@ -10,7 +10,7 @@
 // ============================================================================
 window.estadoApp = {
     currentStep: 1,
-    totalSteps: 5,
+    totalSteps: 6,                   // Alterado de 5 para 6 (novo step: Ficha de Triagem)
     domicilioSelecionado: null,
     familiasDisponiveis: [],         // Array de famílias do domicílio
     familiasSelecionadas: [],        // Famílias selecionadas para rastreamento
@@ -29,10 +29,11 @@ window.estadoApp = {
 // ============================================================================
 window.FASES = {
     SELECAO_INTEGRANTES: 1,
-    AFERICOES_MRPA: 2,
-    ANALISE_MRPA: 3,
-    AFERICOES_MAPA: 4,
-    RESULTADO_FINAL: 5
+    FICHA_TRIAGEM: 2,                // NOVO STEP: Geração de PDF de triagem
+    AFERICOES_MRPA: 3,               // Renumerado de 2 para 3
+    ANALISE_MRPA: 4,                 // Renumerado de 3 para 4
+    AFERICOES_MAPA: 5,               // Renumerado de 4 para 5
+    RESULTADO_FINAL: 6               // Renumerado de 5 para 6
 };
 
 window.LIMITE_PAS_HIPERTENSO = 130;
@@ -44,6 +45,7 @@ window.LIMITE_PAD_HIPERTENSO = 80;
 document.addEventListener('DOMContentLoaded', () => {
     inicializarEventListeners();
     carregarFiltrosIniciais();
+    carregarDashboardAcompanhamento();  // NOVO: Carregar dashboard
 });
 
 function inicializarEventListeners() {
@@ -316,6 +318,19 @@ function atualizarProgressoVisual() {
     document.getElementById('btn-voltar')?.classList.toggle('hidden', estadoApp.currentStep === 1);
     document.getElementById('btn-proximo')?.classList.toggle('hidden', estadoApp.currentStep === estadoApp.totalSteps);
     document.getElementById('btn-finalizar')?.classList.toggle('hidden', estadoApp.currentStep !== estadoApp.totalSteps);
+
+    // NOVO: Ocultar área de filtros e lista de domicílios quando step >= 2
+    const areaFiltros = document.getElementById('area-filtros-domicilios');
+    const listaDomicilios = document.getElementById('container-domicilios');
+
+    if (estadoApp.currentStep >= 2) {
+        // Ocultar filtros e lista de domicílios
+        areaFiltros?.classList.add('hidden');
+        listaDomicilios?.classList.add('hidden');
+    } else {
+        // Mostrar filtros (lista de domicílios só mostra se tiver resultados)
+        areaFiltros?.classList.remove('hidden');
+    }
 }
 
 // ============================================================================
@@ -327,6 +342,9 @@ window.renderizarStepAtual = function() {
     switch (estadoApp.currentStep) {
         case FASES.SELECAO_INTEGRANTES:
             renderizarStepSelecaoIntegrantes(container);
+            break;
+        case FASES.FICHA_TRIAGEM:              // NOVO STEP
+            renderizarStepFichaTriagem(container);
             break;
         case FASES.AFERICOES_MRPA:
             renderizarStepAfericoesMRPA(container);
@@ -753,6 +771,330 @@ window.toggleIntegrante = function(codIndividual, idFamilia) {
 };
 
 // ============================================================================
+// STEP 2: FICHA DE TRIAGEM (GERAÇÃO DE PDF)
+// ============================================================================
+function renderizarStepFichaTriagem(container) {
+    const totalFamilias = estadoApp.familiasSelecionadas.length;
+    const totalIntegrantes = estadoApp.cidadaosSelecionados.length;
+
+    container.innerHTML = `
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="ri-file-text-line mr-2"></i>Ficha de Triagem Familiar
+        </h3>
+        <p class="text-sm text-gray-600 mb-6">
+            Gere o PDF com as fichas de triagem para impressão. Cada ficha contém espaço para registrar as medições
+            domiciliares de pressão arterial dos integrantes selecionados.
+        </p>
+
+        <!-- Resumo da Seleção -->
+        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+            <h4 class="font-semibold text-blue-900 mb-3">
+                <i class="ri-information-line mr-1"></i>Resumo da Seleção
+            </h4>
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div class="bg-white rounded-lg p-3">
+                    <div class="text-2xl font-bold text-blue-600">${totalFamilias}</div>
+                    <div class="text-xs text-gray-600 mt-1">Família(s) selecionada(s)</div>
+                </div>
+                <div class="bg-white rounded-lg p-3">
+                    <div class="text-2xl font-bold text-green-600">${totalIntegrantes}</div>
+                    <div class="text-xs text-gray-600 mt-1">Integrante(s) selecionado(s)</div>
+                </div>
+                <div class="bg-white rounded-lg p-3">
+                    <div class="text-2xl font-bold text-purple-600">${Math.ceil(totalFamilias / 2)}</div>
+                    <div class="text-xs text-gray-600 mt-1">Página(s) do PDF</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Famílias Selecionadas -->
+        <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+            <h4 class="font-semibold text-gray-900 mb-3">
+                <i class="ri-folder-user-line mr-1"></i>Famílias que serão incluídas no PDF:
+            </h4>
+            <div class="space-y-2">
+                ${estadoApp.familiasSelecionadas.map((familia, index) => {
+                    const integrantesSelecionados = familia.integrantes.filter(i =>
+                        estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === i.co_seq_cds_cad_individual)
+                    );
+                    const status = obterStatusTriagemFamilia(familia.id_familia);
+                    const iconeStatus = obterIconeStatusTriagem(status);
+                    const corStatus = obterCorStatusTriagem(status);
+
+                    return `
+                        <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-gray-900">${index + 1}. ${familia.nome_responsavel_familiar}</span>
+                                        <span class="${corStatus} px-2 py-0.5 rounded-full text-xs font-semibold">
+                                            <i class="${iconeStatus} mr-1"></i>${status.toUpperCase().replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        <i class="ri-map-pin-line mr-1"></i>${familia.domicilio?.endereco_completo}
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        ${integrantesSelecionados.length} integrante(s): ${integrantesSelecionados.map(i => i.nome_cidadao).join(', ')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+
+        <!-- Botão de Gerar PDF -->
+        <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-lg p-6 text-center">
+            <button onclick="gerarPDFTriagem()"
+                    class="px-8 py-4 bg-red-600 hover:bg-red-700 text-white text-lg font-bold rounded-lg shadow-lg transition-all transform hover:scale-105">
+                <i class="ri-file-pdf-line mr-2 text-xl"></i>
+                Gerar PDF de Triagem Domiciliar
+            </button>
+            <p class="text-sm text-gray-700 mt-3">
+                <i class="ri-information-line mr-1"></i>
+                O PDF será gerado com <strong>paginação automática</strong> (nenhuma família será dividida entre páginas)
+                e incluirá <strong>2 linhas extras</strong> em cada tabela para integrantes não cadastrados
+            </p>
+        </div>
+    `;
+}
+
+// Funções auxiliares para status de triagem
+function obterStatusTriagemFamilia(idFamilia) {
+    return estadoApp.statusTriagemFamilias[idFamilia] || 'nao_triada';
+}
+
+function obterIconeStatusTriagem(status) {
+    const icones = {
+        'nao_triada': 'ri-file-list-line',
+        'iniciada': 'ri-time-line',
+        'incompleta': 'ri-error-warning-line',
+        'concluida': 'ri-check-double-line'
+    };
+    return icones[status] || 'ri-file-list-line';
+}
+
+function obterCorStatusTriagem(status) {
+    const cores = {
+        'nao_triada': 'bg-gray-100 text-gray-700',
+        'iniciada': 'bg-blue-100 text-blue-700',
+        'incompleta': 'bg-yellow-100 text-yellow-700',
+        'concluida': 'bg-green-100 text-green-700'
+    };
+    return cores[status] || 'bg-gray-100 text-gray-700';
+}
+
+// Função para calcular altura necessária para uma família no PDF
+function calcularAlturaFamilia(familia) {
+    const integrantesSelecionados = familia.integrantes.filter(i =>
+        estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === i.co_seq_cds_cad_individual)
+    );
+
+    const ALTURA_CABECALHO_INSTRUCOES = 12;
+    const ALTURA_TITULO_FAMILIA = 7;
+    const ALTURA_LINHA_TABELA = 7;
+    const LINHAS_EXTRAS = 2;
+
+    // Total de linhas: cabeçalho + integrantes + linhas extras
+    const totalLinhasTabela = 1 + integrantesSelecionados.length + LINHAS_EXTRAS;
+    const alturaTabela = totalLinhasTabela * ALTURA_LINHA_TABELA;
+
+    return ALTURA_CABECALHO_INSTRUCOES + ALTURA_TITULO_FAMILIA + alturaTabela;
+}
+
+// Função para gerar PDF de triagem com paginação dinâmica
+window.gerarPDFTriagem = async function() {
+    mostrarNotificacao('Gerando PDF de triagem...', 'info');
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        const ALTURA_PAGINA = doc.internal.pageSize.height;
+        const MARGEM_SUPERIOR = 20;
+        const MARGEM_INFERIOR = 10;
+        const ESPACAMENTO_ENTRE_FAMILIAS = 5;
+        const ALTURA_TITULO_PAGINA = 10; // Para o título "TRIAGEM DOMICILIAR..."
+
+        const alturaDisponivel = ALTURA_PAGINA - MARGEM_SUPERIOR - MARGEM_INFERIOR;
+
+        let yAtual = MARGEM_SUPERIOR;
+        let primeiraPagina = true;
+        let primeiraFamiliaDaPagina = true;
+
+        for (let i = 0; i < estadoApp.familiasSelecionadas.length; i++) {
+            const familia = estadoApp.familiasSelecionadas[i];
+            const alturaFamilia = calcularAlturaFamilia(familia);
+
+            // Adicionar espaço para título da página se for a primeira família da página
+            const alturaComTitulo = primeiraFamiliaDaPagina ? alturaFamilia + ALTURA_TITULO_PAGINA : alturaFamilia;
+
+            // Verificar se a família cabe na página atual
+            const espacoNecessario = primeiraFamiliaDaPagina ? alturaComTitulo : alturaFamilia + ESPACAMENTO_ENTRE_FAMILIAS;
+
+            if ((yAtual + espacoNecessario) > (ALTURA_PAGINA - MARGEM_INFERIOR)) {
+                // Não cabe na página atual, criar nova página
+                doc.addPage();
+                yAtual = MARGEM_SUPERIOR;
+                primeiraPagina = false;
+                primeiraFamiliaDaPagina = true;
+            }
+
+            // Adicionar espaçamento entre famílias (exceto primeira da página)
+            if (!primeiraFamiliaDaPagina) {
+                yAtual += ESPACAMENTO_ENTRE_FAMILIAS;
+            }
+
+            // Renderizar família
+            renderizarFamiliaNoPDF(doc, familia, yAtual, primeiraFamiliaDaPagina);
+
+            // Atualizar posição Y
+            yAtual += alturaComTitulo;
+            primeiraFamiliaDaPagina = false;
+        }
+
+        // Salvar PDF
+        doc.save(`triagem_familiar_${new Date().toISOString().split('T')[0]}.pdf`);
+
+        // Marcar famílias como "iniciada"
+        estadoApp.familiasSelecionadas.forEach(familia => {
+            if (estadoApp.statusTriagemFamilias[familia.id_familia] === 'nao_triada' ||
+                !estadoApp.statusTriagemFamilias[familia.id_familia]) {
+                estadoApp.statusTriagemFamilias[familia.id_familia] = 'iniciada';
+            }
+        });
+
+        // Re-renderizar para mostrar novos status
+        renderizarStepAtual();
+
+        mostrarNotificacao('PDF gerado com sucesso!', 'success');
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        mostrarNotificacao('Erro ao gerar PDF. Verifique se o jsPDF está carregado.', 'error');
+    }
+};
+
+function renderizarFamiliaNoPDF(doc, familia, yInicial, primeiraFamiliaDaPagina = true) {
+    const margemEsquerda = 10;
+    const larguraPagina = doc.internal.pageSize.width;
+
+    let yAtual = yInicial;
+
+    // Se for a primeira família da página, adicionar título geral
+    if (primeiraFamiliaDaPagina) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0); // Texto preto
+        doc.text('TRIAGEM DOMICILIAR - RASTREAMENTO DE HIPERTENSÃO ARTERIAL', larguraPagina / 2, yAtual, { align: 'center' });
+        yAtual += 10; // Espaço após o título
+    }
+
+    // Cabeçalho da instrução (ALTERADO: fundo branco com texto vermelho)
+    doc.setFillColor(255, 255, 255); // Fundo branco
+    doc.setDrawColor(220, 53, 69); // Borda vermelha
+    doc.setLineWidth(0.5);
+    doc.rect(margemEsquerda, yAtual, larguraPagina - 20, 12, 'FD'); // F=Fill, D=Draw border
+
+    doc.setTextColor(220, 53, 69); // Texto vermelho
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+
+    let yTexto = yAtual + 4;
+    doc.text('AFERIR A PRESSÃO ARTERIAL DOS MORADORES COM MAIS DE 20 ANOS DE IDADE', larguraPagina / 2, yTexto, { align: 'center' });
+    yTexto += 3;
+    doc.text('01 VEZ POR DIA POR 05 (CINCO) DIAS', larguraPagina / 2, yTexto, { align: 'center' });
+    yTexto += 3;
+    doc.text('DE MANHÃ EM JEJUM OU A NOITE ANTES DO JANTAR (NÃO ESCREVER 12X8, USAR 120X80)', larguraPagina / 2, yTexto, { align: 'center' });
+
+    // Título da família (amarelo)
+    const yTituloFamilia = yAtual + 13;
+    doc.setFillColor(255, 235, 59); // Amarelo
+    doc.setDrawColor(0, 0, 0); // Borda preta
+    doc.rect(margemEsquerda, yTituloFamilia, larguraPagina - 20, 7, 'FD');
+
+    doc.setTextColor(0, 0, 0); // Texto preto
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+
+    // Título: ENDEREÇO DO DOMICÍLIO - NOME DO RESPONSÁVEL FAMILIAR
+    const tituloFamilia = `${familia.domicilio?.endereco_completo || 'ENDEREÇO NÃO DISPONÍVEL'} - ${familia.nome_responsavel_familiar.toUpperCase()}`;
+    doc.text(tituloFamilia, margemEsquerda + 2, yTituloFamilia + 5);
+
+    // Preparar dados da tabela
+    const integrantesSelecionados = familia.integrantes.filter(i =>
+        estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === i.co_seq_cds_cad_individual)
+    );
+
+    // Linhas da tabela: integrantes + 2 linhas extras
+    const linhasTabela = [];
+
+    integrantesSelecionados.forEach(integrante => {
+        linhasTabela.push([
+            `${integrante.nome_cidadao.toUpperCase()}, ${integrante.idade} anos`,
+            '___/___/___',
+            '___/___/___',
+            '___/___/___',
+            '___/___/___',
+            '___/___/___'
+        ]);
+    });
+
+    // Adicionar 2 linhas extras
+    linhasTabela.push(['', '___/___/___', '___/___/___', '___/___/___', '___/___/___', '___/___/___']);
+    linhasTabela.push(['', '___/___/___', '___/___/___', '___/___/___', '___/___/___', '___/___/___']);
+
+    // Desenhar tabela
+    const yTabela = yTituloFamilia + 7;
+    const larguraColunaCidadao = 90;
+    const larguraColunaDia = 19;
+    const alturaLinha = 7;
+
+    let yLinha = yTabela;
+
+    // Resetar cor do texto para preto (para a tabela)
+    doc.setTextColor(0, 0, 0);
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+
+    // Linha de cabeçalho
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.rect(margemEsquerda, yLinha, larguraColunaCidadao, alturaLinha);
+    doc.text('CIDADÃO', margemEsquerda + 2, yLinha + 5);
+
+    for (let i = 0; i < 5; i++) {
+        const xCol = margemEsquerda + larguraColunaCidadao + (i * larguraColunaDia);
+        doc.rect(xCol, yLinha, larguraColunaDia, alturaLinha);
+        doc.text('___/___/___', xCol + 2, yLinha + 5);
+    }
+
+    yLinha += alturaLinha;
+
+    // Linhas de dados
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+
+    linhasTabela.forEach(linha => {
+        // Coluna CIDADÃO
+        doc.rect(margemEsquerda, yLinha, larguraColunaCidadao, alturaLinha);
+        if (linha[0]) {
+            doc.text(linha[0], margemEsquerda + 2, yLinha + 5);
+        }
+
+        // Colunas de dias
+        for (let i = 0; i < 5; i++) {
+            const xCol = margemEsquerda + larguraColunaCidadao + (i * larguraColunaDia);
+            doc.rect(xCol, yLinha, larguraColunaDia, alturaLinha);
+        }
+
+        yLinha += alturaLinha;
+    });
+}
+
+// ============================================================================
 // VALIDAÇÃO DE STEPS
 // ============================================================================
 function validarStepAtual() {
@@ -762,6 +1104,11 @@ function validarStepAtual() {
                 mostrarNotificacao('Selecione pelo menos um integrante para rastreamento', 'warning');
                 return false;
             }
+            return true;
+
+        case FASES.FICHA_TRIAGEM:
+            // Validação do Step 2: Ficha de Triagem
+            // Não exige que PDF seja gerado para avançar
             return true;
 
         case FASES.AFERICOES_MRPA:
@@ -926,3 +1273,4 @@ async function finalizarRastreamento() {
 
     mostrarNotificacao('Avaliação concluída! Selecione outro integrante ou finalize o atendimento.', 'success');
 }
+

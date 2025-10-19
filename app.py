@@ -10258,6 +10258,54 @@ def api_rastreamento_familias_domicilio(id_domicilio):
 
 
 # ============================================================================
+# API: DASHBOARD DE ACOMPANHAMENTO
+# ============================================================================
+@app.route('/api/rastreamento/dashboard')
+def api_rastreamento_dashboard():
+    """
+    Retorna dados consolidados do dashboard de rastreamento:
+    - Domicílios em triagem (com progresso)
+    - Domicílios triados (com resultados)
+    - Hipertensos diagnosticados
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Por enquanto, retornar dados vazios (estrutura correta)
+        # TODO: Implementar queries reais quando tabelas de rastreamento existirem
+
+        dashboard = {
+            'em_triagem': [],
+            'triados': [],
+            'hipertensos': []
+        }
+
+        return jsonify({
+            'success': True,
+            'dashboard': dashboard
+        })
+
+    except Exception as e:
+        print(f"Erro ao carregar dashboard: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+# ============================================================================
 # API: PROCESSAR IMAGEM MAPA COM OCR
 # ============================================================================
 @app.route('/api/rastreamento/processar-imagem-mapa', methods=['POST'])
