@@ -361,40 +361,99 @@ function renderizarStepSelecaoIntegrantes(container) {
 
 function criarCardIntegrante(integrante) {
     const div = document.createElement('div');
-    div.className = 'border border-gray-200 rounded-lg p-4';
 
     const jaSelecionado = estadoApp.cidadaosSelecionados.some(c => c.co_seq_cds_cad_individual === integrante.co_seq_cds_cad_individual);
+
+    // Verificar se já foi avaliado nesta sessão
+    const resultado = estadoApp.resultados[integrante.co_seq_cds_cad_individual];
+    const jaAvaliado = !!resultado;
+    const isHipertenso = resultado?.mapa?.classificacao === 'HIPERTENSO';
+
+    // Definir estilo do card baseado no status
+    let borderClass = 'border-gray-200';
+    let bgClass = 'bg-white';
+
+    if (jaAvaliado) {
+        if (isHipertenso) {
+            borderClass = 'border-red-400';
+            bgClass = 'bg-red-50';
+        } else {
+            borderClass = 'border-green-400';
+            bgClass = 'bg-green-50';
+        }
+    }
+
+    div.className = `border-2 ${borderClass} ${bgClass} rounded-lg p-4 transition-all`;
 
     div.innerHTML = `
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <input type="checkbox"
-                       id="check-${integrante.co_seq_cds_cad_individual}"
-                       ${jaSelecionado ? 'checked' : ''}
-                       onchange="toggleIntegrante(${integrante.co_seq_cds_cad_individual})"
-                       class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                <div>
-                    <h4 class="font-medium text-gray-900">${integrante.nome_cidadao}</h4>
+                ${!jaAvaliado || !isHipertenso ? `
+                    <input type="checkbox"
+                           id="check-${integrante.co_seq_cds_cad_individual}"
+                           ${jaSelecionado ? 'checked' : ''}
+                           onchange="toggleIntegrante(${integrante.co_seq_cds_cad_individual})"
+                           class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                ` : `
+                    <div class="w-5 h-5"></div>
+                `}
+                <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                        <h4 class="font-medium text-gray-900">${integrante.nome_cidadao}</h4>
+                        ${jaAvaliado ? `
+                            ${isHipertenso ? `
+                                <span class="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-full text-xs font-bold">
+                                    <i class="ri-alert-fill"></i>
+                                    HIPERTENSO
+                                </span>
+                            ` : `
+                                <span class="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded-full text-xs font-bold">
+                                    <i class="ri-check-fill"></i>
+                                    NÃO HIPERTENSO
+                                </span>
+                            `}
+                        ` : ''}
+                    </div>
                     <div class="flex items-center gap-3 mt-1 text-sm text-gray-600">
                         <span><i class="ri-calendar-line mr-1"></i>${integrante.idade} anos</span>
                         <span><i class="ri-user-line mr-1"></i>${integrante.sexo}</span>
+                        ${jaAvaliado && resultado.mapa ? `
+                            <span class="${isHipertenso ? 'text-red-700 font-bold' : 'text-green-700 font-bold'}">
+                                <i class="ri-pulse-line mr-1"></i>${resultado.mapa.media_pas}×${resultado.mapa.media_pad} mmHg
+                            </span>
+                        ` : ''}
                     </div>
+                    ${jaAvaliado && isHipertenso ? `
+                        <div class="mt-2 p-3 bg-red-100 border border-red-300 rounded-md">
+                            <p class="text-xs text-red-900 font-semibold">
+                                <i class="ri-alert-line mr-1"></i>AÇÃO NECESSÁRIA:
+                            </p>
+                            <p class="text-xs text-red-800 mt-1">
+                                • Encaminhar para o programa <strong>HIPERDIA</strong><br>
+                                • Inserir CID no PEC (Prontuário Eletrônico do Cidadão)
+                            </p>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
-            <div class="text-sm">
+            <div class="text-sm flex flex-col items-end gap-2">
                 ${integrante.tem_diagnostico_hipertensao ?
-                    '<span class="px-2 py-1 bg-red-100 text-red-700 rounded">Já diagnosticado</span>' :
-                    '<span class="px-2 py-1 bg-green-100 text-green-700 rounded">Elegível</span>'
+                    '<span class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">Já diagnosticado</span>' :
+                    !jaAvaliado ?
+                        '<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Elegível</span>' :
+                        ''
                 }
             </div>
         </div>
     `;
 
-    // Desabilitar se já diagnosticado
+    // Desabilitar checkbox se já diagnosticado OU se foi avaliado como hipertenso
     if (integrante.tem_diagnostico_hipertensao) {
         const checkbox = div.querySelector('input[type="checkbox"]');
-        checkbox.disabled = true;
-        div.classList.add('opacity-50');
+        if (checkbox) {
+            checkbox.disabled = true;
+        }
+        div.classList.add('opacity-60');
     }
 
     return div;
@@ -561,6 +620,29 @@ window.mostrarNotificacao = function(mensagem, tipo = 'info') {
 };
 
 async function finalizarRastreamento() {
-    mostrarNotificacao('Rastreamento finalizado com sucesso!', 'success');
-    // Implementar lógica de finalização
+    // Salvar resultados no estado global para manter histórico
+    estadoApp.integrantesDisponiveis = estadoApp.integrantesDisponiveis.map(integrante => {
+        const resultado = estadoApp.resultados[integrante.co_seq_cds_cad_individual];
+        if (resultado) {
+            return {
+                ...integrante,
+                resultado_rastreamento: resultado
+            };
+        }
+        return integrante;
+    });
+
+    // Resetar seleções mas manter histórico de resultados
+    estadoApp.cidadaosSelecionados = [];
+    estadoApp.cidadaosSuspeitos = [];
+    estadoApp.cidadaosNormais = [];
+    estadoApp.afericoesMRPA = {};
+    estadoApp.afericoesMAPA = {};
+
+    // NÃO limpar estadoApp.resultados - mantém histórico
+
+    // Voltar para a tela de seleção de integrantes
+    irParaStep(1);
+
+    mostrarNotificacao('Avaliação concluída! Selecione outro integrante ou finalize o atendimento.', 'success');
 }
