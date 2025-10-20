@@ -3,13 +3,14 @@
 -- Data: 2025-10-15
 -- Objetivo: Otimizar listagem de domicílios (de 4.3s para ~0.1s)
 -- Atualização: 1x por dia (refresh programado)
+-- Schema: sistemaaps
 -- =========================================================================
 
 -- Dropar view se existir
-DROP MATERIALIZED VIEW IF EXISTS mv_domicilios_resumo CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS sistemaaps.mv_domicilios_resumo CASCADE;
 
 -- Criar Materialized View
-CREATE MATERIALIZED VIEW mv_domicilios_resumo AS
+CREATE MATERIALIZED VIEW sistemaaps.mv_domicilios_resumo AS
 WITH domicilios_mais_recentes AS (
     SELECT DISTINCT ON (df.nu_cpf_cidadao)
         df.co_seq_cds_domicilio_familia,
@@ -83,24 +84,24 @@ GROUP BY
 HAVING COUNT(DISTINCT ci.co_seq_cds_cad_individual) > 0;
 
 -- Criar índices na Materialized View para queries rápidas
-CREATE UNIQUE INDEX idx_mv_domicilios_id ON mv_domicilios_resumo(id_domicilio);
-CREATE INDEX idx_mv_domicilios_logradouro ON mv_domicilios_resumo(no_logradouro, nu_domicilio_int);
-CREATE INDEX idx_mv_domicilios_bairro ON mv_domicilios_resumo(bairro);
-CREATE INDEX idx_mv_domicilios_equipes ON mv_domicilios_resumo(equipes);
-CREATE INDEX idx_mv_domicilios_microarea ON mv_domicilios_resumo(microareas);
-CREATE INDEX idx_mv_domicilios_nomes ON mv_domicilios_resumo USING gin(to_tsvector('portuguese', nomes_moradores_lower));
+CREATE UNIQUE INDEX idx_mv_domicilios_id ON sistemaaps.mv_domicilios_resumo(id_domicilio);
+CREATE INDEX idx_mv_domicilios_logradouro ON sistemaaps.mv_domicilios_resumo(no_logradouro, nu_domicilio_int);
+CREATE INDEX idx_mv_domicilios_bairro ON sistemaaps.mv_domicilios_resumo(bairro);
+CREATE INDEX idx_mv_domicilios_equipes ON sistemaaps.mv_domicilios_resumo(equipes);
+CREATE INDEX idx_mv_domicilios_microarea ON sistemaaps.mv_domicilios_resumo(microareas);
+CREATE INDEX idx_mv_domicilios_nomes ON sistemaaps.mv_domicilios_resumo USING gin(to_tsvector('portuguese', nomes_moradores_lower));
 
 -- Atualizar estatísticas
-ANALYZE mv_domicilios_resumo;
+ANALYZE sistemaaps.mv_domicilios_resumo;
 
 -- Informações sobre a view
 SELECT
     schemaname,
     matviewname,
     pg_size_pretty(pg_total_relation_size(schemaname||'.'||matviewname)) AS tamanho,
-    (SELECT COUNT(*) FROM mv_domicilios_resumo) AS total_registros
+    (SELECT COUNT(*) FROM sistemaaps.mv_domicilios_resumo) AS total_registros
 FROM pg_matviews
-WHERE matviewname = 'mv_domicilios_resumo';
+WHERE matviewname = 'mv_domicilios_resumo' AND schemaname = 'sistemaaps';
 
 -- Para refresh manual (executar quando necessário):
--- REFRESH MATERIALIZED VIEW CONCURRENTLY mv_domicilios_resumo;
+-- REFRESH MATERIALIZED VIEW CONCURRENTLY sistemaaps.mv_domicilios_resumo;

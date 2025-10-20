@@ -1,0 +1,120 @@
+
+@app.route('/api/rastreamento/confirmar-triagem', methods=['POST'])
+def api_confirmar_triagem():
+    """
+    FASE 2: Confirma seleção de triagem e move famílias para "Em Triagem"
+
+    Recebe:
+    {
+        "familias": [
+            {
+                "id_familia": 123,
+                "nome_responsavel": "João Silva",
+                "endereco": "Rua X, 10",
+                "equipe": "PSF - 03",
+                "microarea": "01",
+                "integrantes": [456, 789]  // IDs dos integrantes
+            }
+        ]
+    }
+
+    Retorna:
+    {
+        "success": true,
+        "familias_inseridas": 2,
+        "integrantes_inseridos": 5
+    }
+    """
+    conn = None
+    cur = None
+
+    try:
+        dados = request.get_json()
+        familias = dados.get('familias', [])
+
+        if not familias:
+            return jsonify({'success': False, 'message': 'Nenhuma família fornecida'}), 400
+
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        familias_inseridas = 0
+        integrantes_inseridos = 0
+
+        for familia in familias:
+            id_familia = familia['id_familia']
+            equipe = familia.get('equipe', '')
+            microarea = familia.get('microarea', '')
+            integrantes_ids = familia['integrantes']
+
+            # Inserir registro de rastreamento da família
+            query_insert_familia = """
+            INSERT INTO sistemaaps.tb_rastreamento_familias (
+                co_seq_cds_domicilio_familia,
+                equipe,
+                microarea,
+                status_rastreamento,
+                data_inicio_rastreamento,
+                data_criacao
+            ) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING cod_seq_rastreamento_familia
+            """
+
+            cur.execute(query_insert_familia, [
+                id_familia,
+                equipe,
+                microarea,
+                'EM_TRIAGEM'
+            ])
+
+            cod_rastreamento_familia = cur.fetchone()['cod_seq_rastreamento_familia']
+            familias_inseridas += 1
+
+            # Inserir integrantes no rastreamento
+            for cod_individual in integrantes_ids:
+                query_insert_integrante = """
+                INSERT INTO sistemaaps.tb_rastreamento_cidadaos (
+                    cod_rastreamento_familia,
+                    co_seq_cds_cad_individual,
+                    status_rastreamento,
+                    data_criacao
+                ) VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                """
+
+                cur.execute(query_insert_integrante, [
+                    cod_rastreamento_familia,
+                    cod_individual,
+                    'PENDENTE'
+                ])
+
+                integrantes_inseridos += 1
+
+        conn.commit()
+
+        print(f"✅ Triagem confirmada: {familias_inseridas} famílias, {integrantes_inseridos} integrantes")
+
+        return jsonify({
+            'success': True,
+            'message': 'Triagem confirmada com sucesso',
+            'familias_inseridas': familias_inseridas,
+            'integrantes_inseridos': integrantes_inseridos
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao confirmar triagem: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()

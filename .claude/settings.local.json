@@ -23,7 +23,12 @@
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"DROP MATERIALIZED VIEW IF EXISTS mv_domicilios_resumo CASCADE;\")",
       "Bash(pip show:*)",
       "Bash(pip install:*)",
-      "Bash(chcp 65001)"
+      "Bash(chcp 65001)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\dt sistemaaps.rastreamento*\")",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT COUNT(*) FROM mv_domicilios_resumo;\")",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(del fix_endpoint.py remove_duplicate.py fix_final.py remove_dup_final.py)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\d sistemaaps.tb_rastreamento_familias\")"
     ],
     "deny": [],
     "ask": [],

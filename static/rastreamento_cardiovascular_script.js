@@ -45,7 +45,7 @@ window.LIMITE_PAD_HIPERTENSO = 80;
 document.addEventListener('DOMContentLoaded', () => {
     inicializarEventListeners();
     carregarFiltrosIniciais();
-    carregarDashboardAcompanhamento();  // NOVO: Carregar dashboard
+    // Dashboard é carregado pelo dashboard_rastreamento.js
 });
 
 function inicializarEventListeners() {
@@ -416,6 +416,68 @@ window.voltarParaBuscaDomicilios = function() {
     // Rolar para o topo para mostrar os filtros
     window.scrollTo({ top: 0, behavior: 'smooth' });
     mostrarNotificacao('Busque outro domicílio para adicionar mais famílias', 'info');
+};
+
+// Função para mostrar filtros do wizard (botão "Iniciar Novo Rastreamento")
+window.mostrarFiltrosWizard = function() {
+    const areaFiltros = document.getElementById('area-filtros-domicilios');
+    const botaoIniciar = document.getElementById('btn-iniciar-novo-rastreamento');
+
+    if (areaFiltros) {
+        areaFiltros.classList.remove('hidden');
+        // Scroll suave até os filtros
+        areaFiltros.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Ocultar botão de iniciar após clicar
+    if (botaoIniciar) {
+        botaoIniciar.classList.add('hidden');
+    }
+};
+
+/**
+ * Carrega uma família para rastreamento (chamada do dashboard)
+ * @param {Object} familiaData - Dados completos da família vindos da API
+ * @param {Object} progresso - Dados de progresso (opcional, para continuar triagem)
+ */
+window.carregarFamiliaParaRastreamento = function(familiaData, progresso = null) {
+    console.log('Carregando família para rastreamento:', familiaData);
+
+    // Resetar estado do app
+    estadoApp.familiasSelecionadas = [];
+    estadoApp.cidadaosSelecionados = [];
+    estadoApp.familiasDisponiveis = [];
+    estadoApp.afericoesMRPA = {};
+    estadoApp.afericoesMAPA = {};
+    estadoApp.cidadaosSuspeitos = [];
+    estadoApp.cidadaosNormais = [];
+    estadoApp.resultados = {};
+
+    // Adicionar família ao estado
+    estadoApp.familiasDisponiveis.push(familiaData);
+    estadoApp.familiasSelecionadas.push(familiaData);
+
+    // Selecionar automaticamente todos os integrantes elegíveis
+    if (familiaData.integrantes && familiaData.integrantes.length > 0) {
+        familiaData.integrantes.forEach(integrante => {
+            // Apenas integrantes elegíveis (sem diagnóstico prévio de HAS)
+            if (!integrante.tem_diagnostico_has) {
+                estadoApp.cidadaosSelecionados.push(integrante);
+            }
+        });
+    }
+
+    // Se há progresso, restaurar estado
+    if (progresso) {
+        // TODO: Restaurar step atual, aferições, etc.
+        console.log('Restaurando progresso:', progresso);
+        // Implementar lógica de restauração quando necessário
+    }
+
+    // Ir para step 1 (Seleção de Integrantes)
+    irParaStep(1);
+
+    mostrarNotificacao(`Família ${familiaData.nome_responsavel} carregada com ${familiaData.total_elegiveis} integrante(s) elegível(is)`, 'success');
 };
 
 function criarCardFamilia(familia) {

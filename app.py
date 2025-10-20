@@ -564,7 +564,7 @@ def api_listar_domicilios():
             responsaveis_info,
             tem_responsavel,
             TO_CHAR(dt_cad_domiciliar, 'DD/MM/YYYY') AS data_cadastro
-        FROM mv_domicilios_resumo
+        FROM sistemaaps.mv_domicilios_resumo
         WHERE 1=1
         """
 
@@ -657,7 +657,7 @@ def api_estatisticas_domicilios():
             SUM(total_integrantes) AS total_cidadaos,
             ROUND(AVG(total_integrantes), 2) AS media_por_domicilio,
             COUNT(*) FILTER (WHERE tem_responsavel = 0) AS inconsistencias
-        FROM mv_domicilios_resumo
+        FROM sistemaaps.mv_domicilios_resumo
         WHERE 1=1
         """
 
@@ -763,7 +763,7 @@ def api_domicilios_equipes():
         
         query = """
             SELECT DISTINCT TRIM(equipe_valor) AS equipe
-            FROM mv_domicilios_resumo,
+            FROM sistemaaps.mv_domicilios_resumo,
                  LATERAL unnest(string_to_array(equipes, ',')) AS equipe_valor
             WHERE equipes IS NOT NULL
             ORDER BY equipe
@@ -803,7 +803,7 @@ def api_domicilios_microareas():
         
         query = """
             SELECT DISTINCT TRIM(microarea_valor) AS microarea
-            FROM mv_domicilios_resumo,
+            FROM sistemaaps.mv_domicilios_resumo,
                  LATERAL unnest(string_to_array(microareas, ',')) AS microarea_valor
             WHERE microareas IS NOT NULL
         """
@@ -859,7 +859,7 @@ def api_detalhes_familia(id_domicilio):
             ORDER BY df.nu_cpf_cidadao, d.dt_cad_domiciliar DESC, df.co_seq_cds_domicilio_familia DESC
         )
         SELECT DISTINCT ON (ci.co_seq_cds_cad_individual)
-            d.co_seq_cds_cad_domiciliar AS id_domicilio,
+            d.co_cds_cad_domiciliar AS id_domicilio,
             COALESCE(tl.no_tipo_logradouro, '') || ' ' || d.no_logradouro || ', ' || d.nu_domicilio AS endereco_completo,
             d.no_bairro AS bairro,
             d.nu_cep AS cep,
@@ -879,7 +879,7 @@ def api_detalhes_familia(id_domicilio):
             e.no_equipe AS equipe
         FROM tb_cds_cad_domiciliar d
         LEFT JOIN tb_tipo_logradouro tl ON tl.co_tipo_logradouro = d.tp_logradouro
-        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_cds_cad_domiciliar
         INNER JOIN domicilios_mais_recentes dmr ON dmr.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
         LEFT JOIN tb_renda_familiar rf ON rf.co_renda_familiar = df.co_renda_familiar
         INNER JOIN tb_cds_cad_individual ci ON (
@@ -895,7 +895,7 @@ def api_detalhes_familia(id_domicilio):
         )
         LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = c.co_seq_cidadao
         LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
-        WHERE d.co_seq_cds_cad_domiciliar = %s
+        WHERE d.co_cds_cad_domiciliar = %s
           AND d.st_versao_atual = 1
           AND df.st_mudanca = 0
           AND ci.st_versao_atual = 1
@@ -2280,9 +2280,9 @@ def build_hiperdia_has_filters(args):
 
     # Filtro por status MRPA (Controlado/Descompensado)
     if status_filter == 'Controlado':
-        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)")
+        where_clauses.append("EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)")
     elif status_filter == 'Descompensado':
-        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)")
+        where_clauses.append("EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)")
 
     # Mapeamento de ordenação
     sort_mapping = {
@@ -2347,13 +2347,13 @@ def api_pacientes_hiperdia_has():
                     CASE WHEN med.data_inicio IS NOT NULL THEN med.data_inicio ELSE '1900-01-01'::date END DESC, 
                     med.nome_medicamento
             ) AS tratamento_atual
-            FROM sistemaaps.tb_hiperdia_has_medicamentos med
+            FROM tb_hiperdia_has_medicamentos med
             WHERE med.codcidadao = m.cod_paciente 
               AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
         ) tratamento ON TRUE
         LEFT JOIN LATERAL (
             SELECT mrpa.media_pa_sistolica || 'x' || mrpa.media_pa_diastolica || 'mmHg' AS mrpa_atual
-            FROM sistemaaps.tb_hiperdia_mrpa mrpa
+            FROM tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
             ORDER BY mrpa.data_mrpa DESC
@@ -2361,7 +2361,7 @@ def api_pacientes_hiperdia_has():
         ) ultima_mrpa ON TRUE
         LEFT JOIN LATERAL (
             SELECT mrpa.status_mrpa
-            FROM sistemaaps.tb_hiperdia_mrpa mrpa
+            FROM tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
             ORDER BY mrpa.data_mrpa DESC
@@ -2369,7 +2369,7 @@ def api_pacientes_hiperdia_has():
         ) ultimo_status_mrpa ON TRUE
         LEFT JOIN LATERAL (
             SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END AS tem_monitoramento_ativo
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento ac
+            FROM tb_hiperdia_has_acompanhamento ac
             WHERE ac.cod_cidadao = m.cod_paciente
               AND ac.status_acao = 'PENDENTE'
               AND ac.cod_acao IN (1, 2, 3, 4)
@@ -2381,7 +2381,7 @@ def api_pacientes_hiperdia_has():
         ) exames ON TRUE
         LEFT JOIN LATERAL (
             SELECT data_agendamento, cod_acao  
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento 
+            FROM tb_hiperdia_has_acompanhamento 
             WHERE cod_cidadao = m.cod_paciente 
               AND status_acao = 'PENDENTE'
             ORDER BY data_agendamento ASC  
@@ -2454,7 +2454,7 @@ def api_get_total_hipertensos():
         FROM sistemaaps.mv_hiperdia_hipertensao m
         LEFT JOIN LATERAL (
             SELECT data_agendamento
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = m.cod_paciente
               AND status_acao = 'PENDENTE'
               AND data_agendamento >= CURRENT_DATE
@@ -2481,7 +2481,7 @@ def api_get_total_hipertensos():
                     CASE WHEN med.data_inicio IS NOT NULL THEN med.data_inicio ELSE '1900-01-01'::date END DESC, 
                     med.nome_medicamento
             ) AS tratamento_atual
-            FROM sistemaaps.tb_hiperdia_has_medicamentos med
+            FROM tb_hiperdia_has_medicamentos med
             WHERE med.codcidadao = m.cod_paciente 
               AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
         ) tratamento ON TRUE
@@ -2515,7 +2515,7 @@ def api_get_hipertensos_mrpa_pendente():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para QUALQUER ação pendente
-        pendente_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha WHERE ha.cod_cidadao = m.cod_paciente AND ha.status_acao = 'PENDENTE')"
+        pendente_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_has_acompanhamento ha WHERE ha.cod_cidadao = m.cod_paciente AND ha.status_acao = 'PENDENTE')"
         
         # Adiciona a condição de ação pendente à lista de condições existentes
         where_clauses.append(pendente_condition)
@@ -2549,7 +2549,7 @@ def api_get_hipertensos_controlados():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos controlados (status_mrpa = 1)
-        controlados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)"
+        controlados_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)"
 
         # Adiciona a condição de controlados à lista de condições existentes
         where_clauses.append(controlados_condition)
@@ -2583,7 +2583,7 @@ def api_get_hipertensos_descompensados():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos descompensados (status_mrpa = 0)
-        descompensados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)"
+        descompensados_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)"
 
         # Adiciona a condição de descompensados à lista de condições existentes
         where_clauses.append(descompensados_condition)
@@ -2622,7 +2622,7 @@ def api_get_hipertensos_em_avaliacao():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos em avaliação (ações pendentes 1, 2, 4, 5)
         em_avaliacao_condition = """EXISTS (
-            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
+            SELECT 1 FROM tb_hiperdia_has_acompanhamento ha
             WHERE ha.cod_cidadao = m.cod_paciente
             AND ha.status_acao = 'PENDENTE'
             AND ha.cod_acao IN (1, 2, 4, 5)
@@ -2661,7 +2661,7 @@ def api_get_hipertensos_aguardando_exames():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos aguardando exames (ações pendentes 4, 5)
         aguardando_exames_condition = """EXISTS (
-            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
+            SELECT 1 FROM tb_hiperdia_has_acompanhamento ha
             WHERE ha.cod_cidadao = m.cod_paciente
             AND ha.status_acao = 'PENDENTE'
             AND ha.cod_acao IN (4, 5)
@@ -2699,7 +2699,7 @@ def api_get_hipertensos_sem_avaliacao():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos sem avaliação (sem status_mrpa definido)
         sem_avaliacao_condition = """NOT EXISTS (
-            SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa
+            SELECT 1 FROM tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
         )"""
@@ -2773,7 +2773,7 @@ def api_hiperdia_timeline(cod_cidadao):
                 sistemaaps.tb_hiperdia_has_cardiologia card ON ac.cod_acompanhamento = card.cod_acompanhamento
             LEFT JOIN LATERAL (
                 SELECT ha_next.cod_acao, ha_next.data_agendamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento ha_next
+                FROM tb_hiperdia_has_acompanhamento ha_next
                 WHERE ha_next.cod_acao_origem = ac.cod_acompanhamento
                   AND ha_next.status_acao = 'PENDENTE'
                   AND ha_next.data_agendamento >= CURRENT_DATE
@@ -2923,7 +2923,7 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
         # Primeiro, buscar informações da ação para identificar referências posteriores
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -2942,7 +2942,7 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
         # Buscar todas as ações posteriores que referenciam esta ação
         cur.execute("""
             SELECT cod_acompanhamento, cod_acao, status_acao
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_acao_origem = %(cod_acompanhamento)s
             ORDER BY cod_acompanhamento ASC
         """, {'cod_acompanhamento': cod_acompanhamento})
@@ -2954,31 +2954,31 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
             # 1. Remover dados relacionados à ação principal (se existirem)
             # Remover dados de MRPA
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_mrpa
+                DELETE FROM tb_hiperdia_mrpa
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de tratamento
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_tratamento
+                DELETE FROM tb_hiperdia_tratamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de resultados de exames
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
+                DELETE FROM tb_hiperdia_resultados_exames
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de risco cardiovascular
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_risco_cv
+                DELETE FROM tb_hiperdia_risco_cv
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de nutrição
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_nutricao
+                DELETE FROM tb_hiperdia_nutricao
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -2988,39 +2988,39 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
                 
                 # Remover dados relacionados à ação posterior
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_mrpa
+                    DELETE FROM tb_hiperdia_mrpa
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_tratamento
+                    DELETE FROM tb_hiperdia_tratamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
+                    DELETE FROM tb_hiperdia_resultados_exames
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_risco_cv
+                    DELETE FROM tb_hiperdia_risco_cv
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_nutricao
+                    DELETE FROM tb_hiperdia_nutricao
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 # Remover a ação posterior
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    DELETE FROM tb_hiperdia_has_acompanhamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
             # 3. Finalmente, remover a ação principal
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                DELETE FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -3077,7 +3077,7 @@ def api_atualizar_status_acao_hiperdia(cod_acompanhamento):
         # Primeiro, verificar se a ação existe e está pendente
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -3144,7 +3144,7 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
         # Primeiro, buscar informações da ação para identificar referências posteriores
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -3157,7 +3157,7 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
         # Buscar todas as ações posteriores que referenciam esta ação
         cur.execute("""
             SELECT cod_acompanhamento, cod_acao, status_acao
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_acao_origem = %(cod_acompanhamento)s
             ORDER BY cod_acompanhamento ASC
         """, {'cod_acompanhamento': cod_acompanhamento})
@@ -3196,13 +3196,13 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
 
                 # Remover a ação posterior
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    DELETE FROM tb_hiperdia_has_acompanhamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
             # 3. Finalmente, remover a ação principal
             cur.execute("""
-                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                DELETE FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -3250,7 +3250,7 @@ def api_hiperdia_pending_action_by_type(cod_cidadao, cod_acao):
 
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = %(cod_cidadao)s
               AND cod_acao = %(cod_acao)s
               AND status_acao = 'PENDENTE'
@@ -3288,7 +3288,7 @@ def api_hiperdia_latest_pending_action_by_type(cod_cidadao, cod_acao):
 
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao
-            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            FROM tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = %(cod_cidadao)s
               AND cod_acao = %(cod_acao)s
               AND status_acao = 'PENDENTE'
@@ -3375,7 +3375,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 return jsonify({"sucesso": False, "erro": "Dados da modificação de tratamento não fornecidos."}), 400
             
             # Check if a treatment record already exists for this cod_acompanhamento
-            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_tratamento WHERE cod_acompanhamento = %s", (cod_acompanhamento_atualizado,))
+            cur.execute("SELECT 1 FROM tb_hiperdia_tratamento WHERE cod_acompanhamento = %s", (cod_acompanhamento_atualizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -3431,7 +3431,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Avaliar MRPA" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 2
                     AND status_acao = 'PENDENTE'
@@ -3620,7 +3620,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Avaliar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 5
                     AND status_acao = 'PENDENTE'
@@ -3666,7 +3666,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
 
             # Salvar os dados dos resultados dos exames
             print(f"[LOG] Salvando dados dos resultados dos exames na tabela tb_hiperdia_resultados_exames")
-            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -3715,7 +3715,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Registrar consulta nutrição" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                   AND cod_acao = 8
                   AND status_acao = 'PENDENTE'
@@ -3740,7 +3740,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                     'cod_acompanhamento': cod_acompanhamento_realizado
                 })
                 # Atualiza/insere dados na tabela de nutrição
-                cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_nutricao WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+                cur.execute("SELECT 1 FROM tb_hiperdia_nutricao WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
                 exists = cur.fetchone()
                 if exists:
                     sql_upsert_nutricao = """
@@ -3782,7 +3782,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Solicitar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 4
                     AND status_acao = 'PENDENTE'
@@ -3862,7 +3862,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
 
             # Salvar os dados do RCV
             print(f"[LOG] Salvando dados do RCV na tabela tb_hiperdia_risco_cv")
-            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_risco_cv WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM tb_hiperdia_risco_cv WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
             if exists:
                 print(f"[LOG] Atualizando dados existentes do RCV")
@@ -4084,7 +4084,7 @@ def api_registrar_acao_hiperdia():
                 
                 # Verificar se existe ação "Iniciar MRPA" PENDENTE para este cidadão
                 sql_check_pendente = """
-                    SELECT cod_acompanhamento FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                    SELECT cod_acompanhamento FROM tb_hiperdia_has_acompanhamento
                     WHERE cod_cidadao = %(cod_cidadao)s AND cod_acao = 1 AND status_acao = 'PENDENTE'
                     ORDER BY data_agendamento DESC LIMIT 1;
                 """
@@ -4189,7 +4189,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Avaliar MRPA" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 2
                     AND status_acao = 'PENDENTE'
@@ -4357,7 +4357,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Solicitar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 4
                     AND status_acao = 'PENDENTE'
@@ -4446,7 +4446,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Avaliar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_has_acompanhamento
+                FROM tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 5
                     AND status_acao = 'PENDENTE'
@@ -4492,7 +4492,7 @@ def api_registrar_acao_hiperdia():
 
             # Salvar os dados dos resultados dos exames
             print(f"[LOG] Salvando dados dos resultados dos exames na tabela tb_hiperdia_resultados_exames")
-            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -4673,7 +4673,7 @@ def api_registrar_acao_hiperdia():
                 print(f"[LOG] Buscando ação 'Encaminhar Cardiologia' pendente para finalizar...")
                 cur.execute('''
                     SELECT cod_acompanhamento 
-                    FROM sistemaaps.tb_hiperdia_has_acompanhamento 
+                    FROM tb_hiperdia_has_acompanhamento 
                     WHERE cod_cidadao = %(cod_cidadao)s 
                         AND cod_acao = 10 
                         AND status_acao = 'PENDENTE'
@@ -5847,7 +5847,7 @@ def api_generate_prescriptions_pdf():
                         observacao,
                         updated_at,
                         created_at
-                    FROM sistemaaps.tb_hiperdia_has_medicamentos
+                    FROM tb_hiperdia_has_medicamentos
                     WHERE codcidadao = %(cod_paciente)s
                     AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                     ORDER BY created_at DESC, nome_medicamento
@@ -6234,7 +6234,7 @@ def api_generate_prescription_pdf_individual():
                 observacao,
                 updated_at,
                 created_at
-            FROM sistemaaps.tb_hiperdia_has_medicamentos
+            FROM tb_hiperdia_has_medicamentos
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, nome_medicamento
@@ -6540,7 +6540,7 @@ def api_pacientes_hiperdia_dm():
                     ultima_acao.data_realizacao as acao_atual_data_realizacao,
                     (
                         SELECT trat.status_tratamento
-                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                        FROM tb_hiperdia_dm_tratamento trat
                         INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                             ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                         WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6572,7 +6572,7 @@ def api_pacientes_hiperdia_dm():
                         a.data_realizacao,
                         a.created_at,
                         a.cod_acompanhamento
-                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                    FROM tb_hiperdia_dm_acompanhamento a
                     LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
                     WHERE a.cod_cidadao = d.cod_paciente
                     ORDER BY a.created_at DESC
@@ -6623,7 +6623,7 @@ def api_pacientes_hiperdia_dm():
             # Verificar se tem medicamentos ativos para diabetes
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
+                    SELECT 1 FROM tb_hiperdia_dm_medicamentos med
                     WHERE med.codcidadao = cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
@@ -6657,7 +6657,7 @@ def api_pacientes_hiperdia_dm():
                     ultima_acao.cod_acompanhamento,
                     (
                         SELECT trat.status_tratamento
-                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                        FROM tb_hiperdia_dm_tratamento trat
                         WHERE trat.cod_acompanhamento = ultima_acao.cod_acompanhamento
                         ORDER BY trat.data_modificacao DESC
                         LIMIT 1
@@ -6668,7 +6668,7 @@ def api_pacientes_hiperdia_dm():
                         a.cod_acao,
                         a.status_acao,
                         a.cod_acompanhamento
-                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                    FROM tb_hiperdia_dm_acompanhamento a
                     WHERE a.cod_cidadao = d.cod_paciente
                     ORDER BY a.created_at DESC
                     LIMIT 1
@@ -6723,7 +6723,7 @@ def api_get_total_diabeticos():
                     a.cod_acao,
                     a.status_acao,
                     a.cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+                FROM tb_hiperdia_dm_acompanhamento a
                 WHERE a.cod_cidadao = d.cod_paciente
                 ORDER BY a.created_at DESC
                 LIMIT 1
@@ -6752,7 +6752,7 @@ def api_get_total_diabeticos():
             # Controlados: status_tratamento = 1 (adequado) ou 2 (aceitável)
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6765,7 +6765,7 @@ def api_get_total_diabeticos():
             # Descompensados: status_tratamento = 3
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6779,7 +6779,7 @@ def api_get_total_diabeticos():
             where_clauses.append("""
                 ultima_acao.status_acao IN ('AGUARDANDO', 'REALIZADA')
                 AND NOT EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6791,7 +6791,7 @@ def api_get_total_diabeticos():
         elif status == 'ComTratamento':
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
+                    SELECT 1 FROM tb_hiperdia_dm_medicamentos med
                     WHERE med.codcidadao = d.cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
@@ -6863,7 +6863,7 @@ def api_diabetes_timeline(cod_paciente):
                 trat.status_tratamento,
                 trat.observacoes as tratamento_observacoes,
                 trat.mudanca_proposta
-            FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
+            FROM tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
@@ -7215,7 +7215,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
         # Verificar se a ação existe e buscar informações completas
         cur.execute("""
             SELECT cod_acompanhamento, status_acao, cod_cidadao, cod_acao, responsavel_pela_acao
-            FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+            FROM tb_hiperdia_dm_acompanhamento
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
 
@@ -7243,7 +7243,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
             # Verificar se já não existe uma ação 4 pendente/aguardando para este paciente
             cur.execute("""
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+                FROM tb_hiperdia_dm_acompanhamento
                 WHERE cod_cidadao = %s
                 AND cod_acao = 4
                 AND status_acao IN ('AGUARDANDO', 'PENDENTE')
@@ -7283,7 +7283,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
             # Verificar se já não existe uma ação 2 pendente/aguardando para este paciente
             cur.execute("""
                 SELECT cod_acompanhamento
-                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
+                FROM tb_hiperdia_dm_acompanhamento
                 WHERE cod_cidadao = %s
                 AND cod_acao = 2
                 AND status_acao IN ('AGUARDANDO', 'PENDENTE')
@@ -7362,7 +7362,7 @@ def api_diabetes_delete_timeline_action(cod_acompanhamento):
         # Verificar se a ação existe
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao
-            FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            FROM tb_hiperdia_dm_acompanhamento 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
@@ -7372,13 +7372,13 @@ def api_diabetes_delete_timeline_action(cod_acompanhamento):
         
         # Primeiro, excluir dados MRG relacionados (se existirem)
         cur.execute("""
-            DELETE FROM sistemaaps.tb_hiperdia_mrg 
+            DELETE FROM tb_hiperdia_mrg 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
         # Excluir a ação principal
         cur.execute("""
-            DELETE FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
+            DELETE FROM tb_hiperdia_dm_acompanhamento 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
@@ -7424,7 +7424,7 @@ def api_diabetes_update_subtarefa(cod_subtarefa):
         # Verificar se a subtarefa existe e se a ação não foi cancelada
         cur.execute("""
             SELECT st.cod_subtarefa, a.status_acao
-            FROM sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st
+            FROM tb_hiperdia_dm_acompanhamento_subtarefas st
             JOIN sistemaaps.tb_hiperdia_dm_acompanhamento a ON st.cod_acompanhamento = a.cod_acompanhamento
             WHERE st.cod_subtarefa = %s
         """, (cod_subtarefa,))
@@ -7489,7 +7489,7 @@ def api_get_jornada_insulina(cod_cidadao):
                 ins.tipo_insulina,
                 ins.doses_estruturadas,
                 ins.frequencia_dia
-            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia i
+            FROM tb_hiperdia_dm_insulinoterapia i
             LEFT JOIN sistemaaps.tb_hiperdia_dm_insulina ins ON i.cod_seq_insulina = ins.cod_seq_insulina
             WHERE i.codcidadao = %s
             ORDER BY i.data_registro DESC
@@ -7500,7 +7500,7 @@ def api_get_jornada_insulina(cod_cidadao):
         # Buscar fase atual
         cur.execute("""
             SELECT fase_tratamento, status_fase
-            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia
+            FROM tb_hiperdia_dm_insulinoterapia
             WHERE codcidadao = %s AND status_fase = 'EM_ANDAMENTO'
             ORDER BY data_registro DESC
             LIMIT 1
@@ -7663,7 +7663,7 @@ def api_get_insulinas_paciente(cod_cidadao):
                 data_inicio,
                 data_fim,
                 observacoes
-            FROM sistemaaps.tb_hiperdia_dm_insulina
+            FROM tb_hiperdia_dm_insulina
             WHERE codcidadao = %s
               AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)
             ORDER BY tipo_insulina, data_inicio DESC
@@ -7804,7 +7804,7 @@ def api_diabetes_medicamentos_atuais(cod_cidadao):
                 data_inicio,
                 observacoes,
                 updated_at
-            FROM sistemaaps.tb_hiperdia_dm_medicamentos
+            FROM tb_hiperdia_dm_medicamentos
             WHERE codcidadao = %(cod_cidadao)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY nome_medicamento
@@ -8874,7 +8874,7 @@ def api_diabetes_insulinas_atuais(cod_cidadao):
                 data_inicio,
                 observacoes,
                 created_at
-            FROM sistemaaps.tb_hiperdia_dm_insulina 
+            FROM tb_hiperdia_dm_insulina 
             WHERE codcidadao = %s 
             AND data_fim IS NULL
             ORDER BY tipo_insulina, created_at DESC
@@ -8953,7 +8953,7 @@ def api_diabetes_adicionar_insulina():
         
         # Verificar se já existe insulina do mesmo tipo ativa para o paciente
         check_query = """
-            SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_insulina 
+            SELECT COUNT(*) FROM tb_hiperdia_dm_insulina 
             WHERE codcidadao = %s AND tipo_insulina = %s AND data_fim IS NULL
         """
         cur.execute(check_query, (cod_cidadao, tipo_insulina))
@@ -9015,7 +9015,7 @@ def api_diabetes_obter_detalhes_insulina(cod_seq_insulina):
             SELECT cod_seq_insulina, codcidadao, tipo_insulina, frequencia_dia, 
                    doses_estruturadas, data_inicio, data_fim, observacoes,
                    status, motivo_interrupcao, created_at, updated_at
-            FROM sistemaaps.tb_hiperdia_dm_insulina 
+            FROM tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(query, (cod_seq_insulina,))
@@ -9072,7 +9072,7 @@ def api_diabetes_atualizar_insulina(cod_seq_insulina):
         select_query = """
             SELECT codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, 
                    data_inicio, observacoes 
-            FROM sistemaaps.tb_hiperdia_dm_insulina 
+            FROM tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(select_query, (cod_seq_insulina,))
@@ -9182,7 +9182,7 @@ def api_diabetes_interromper_insulina(cod_seq_insulina):
         
         # Verificar se a insulina existe e está ativa
         check_query = """
-            SELECT codcidadao, tipo_insulina FROM sistemaaps.tb_hiperdia_dm_insulina 
+            SELECT codcidadao, tipo_insulina FROM tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(check_query, (cod_seq_insulina,))
@@ -9260,7 +9260,7 @@ def api_diabetes_generate_prescriptions_pdf():
                             data_inicio,
                             observacoes,
                             created_at
-                        FROM sistemaaps.tb_hiperdia_dm_medicamentos
+                        FROM tb_hiperdia_dm_medicamentos
                         WHERE codcidadao = %(cod_paciente)s
                         AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                         ORDER BY created_at DESC, nome_medicamento
@@ -9277,7 +9277,7 @@ def api_diabetes_generate_prescriptions_pdf():
                             data_inicio,
                             observacoes,
                             created_at
-                        FROM sistemaaps.tb_hiperdia_dm_insulina
+                        FROM tb_hiperdia_dm_insulina
                         WHERE codcidadao = %(cod_paciente)s
                         AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                         ORDER BY created_at DESC, tipo_insulina
@@ -9550,7 +9550,7 @@ def api_diabetes_generate_prescription_pdf_individual():
                 data_inicio,
                 observacoes,
                 created_at
-            FROM sistemaaps.tb_hiperdia_dm_medicamentos
+            FROM tb_hiperdia_dm_medicamentos
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, nome_medicamento
@@ -9567,7 +9567,7 @@ def api_diabetes_generate_prescription_pdf_individual():
                 data_inicio,
                 observacoes,
                 created_at
-            FROM sistemaaps.tb_hiperdia_dm_insulina
+            FROM tb_hiperdia_dm_insulina
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, tipo_insulina
@@ -9842,7 +9842,7 @@ def api_diabetes_avaliar_tratamento():
             if any([exames.get('hemoglobina_glicada'), exames.get('glicemia_media'), exames.get('glicemia_jejum')]):
                 # Verificar se já existe exame para este acompanhamento
                 cur.execute("""
-                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_exames
+                    SELECT COUNT(*) FROM tb_hiperdia_dm_exames
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -9879,7 +9879,7 @@ def api_diabetes_avaliar_tratamento():
         if 'mapeamentos' in data and data['mapeamentos']:
             # Verificar se já existem mapeamentos para este acompanhamento
             cur.execute("""
-                SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_mrg
+                SELECT COUNT(*) FROM tb_hiperdia_mrg
                 WHERE cod_acompanhamento = %s
             """, (cod_acompanhamento,))
 
@@ -9888,7 +9888,7 @@ def api_diabetes_avaliar_tratamento():
             if mapeamentos_existem:
                 # Deletar mapeamentos antigos e inserir novos (estratégia de replace)
                 cur.execute("""
-                    DELETE FROM sistemaaps.tb_hiperdia_mrg
+                    DELETE FROM tb_hiperdia_mrg
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -9927,7 +9927,7 @@ def api_diabetes_avaliar_tratamento():
             if status_tratamento:
                 # Verificar se já existe registro de tratamento para este acompanhamento
                 cur.execute("""
-                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_tratamento
+                    SELECT COUNT(*) FROM tb_hiperdia_dm_tratamento
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -10043,7 +10043,7 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
                 ) AS tem_diagnostico_diabetes
 
             FROM tb_cds_cad_domiciliar d
-            INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+            INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_cds_cad_domiciliar
             INNER JOIN tb_cds_cad_individual ci ON (
                 ci.nu_cpf_responsavel = df.nu_cpf_cidadao
                 OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
@@ -10053,7 +10053,7 @@ def api_rastreamento_integrantes_domicilio(id_domicilio):
             LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
             LEFT JOIN tb_cidadao c ON c.co_unico_ultima_ficha = ci.co_unico_ficha AND c.st_ativo = 1
 
-            WHERE d.co_seq_cds_cad_domiciliar = %s
+            WHERE d.co_cds_cad_domiciliar = %s
               AND d.st_versao_atual = 1
               AND df.st_mudanca = 0
               AND ci.st_versao_atual = 1
@@ -10143,9 +10143,9 @@ def api_rastreamento_familias_domicilio(id_domicilio):
                  LIMIT 1) AS microarea
 
             FROM tb_cds_cad_domiciliar d
-            INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_seq_cds_cad_domiciliar
+            INNER JOIN tb_cds_domicilio_familia df ON df.co_cds_cad_domiciliar = d.co_cds_cad_domiciliar
 
-            WHERE d.co_seq_cds_cad_domiciliar = %s
+            WHERE d.co_cds_cad_domiciliar = %s
               AND d.st_versao_atual = 1
               AND df.st_mudanca = 0
 
@@ -10263,10 +10263,13 @@ def api_rastreamento_familias_domicilio(id_domicilio):
 @app.route('/api/rastreamento/dashboard')
 def api_rastreamento_dashboard():
     """
-    Retorna dados consolidados do dashboard de rastreamento:
-    - Domicílios em triagem (com progresso)
-    - Domicílios triados (com resultados)
-    - Hipertensos diagnosticados
+    Retorna dados consolidados do dashboard de rastreamento com 6 categorias:
+    1. Sem Triagem - famílias sem nenhum integrante triado
+    2. Em Triagem - famílias com pelo menos 1 integrante em triagem
+    3. Triagem Completa - famílias com todos integrantes triados
+    4. Triagem Incompleta - famílias com alguns integrantes não triados
+    5. Não Hipertensos - pacientes individuais classificados como normais
+    6. Hipertensos - pacientes individuais diagnosticados com hipertensão
     """
     conn = None
     cur = None
@@ -10281,13 +10284,542 @@ def api_rastreamento_dashboard():
         )
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # Por enquanto, retornar dados vazios (estrutura correta)
-        # TODO: Implementar queries reais quando tabelas de rastreamento existirem
+        # Obter filtros
+        equipe = request.args.get('equipe', '')
+        microarea = request.args.get('microarea', '')
+        busca = request.args.get('busca', '')
+        pagina = int(request.args.get('pagina', 1))
+        aba = request.args.get('aba', 'sem-triagem')  # Qual aba está sendo carregada
+
+        # Configuração de paginação
+        ITENS_POR_PAGINA = 20
+        offset = (pagina - 1) * ITENS_POR_PAGINA
+
+        # =====================================================================
+        # CONTADORES - Calcular totais REAIS com COUNT (rápido)
+        # =====================================================================
+        # Base da query de contagem para "Sem Triagem"
+        query_count_base = """
+        FROM tb_cds_domicilio_familia df
+        INNER JOIN sistemaaps.mv_domicilios_resumo mv ON mv.id_domicilio = df.co_cds_cad_domiciliar
+        LEFT JOIN sistemaaps.tb_rastreamento_familias rf ON rf.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
+        WHERE df.st_mudanca = 0
+          AND rf.cod_seq_rastreamento_familia IS NULL
+        """
+
+        params_count = []
+        if equipe:
+            query_count_base += " AND mv.equipes LIKE %s"
+            params_count.append(f"%{equipe}%")
+        if microarea:
+            query_count_base += " AND mv.microareas LIKE %s"
+            params_count.append(f"%{microarea}%")
+        if busca:
+            query_count_base += """ AND (
+                mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
+                OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+            )"""
+            params_count.extend([f"%{busca}%", f"%{busca}%"])
+
+        # Executar COUNT
+        cur.execute(f"SELECT COUNT(DISTINCT df.co_seq_cds_domicilio_familia) as total {query_count_base}", params_count)
+        resultado = cur.fetchone()
+        total_sem_triagem = resultado['total'] if resultado else 0
+
+        # =====================================================================
+        # DADOS DA ABA - Carregar apenas se for a aba "sem-triagem"
+        # =====================================================================
+        sem_triagem = []
+
+        if aba == 'sem-triagem':
+            query_sem_triagem = """
+            SELECT DISTINCT
+                df.co_seq_cds_domicilio_familia as id_familia,
+                CASE
+                    WHEN mv.responsaveis_info IS NOT NULL
+                    THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                    ELSE 'Sem responsável'
+                END as nome_responsavel,
+                mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco,
+                mv.bairro,
+                COALESCE(mv.microareas, '') as microarea,
+                COALESCE(mv.equipes, '') as equipe,
+                mv.total_integrantes,
+                mv.logradouro_completo
+            """
+            query_sem_triagem += query_count_base
+            query_sem_triagem += f"""
+            ORDER BY microarea, logradouro_completo
+            LIMIT {ITENS_POR_PAGINA} OFFSET {offset}
+            """
+
+            cur.execute(query_sem_triagem, params_count)
+            sem_triagem = cur.fetchall()
+            print(f">>> DEBUG: Página {pagina}: {len(sem_triagem)} famílias de {total_sem_triagem} total")
+
+
+        # =====================================================================
+        # DADOS DA ABA "EM TRIAGEM" - Famílias confirmadas para triagem
+        # =====================================================================
+        total_em_triagem = 0
+        em_triagem = []
+
+        if aba == 'em-triagem':
+            # COUNT para "Em Triagem"
+            query_count_em_triagem = """
+            SELECT COUNT(DISTINCT rf.cod_seq_rastreamento_familia) as total
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.mv_domicilios_resumo mv ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+            WHERE rf.status_rastreamento = 'EM_TRIAGEM'
+            """
+
+            params_em_triagem = []
+            if equipe:
+                query_count_em_triagem += " AND rf.equipe LIKE %s"
+                params_em_triagem.append(f"%{equipe}%")
+            if microarea:
+                query_count_em_triagem += " AND rf.microarea LIKE %s"
+                params_em_triagem.append(f"%{microarea}%")
+            if busca:
+                query_count_em_triagem += """ AND (
+                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
+                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                )"""
+                params_em_triagem.extend([f"%{busca}%", f"%{busca}%"])
+
+            cur.execute(query_count_em_triagem, params_em_triagem)
+            resultado = cur.fetchone()
+            total_em_triagem = resultado['total'] if resultado else 0
+
+            # Buscar dados paginados
+            query_em_triagem = """
+            SELECT
+                rf.cod_seq_rastreamento_familia,
+                rf.co_seq_cds_domicilio_familia as id_familia,
+                CASE
+                    WHEN mv.responsaveis_info IS NOT NULL
+                    THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                    ELSE 'Sem responsável'
+                END as nome_responsavel,
+                mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco,
+                mv.bairro,
+                COALESCE(rf.microarea, '') as microarea,
+                COALESCE(rf.equipe, '') as equipe,
+                rf.data_inicio_rastreamento,
+                COUNT(rc.cod_seq_rastreamento_cidadao) as total_integrantes,
+                COUNT(CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                      THEN 1 END) as total_finalizados
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.mv_domicilios_resumo mv ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+            LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc
+                ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+            WHERE rf.status_rastreamento = 'EM_TRIAGEM'
+            """
+
+            if equipe:
+                query_em_triagem += " AND rf.equipe LIKE %s"
+            if microarea:
+                query_em_triagem += " AND rf.microarea LIKE %s"
+            if busca:
+                query_em_triagem += """ AND (
+                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
+                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                )"""
+
+            query_em_triagem += f"""
+            GROUP BY rf.cod_seq_rastreamento_familia, rf.co_seq_cds_domicilio_familia,
+                     mv.responsaveis_info, mv.logradouro_completo, mv.nu_domicilio,
+                     mv.bairro, rf.microarea, rf.equipe, rf.data_inicio_rastreamento
+            ORDER BY rf.data_inicio_rastreamento DESC
+            LIMIT {ITENS_POR_PAGINA} OFFSET {offset}
+            """
+
+            cur.execute(query_em_triagem, params_em_triagem)
+            em_triagem = cur.fetchall()
+            print(f">>> DEBUG: Página {pagina}: {len(em_triagem)} famílias EM TRIAGEM de {total_em_triagem} total")
+
+
+        # =====================================================================
+        # TEMPORARIAMENTE DESABILITADO - Outras abas
+        # =====================================================================
+        triagem_completa = []
+        triagem_incompleta = []
+        nao_hipertensos = []
+        hipertensos = []
+
+        '''
+        # =====================================================================
+        # 2. EM TRIAGEM - Famílias com pelo menos 1 integrante em rastreamento
+        # =====================================================================
+        query_em_triagem = """
+        WITH familias_contagem AS (
+            SELECT
+                rf.co_seq_cds_domicilio_familia,
+                rf.equipe,
+                rf.microarea,
+                COUNT(DISTINCT rc.co_seq_cds_cad_individual) as total_em_rastreamento,
+                COUNT(DISTINCT CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                      THEN rc.co_seq_cds_cad_individual END) as total_finalizados
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.tb_rastreamento_cidadaos rc
+                ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+            WHERE rf.status_rastreamento IN ('INICIADO', 'EM_ANDAMENTO')
+            GROUP BY rf.co_seq_cds_domicilio_familia, rf.equipe, rf.microarea
+        )
+        SELECT DISTINCT
+            fc.co_seq_cds_domicilio_familia as id_familia,
+            ci.no_cidadao as nome_responsavel,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco,
+            d.no_bairro as bairro,
+            fc.microarea,
+            fc.equipe,
+            fc.total_em_rastreamento,
+            fc.total_finalizados,
+            COUNT(DISTINCT ci2.co_seq_cds_cad_individual) as total_integrantes,
+            rf.data_inicio_rastreamento
+        FROM familias_contagem fc
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_seq_cds_domicilio_familia = fc.co_seq_cds_domicilio_familia
+        INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        ) AND ci.st_versao_atual = 1 AND ci.st_ficha_inativa = 0
+        LEFT JOIN tb_cds_cad_individual ci2 ON (
+            ci2.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci2.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci2.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci2.nu_cns_cidadao = df.nu_cartao_sus
+        ) AND ci2.st_versao_atual = 1 AND ci2.st_ficha_inativa = 0
+        LEFT JOIN sistemaaps.tb_rastreamento_familias rf
+            ON rf.co_seq_cds_domicilio_familia = fc.co_seq_cds_domicilio_familia
+        WHERE df.st_mudanca = 0
+          AND d.st_versao_atual = 1
+          AND fc.total_finalizados < fc.total_em_rastreamento
+        """
+
+        params_em_triagem = []
+        if equipe:
+            query_em_triagem += " AND fc.equipe = %s"
+            params_em_triagem.append(equipe)
+        if microarea:
+            query_em_triagem += " AND fc.microarea = %s"
+            params_em_triagem.append(microarea)
+        if busca:
+            query_em_triagem += """ AND (
+                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
+                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+            )"""
+            busca_param = f"%{busca}%"
+            params_em_triagem.extend([busca_param, busca_param])
+
+        query_em_triagem += """
+        GROUP BY fc.co_seq_cds_domicilio_familia, ci.no_cidadao, d.no_logradouro, d.nu_domicilio,
+                 d.no_bairro, fc.microarea, fc.equipe, fc.total_em_rastreamento,
+                 fc.total_finalizados, rf.data_inicio_rastreamento
+        ORDER BY rf.data_inicio_rastreamento DESC
+        LIMIT 100
+        """
+
+        cur.execute(query_em_triagem, params_em_triagem)
+        em_triagem = cur.fetchall()
+
+        # =====================================================================
+        # 3. TRIAGEM COMPLETA - Todos integrantes da família finalizados
+        # =====================================================================
+        query_triagem_completa = """
+        WITH familias_stats AS (
+            SELECT
+                rf.co_seq_cds_domicilio_familia,
+                rf.equipe,
+                rf.microarea,
+                COUNT(DISTINCT rc.co_seq_cds_cad_individual) as total_triados,
+                COUNT(DISTINCT CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                      THEN rc.co_seq_cds_cad_individual END) as total_finalizados,
+                MAX(rc.data_resultado) as data_ultima_finalizacao
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.tb_rastreamento_cidadaos rc
+                ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+            GROUP BY rf.co_seq_cds_domicilio_familia, rf.equipe, rf.microarea
+            HAVING COUNT(DISTINCT rc.co_seq_cds_cad_individual) =
+                   COUNT(DISTINCT CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                         THEN rc.co_seq_cds_cad_individual END)
+        )
+        SELECT DISTINCT
+            fs.co_seq_cds_domicilio_familia as id_familia,
+            ci.no_cidadao as nome_responsavel,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco,
+            d.no_bairro as bairro,
+            fs.microarea,
+            fs.equipe,
+            fs.total_triados as total_integrantes,
+            fs.data_ultima_finalizacao,
+            COUNT(DISTINCT CASE WHEN rc.resultado_rastreamento = 'HIPERTENSO'
+                  THEN rc.co_seq_cds_cad_individual END) as total_hipertensos
+        FROM familias_stats fs
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_seq_cds_domicilio_familia = fs.co_seq_cds_domicilio_familia
+        INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        ) AND ci.st_versao_atual = 1 AND ci.st_ficha_inativa = 0
+        LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc
+            ON rc.cod_rastreamento_familia IN (
+                SELECT rf2.cod_seq_rastreamento_familia
+                FROM sistemaaps.tb_rastreamento_familias rf2
+                WHERE rf2.co_seq_cds_domicilio_familia = fs.co_seq_cds_domicilio_familia
+            )
+        WHERE df.st_mudanca = 0
+          AND d.st_versao_atual = 1
+        """
+
+        params_triagem_completa = []
+        if equipe:
+            query_triagem_completa += " AND fs.equipe = %s"
+            params_triagem_completa.append(equipe)
+        if microarea:
+            query_triagem_completa += " AND fs.microarea = %s"
+            params_triagem_completa.append(microarea)
+        if busca:
+            query_triagem_completa += """ AND (
+                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
+                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+            )"""
+            busca_param = f"%{busca}%"
+            params_triagem_completa.extend([busca_param, busca_param])
+
+        query_triagem_completa += """
+        GROUP BY fs.co_seq_cds_domicilio_familia, ci.no_cidadao, d.no_logradouro, d.nu_domicilio,
+                 d.no_bairro, fs.microarea, fs.equipe, fs.total_triados, fs.data_ultima_finalizacao
+        ORDER BY fs.data_ultima_finalizacao DESC
+        LIMIT 100
+        """
+
+        cur.execute(query_triagem_completa, params_triagem_completa)
+        triagem_completa = cur.fetchall()
+
+        # =====================================================================
+        # 4. TRIAGEM INCOMPLETA - Alguns integrantes não triados
+        # =====================================================================
+        query_triagem_incompleta = """
+        WITH familias_incompletas AS (
+            SELECT
+                df.co_seq_cds_domicilio_familia,
+                COUNT(DISTINCT ci.co_seq_cds_cad_individual) as total_integrantes,
+                COUNT(DISTINCT rc.co_seq_cds_cad_individual) as total_triados
+            FROM tb_cds_domicilio_familia df
+            INNER JOIN tb_cds_cad_individual ci ON (
+                ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+                OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+                OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+                OR ci.nu_cns_cidadao = df.nu_cartao_sus
+            ) AND ci.st_versao_atual = 1 AND ci.st_ficha_inativa = 0
+            LEFT JOIN sistemaaps.tb_rastreamento_familias rf
+                ON rf.co_seq_cds_domicilio_familia = df.co_seq_cds_domicilio_familia
+            LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc
+                ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+                AND rc.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
+                AND rc.resultado_rastreamento IS NOT NULL
+            WHERE df.st_mudanca = 0
+            GROUP BY df.co_seq_cds_domicilio_familia
+            HAVING COUNT(DISTINCT rc.co_seq_cds_cad_individual) > 0
+               AND COUNT(DISTINCT rc.co_seq_cds_cad_individual) < COUNT(DISTINCT ci.co_seq_cds_cad_individual)
+        )
+        SELECT DISTINCT
+            fi.co_seq_cds_domicilio_familia as id_familia,
+            ci.no_cidadao as nome_responsavel,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco,
+            d.no_bairro as bairro,
+            d.nu_micro_area as microarea,
+            e.no_equipe as equipe,
+            fi.total_integrantes,
+            fi.total_triados,
+            (fi.total_integrantes - fi.total_triados) as total_pendentes
+        FROM familias_incompletas fi
+        INNER JOIN tb_cds_domicilio_familia df ON df.co_seq_cds_domicilio_familia = fi.co_seq_cds_domicilio_familia
+        INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        ) AND ci.st_versao_atual = 1 AND ci.st_ficha_inativa = 0
+        LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = (
+            SELECT c.co_seq_cidadao FROM tb_cidadao c
+            WHERE c.co_unico_ultima_ficha = ci.co_unico_ficha
+            AND c.st_ativo = 1 LIMIT 1
+        )
+        LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+        WHERE d.st_versao_atual = 1
+        """
+
+        params_triagem_incompleta = []
+        if equipe:
+            query_triagem_incompleta += " AND e.no_equipe = %s"
+            params_triagem_incompleta.append(equipe)
+        if microarea:
+            query_triagem_incompleta += " AND d.nu_micro_area = %s"
+            params_triagem_incompleta.append(microarea)
+        if busca:
+            query_triagem_incompleta += """ AND (
+                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
+                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+            )"""
+            busca_param = f"%{busca}%"
+            params_triagem_incompleta.extend([busca_param, busca_param])
+
+        query_triagem_incompleta += """
+        ORDER BY ci.no_cidadao
+        LIMIT 100
+        """
+
+        cur.execute(query_triagem_incompleta, params_triagem_incompleta)
+        triagem_incompleta = cur.fetchall()
+
+        # =====================================================================
+        # 5. NÃO HIPERTENSOS - Pacientes classificados como normais
+        # =====================================================================
+        query_nao_hipertensos = """
+        SELECT
+            rc.co_seq_cds_cad_individual as cod_individual,
+            rc.nome_cidadao,
+            rc.idade_no_rastreamento as idade,
+            rc.sexo,
+            vr.media_mrpa_pas,
+            vr.media_mrpa_pad,
+            vr.media_mapa_pas,
+            vr.media_mapa_pad,
+            vr.equipe,
+            vr.microarea,
+            rc.data_resultado,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        INNER JOIN sistemaaps.vw_rastreamento_cidadaos_resumo vr
+            ON vr.cod_seq_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
+        INNER JOIN sistemaaps.tb_rastreamento_familias rf
+            ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+        INNER JOIN tb_cds_domicilio_familia df
+            ON df.co_seq_cds_domicilio_familia = rf.co_seq_cds_domicilio_familia
+        INNER JOIN tb_cds_cad_domiciliar d
+            ON d.co_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        WHERE rc.resultado_rastreamento = 'NORMAL'
+          AND d.st_versao_atual = 1
+        """
+
+        params_nao_hipertensos = []
+        if equipe:
+            query_nao_hipertensos += " AND vr.equipe = %s"
+            params_nao_hipertensos.append(equipe)
+        if microarea:
+            query_nao_hipertensos += " AND vr.microarea = %s"
+            params_nao_hipertensos.append(microarea)
+        if busca:
+            query_nao_hipertensos += " AND LOWER(unaccent(rc.nome_cidadao)) LIKE LOWER(unaccent(%s))"
+            params_nao_hipertensos.append(f"%{busca}%")
+
+        query_nao_hipertensos += """
+        ORDER BY rc.data_resultado DESC
+        LIMIT 100
+        """
+
+        cur.execute(query_nao_hipertensos, params_nao_hipertensos)
+        nao_hipertensos = cur.fetchall()
+
+        # =====================================================================
+        # 6. HIPERTENSOS - Pacientes diagnosticados com hipertensão
+        # =====================================================================
+        query_hipertensos = """
+        SELECT
+            rc.co_seq_cds_cad_individual as cod_individual,
+            rc.nome_cidadao,
+            rc.idade_no_rastreamento as idade,
+            rc.sexo,
+            vr.media_mrpa_pas,
+            vr.media_mrpa_pad,
+            vr.media_mapa_pas,
+            vr.media_mapa_pad,
+            vr.equipe,
+            vr.microarea,
+            rc.data_resultado,
+            rc.decisao_profissional,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco,
+            CASE
+                WHEN COALESCE(vr.media_mapa_pas, vr.media_mrpa_pas) >= 140
+                     OR COALESCE(vr.media_mapa_pad, vr.media_mrpa_pad) >= 90
+                THEN 'HIPERTENSÃO ESTÁGIO 1'
+                WHEN COALESCE(vr.media_mapa_pas, vr.media_mrpa_pas) >= 160
+                     OR COALESCE(vr.media_mapa_pad, vr.media_mrpa_pad) >= 100
+                THEN 'HIPERTENSÃO ESTÁGIO 2'
+                ELSE 'LIMÍTROFE'
+            END as classificacao
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        INNER JOIN sistemaaps.vw_rastreamento_cidadaos_resumo vr
+            ON vr.cod_seq_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
+        INNER JOIN sistemaaps.tb_rastreamento_familias rf
+            ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+        INNER JOIN tb_cds_domicilio_familia df
+            ON df.co_seq_cds_domicilio_familia = rf.co_seq_cds_domicilio_familia
+        INNER JOIN tb_cds_cad_domiciliar d
+            ON d.co_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        WHERE rc.resultado_rastreamento = 'HIPERTENSO'
+          AND d.st_versao_atual = 1
+        """
+
+        params_hipertensos = []
+        if equipe:
+            query_hipertensos += " AND vr.equipe = %s"
+            params_hipertensos.append(equipe)
+        if microarea:
+            query_hipertensos += " AND vr.microarea = %s"
+            params_hipertensos.append(microarea)
+        if busca:
+            query_hipertensos += " AND LOWER(unaccent(rc.nome_cidadao)) LIKE LOWER(unaccent(%s))"
+            params_hipertensos.append(f"%{busca}%")
+
+        query_hipertensos += """
+        ORDER BY rc.data_resultado DESC
+        LIMIT 100
+        """
+
+        cur.execute(query_hipertensos, params_hipertensos)
+        hipertensos = cur.fetchall()
+        '''
+
+        # =====================================================================
+        # MONTAR RESPOSTA COM PAGINAÇÃO
+        # =====================================================================
+        import math
+
+        # Calcular total de páginas baseado na aba ativa
+        if aba == 'sem-triagem':
+            total_itens_aba = total_sem_triagem
+        elif aba == 'em-triagem':
+            total_itens_aba = total_em_triagem
+        else:
+            total_itens_aba = 0
+
+        total_paginas = math.ceil(total_itens_aba / ITENS_POR_PAGINA) if total_itens_aba > 0 else 1
 
         dashboard = {
-            'em_triagem': [],
-            'triados': [],
-            'hipertensos': []
+            'contadores': {
+                'sem_triagem': total_sem_triagem,
+                'em_triagem': total_em_triagem,
+                'triagem_completa': 0,
+                'triagem_incompleta': 0,
+                'nao_hipertensos': 0,
+                'hipertensos': 0
+            },
+            'sem_triagem': sem_triagem,
+            'em_triagem': em_triagem,
+            'triagem_completa': [],
+            'triagem_incompleta': [],
+            'nao_hipertensos': [],
+            'hipertensos': [],
+            'paginacao': {
+                'pagina_atual': pagina,
+                'total_paginas': total_paginas,
+                'total_itens': total_itens_aba,
+                'itens_por_pagina': ITENS_POR_PAGINA,
+                'tem_proxima': pagina < total_paginas,
+                'tem_anterior': pagina > 1
+            }
         }
 
         return jsonify({
@@ -10297,6 +10829,332 @@ def api_rastreamento_dashboard():
 
     except Exception as e:
         print(f"Erro ao carregar dashboard: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+# ============================================================================
+# API: FILTROS DO DASHBOARD (EQUIPES E MICROÁREAS)
+# ============================================================================
+@app.route('/api/rastreamento/equipes')
+def api_rastreamento_equipes():
+    """
+    Retorna lista de todas as equipes cadastradas
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor()
+
+        query = """
+        SELECT DISTINCT no_equipe
+        FROM tb_equipe
+        WHERE no_equipe IS NOT NULL
+        ORDER BY no_equipe
+        """
+
+        cur.execute(query)
+        equipes = [row[0] for row in cur.fetchall()]
+
+        return jsonify({
+            'success': True,
+            'equipes': equipes
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar equipes: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/rastreamento/microareas')
+def api_rastreamento_microareas():
+    """
+    Retorna lista de microáreas (opcionalmente filtradas por equipe)
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor()
+
+        # Sempre retorna todas as microáreas disponíveis
+        # O filtro por equipe é aplicado no lado do dashboard através da query principal
+        query = """
+        SELECT DISTINCT nu_micro_area
+        FROM tb_cds_cad_domiciliar
+        WHERE nu_micro_area IS NOT NULL
+          AND st_versao_atual = 1
+        ORDER BY nu_micro_area
+        """
+        cur.execute(query)
+
+        microareas = [row[0] for row in cur.fetchall()]
+
+        return jsonify({
+            'success': True,
+            'microareas': microareas
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar microáreas: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+# ============================================================================
+# API: BUSCAR DADOS DE FAMÍLIA PARA RASTREAMENTO
+# ============================================================================
+@app.route('/api/rastreamento/familia/<int:id_familia>')
+def api_rastreamento_familia(id_familia):
+    """
+    Retorna dados completos de uma família para iniciar rastreamento:
+    - Dados da família (responsável, endereço, etc.)
+    - Lista de integrantes elegíveis (≥20 anos, sem diagnóstico de HAS)
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Buscar dados da família
+        query_familia = """
+        SELECT
+            df.co_seq_cds_domicilio_familia as id_familia,
+            d.co_seq_cds_cad_domiciliar as id_domicilio,
+            ci_resp.no_cidadao as nome_responsavel,
+            ci_resp.nu_cpf_cidadao as cpf_responsavel,
+            ci_resp.nu_cns_cidadao as cns_responsavel,
+            d.no_logradouro || ', ' || d.nu_domicilio as endereco,
+            d.no_bairro as bairro,
+            d.nu_micro_area as microarea,
+            d.ds_complemento as complemento,
+            e.no_equipe as equipe,
+            e.nu_ine as ine
+        FROM tb_cds_domicilio_familia df
+        INNER JOIN tb_cds_cad_domiciliar d ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+        LEFT JOIN tb_cds_cad_individual ci_resp ON (
+            ci_resp.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci_resp.nu_cns_cidadao = df.nu_cartao_sus
+        ) AND ci_resp.st_versao_atual = 1 AND ci_resp.st_ficha_inativa = 0
+        LEFT JOIN tb_cidadao_vinculacao_equipe ve ON ve.co_cidadao = (
+            SELECT c.co_seq_cidadao FROM tb_cidadao c
+            WHERE c.co_unico_ultima_ficha = ci_resp.co_unico_ficha
+            AND c.st_ativo = 1 LIMIT 1
+        )
+        LEFT JOIN tb_equipe e ON e.nu_ine = ve.nu_ine
+        WHERE df.co_seq_cds_domicilio_familia = %s
+          AND df.st_mudanca = 0
+          AND d.st_versao_atual = 1
+        """
+
+        cur.execute(query_familia, [id_familia])
+        familia = cur.fetchone()
+
+        if not familia:
+            return jsonify({
+                'success': False,
+                'message': 'Família não encontrada'
+            }), 404
+
+        # Buscar integrantes da família (≥20 anos)
+        query_integrantes = """
+        SELECT DISTINCT
+            ci.co_seq_cds_cad_individual as cod_individual,
+            ci.co_unico_ficha,
+            ci.no_cidadao as nome,
+            ci.dt_nascimento as data_nascimento,
+            EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento))::INTEGER as idade,
+            ci.co_sexo as sexo_codigo,
+            s.no_sexo as sexo,
+            ci.nu_cpf_cidadao as cpf,
+            ci.nu_cns_cidadao as cns,
+            -- Verificar se já tem diagnóstico de HAS (view materializada)
+            CASE WHEN EXISTS (
+                SELECT 1
+                FROM sistemaaps.mv_hiperdia_hipertensao h
+                INNER JOIN tb_cidadao c ON c.co_seq_cidadao = h.cod_paciente
+                WHERE c.co_unico_ultima_ficha = ci.co_unico_ficha
+                AND c.st_ativo = 1
+            ) THEN true ELSE false END as tem_diagnostico_has,
+            -- Verificar se já está em rastreamento
+            CASE WHEN EXISTS (
+                SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc
+                INNER JOIN sistemaaps.tb_rastreamento_familias rf
+                    ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+                WHERE rc.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
+                  AND rf.co_seq_cds_domicilio_familia = %s
+            ) THEN true ELSE false END as em_rastreamento
+        FROM tb_cds_cad_individual ci
+        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+        WHERE (
+            ci.nu_cpf_responsavel = %s
+            OR ci.nu_cartao_sus_responsavel = %s
+            OR ci.nu_cpf_cidadao = %s
+            OR ci.nu_cns_cidadao = %s
+        )
+        AND ci.st_versao_atual = 1
+        AND ci.st_ficha_inativa = 0
+        AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
+        ORDER BY ci.dt_nascimento ASC
+        """
+
+        cur.execute(query_integrantes, [
+            id_familia,
+            familia['cpf_responsavel'],
+            familia['cns_responsavel'],
+            familia['cpf_responsavel'],
+            familia['cns_responsavel']
+        ])
+        integrantes = cur.fetchall()
+
+        # Converter para formato JSON amigável
+        familia_dict = dict(familia)
+        integrantes_list = [dict(i) for i in integrantes]
+
+        return jsonify({
+            'success': True,
+            'familia': {
+                **familia_dict,
+                'integrantes': integrantes_list,
+                'total_integrantes': len(integrantes_list),
+                'total_elegiveis': len([i for i in integrantes_list if not i['tem_diagnostico_has']]),
+                'total_em_rastreamento': len([i for i in integrantes_list if i['em_rastreamento']])
+            }
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar família: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+
+@app.route('/api/rastreamento/familia/<int:id_familia>/resumo')
+def api_rastreamento_familia_resumo(id_familia):
+    """
+    Retorna dados da família + progresso atual do rastreamento
+    Usado para CONTINUAR uma triagem em andamento
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Buscar dados básicos da família (reutiliza query anterior)
+        # TODO: Buscar progresso do rastreamento
+        # - Step atual
+        # - Cidadãos já selecionados
+        # - Aferições MRPA já realizadas
+        # - Aferições MAPA já realizadas
+        # - Resultados parciais
+
+        query_rastreamento = """
+        SELECT
+            rf.cod_seq_rastreamento_familia,
+            rf.status_rastreamento,
+            rf.data_inicio_rastreamento,
+            COUNT(DISTINCT rc.cod_seq_rastreamento_cidadao) as total_cidadaos_selecionados,
+            COUNT(DISTINCT CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                  THEN rc.cod_seq_rastreamento_cidadao END) as total_finalizados
+        FROM sistemaaps.tb_rastreamento_familias rf
+        LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc
+            ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+        WHERE rf.co_seq_cds_domicilio_familia = %s
+        GROUP BY rf.cod_seq_rastreamento_familia, rf.status_rastreamento, rf.data_inicio_rastreamento
+        """
+
+        cur.execute(query_rastreamento, [id_familia])
+        rastreamento = cur.fetchone()
+
+        if not rastreamento:
+            return jsonify({
+                'success': False,
+                'message': 'Rastreamento não encontrado para esta família'
+            }), 404
+
+        # Buscar cidadãos em rastreamento
+        query_cidadaos = """
+        SELECT
+            rc.cod_seq_rastreamento_cidadao,
+            rc.co_seq_cds_cad_individual,
+            rc.nome_cidadao,
+            rc.idade_no_rastreamento,
+            rc.fase_rastreamento,
+            rc.resultado_rastreamento,
+            rc.data_resultado
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        WHERE rc.cod_rastreamento_familia = %s
+        ORDER BY rc.nome_cidadao
+        """
+
+        cur.execute(query_cidadaos, [rastreamento['cod_seq_rastreamento_familia']])
+        cidadaos = cur.fetchall()
+
+        return jsonify({
+            'success': True,
+            'familia': {
+                'id_familia': id_familia,
+                # Aqui seria bom buscar dados completos da família também
+            },
+            'progresso': {
+                'cod_rastreamento': rastreamento['cod_seq_rastreamento_familia'],
+                'status': rastreamento['status_rastreamento'],
+                'data_inicio': rastreamento['data_inicio_rastreamento'].isoformat() if rastreamento['data_inicio_rastreamento'] else None,
+                'total_selecionados': rastreamento['total_cidadaos_selecionados'],
+                'total_finalizados': rastreamento['total_finalizados'],
+                'cidadaos': [dict(c) for c in cidadaos]
+            }
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar resumo da família: {e}")
         traceback.print_exc()
         return jsonify({'success': False, 'message': f'Erro: {e}'}), 500
 
@@ -10839,6 +11697,300 @@ def normalizar_valor_pa(pas_str, pad_str):
 
     except (ValueError, TypeError):
         return None, None
+
+
+# ============================================================================
+
+# ============================================================================
+# RASTREAMENTO CARDIOVASCULAR - FASE 2: CONFIRMAR TRIAGEM
+# ============================================================================
+
+@app.route('/api/rastreamento/confirmar-triagem', methods=['POST'])
+def api_confirmar_triagem():
+    """
+    FASE 2: Confirma seleção de triagem e move famílias para "Em Triagem"
+
+    Recebe:
+    {
+        "familias": [
+            {
+                "id_familia": 123,
+                "nome_responsavel": "João Silva",
+                "endereco": "Rua X, 10",
+                "equipe": "PSF - 03",
+                "microarea": "01",
+                "integrantes": [456, 789]  // IDs dos integrantes
+            }
+        ]
+    }
+
+    Retorna:
+    {
+        "success": true,
+        "familias_inseridas": 2,
+        "integrantes_inseridos": 5
+    }
+    """
+    conn = None
+    cur = None
+
+    try:
+        dados = request.get_json()
+        familias = dados.get('familias', [])
+
+        if not familias:
+            return jsonify({'success': False, 'message': 'Nenhuma família fornecida'}), 400
+
+        conn = psycopg2.connect(
+            host="localhost",
+            database="esus",
+            user="postgres",
+            password="EUC[x*x~Mc#S+H_Ui#xZBr0O~",
+            port="5433"
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        familias_inseridas = 0
+        integrantes_inseridos = 0
+
+        for familia in familias:
+            id_familia = familia['id_familia']
+            equipe = familia.get('equipe', '')
+            microarea = familia.get('microarea', '')
+            integrantes_ids = familia['integrantes']
+
+            # Buscar co_cds_cad_domiciliar
+            cur.execute("""
+                SELECT co_cds_cad_domiciliar
+                FROM tb_cds_domicilio_familia
+                WHERE co_seq_cds_domicilio_familia = %s
+                LIMIT 1
+            """, [id_familia])
+
+            domicilio = cur.fetchone()
+            if not domicilio:
+                print(f"Aviso: Domicilio nao encontrado para familia {id_familia}")
+                continue
+
+            co_seq_cds_cad_domiciliar = domicilio['co_cds_cad_domiciliar']
+
+            # Inserir registro de rastreamento da família
+            query_insert_familia = """
+            INSERT INTO sistemaaps.tb_rastreamento_familias (
+                co_seq_cds_domicilio_familia,
+                co_seq_cds_cad_domiciliar,
+                equipe,
+                microarea,
+                status_rastreamento,
+                data_inicio_rastreamento,
+                created_at,
+                updated_at
+            ) VALUES (%s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING cod_seq_rastreamento_familia
+            """
+
+            cur.execute(query_insert_familia, [
+                id_familia,
+                co_seq_cds_cad_domiciliar,
+                equipe,
+                microarea,
+                'EM_TRIAGEM'
+            ])
+
+            cod_rastreamento_familia = cur.fetchone()['cod_seq_rastreamento_familia']
+            familias_inseridas += 1
+
+            # Inserir integrantes no rastreamento
+            for cod_individual in integrantes_ids:
+                # Buscar dados do cidadão
+                cur.execute("""
+                    SELECT ci.no_cidadao, ci.dt_nascimento, s.no_sexo
+                    FROM tb_cds_cad_individual ci
+                    LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+                    WHERE ci.co_seq_cds_cad_individual = %s
+                """, [cod_individual])
+
+                cidadao_info = cur.fetchone()
+                if not cidadao_info:
+                    print(f"Aviso: Cidadao {cod_individual} nao encontrado")
+                    continue
+
+                # Calcular idade
+                from datetime import datetime, date
+                dt_nasc = cidadao_info['dt_nascimento']
+                if dt_nasc:
+                    # Converter datetime para date se necessário
+                    if isinstance(dt_nasc, datetime):
+                        dt_nasc = dt_nasc.date()
+                    idade = (date.today() - dt_nasc).days // 365
+                else:
+                    idade = None
+
+                query_insert_integrante = """
+                INSERT INTO sistemaaps.tb_rastreamento_cidadaos (
+                    cod_rastreamento_familia,
+                    co_seq_cds_cad_individual,
+                    nome_cidadao,
+                    data_nascimento,
+                    idade_no_rastreamento,
+                    sexo,
+                    elegivel_rastreamento,
+                    created_at,
+                    updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """
+
+                cur.execute(query_insert_integrante, [
+                    cod_rastreamento_familia,
+                    cod_individual,
+                    cidadao_info['no_cidadao'],
+                    cidadao_info['dt_nascimento'],
+                    idade,
+                    cidadao_info['no_sexo'],
+                    True  # elegivel_rastreamento
+                ])
+
+                integrantes_inseridos += 1
+
+        conn.commit()
+
+        print(f"✅ Triagem confirmada: {familias_inseridas} famílias, {integrantes_inseridos} integrantes")
+
+        return jsonify({
+            'success': True,
+            'message': 'Triagem confirmada com sucesso',
+            'familias_inseridas': familias_inseridas,
+            'integrantes_inseridos': integrantes_inseridos
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao confirmar triagem: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+
+# ============================================================================
+# ENDPOINT: Buscar dados completos das famílias em triagem para PDF
+# ============================================================================
+@app.route('/api/rastreamento/familias-para-pdf', methods=['GET'])
+def get_familias_para_pdf():
+    """
+    Retorna dados completos das famílias em triagem para geração de PDF
+    """
+    conn = None
+    cur = None
+
+    try:
+        # Parâmetros opcionais de filtro
+        equipe = request.args.get('equipe', '')
+        microarea = request.args.get('microarea', '')
+
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Query para buscar famílias em triagem com seus integrantes
+        query = """
+        SELECT
+            rf.cod_seq_rastreamento_familia,
+            rf.co_seq_cds_domicilio_familia as id_familia,
+            CASE
+                WHEN mv.responsaveis_info IS NOT NULL
+                THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                ELSE 'Sem responsável'
+            END as nome_responsavel,
+            mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco,
+            mv.bairro,
+            COALESCE(rf.microarea, '') as microarea,
+            COALESCE(rf.equipe, '') as equipe,
+            rf.data_inicio_rastreamento
+        FROM sistemaaps.tb_rastreamento_familias rf
+        INNER JOIN sistemaaps.mv_domicilios_resumo mv
+            ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+        WHERE rf.status_rastreamento = 'EM_TRIAGEM'
+        """
+
+        params = []
+
+        if equipe:
+            query += " AND rf.equipe ILIKE %s"
+            params.append(f'%{equipe}%')
+
+        if microarea:
+            query += " AND rf.microarea ILIKE %s"
+            params.append(f'%{microarea}%')
+
+        query += " ORDER BY rf.equipe, rf.microarea, rf.data_inicio_rastreamento"
+
+        cur.execute(query, params)
+        familias = cur.fetchall()
+
+        # Para cada família, buscar os integrantes
+        resultado = []
+        for familia in familias:
+            # Buscar integrantes desta família
+            query_integrantes = """
+            SELECT
+                rc.cod_seq_rastreamento_cidadao,
+                rc.nome_cidadao,
+                rc.data_nascimento,
+                rc.idade_no_rastreamento,
+                rc.sexo,
+                rc.resultado_rastreamento
+            FROM sistemaaps.tb_rastreamento_cidadaos rc
+            WHERE rc.cod_rastreamento_familia = %s
+            ORDER BY rc.nome_cidadao
+            """
+
+            cur.execute(query_integrantes, [familia['cod_seq_rastreamento_familia']])
+            integrantes = cur.fetchall()
+
+            # Formatar data de nascimento para string
+            integrantes_formatados = []
+            for integrante in integrantes:
+                integrante_dict = dict(integrante)
+                if integrante_dict['data_nascimento']:
+                    integrante_dict['data_nascimento'] = integrante_dict['data_nascimento'].strftime('%d/%m/%Y')
+                integrantes_formatados.append(integrante_dict)
+
+            # Formatar data de início
+            familia_dict = dict(familia)
+            if familia_dict['data_inicio_rastreamento']:
+                familia_dict['data_inicio_rastreamento'] = familia_dict['data_inicio_rastreamento'].strftime('%d/%m/%Y')
+
+            familia_dict['integrantes'] = integrantes_formatados
+            resultado.append(familia_dict)
+
+        return jsonify({
+            'success': True,
+            'familias': resultado,
+            'total': len(resultado)
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar famílias para PDF: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ============================================================================
