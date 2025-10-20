@@ -385,7 +385,7 @@ function renderizarTriagemCompleta(familias) {
                 const normais = (familia.total_triados || 0) - (familia.total_hipertensos || 0);
                 return `
                 <div class="border border-green-200 bg-green-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                     onclick="verResultadosFamilia(${familia.cod_rastreamento_familia})">
+                     onclick="verResultadosFamilia(${familia.cod_seq_rastreamento_familia})">
                     <div class="flex items-start justify-between mb-2">
                         <h5 class="font-semibold text-green-900">${familia.nome_responsavel}</h5>
                         <i class="ri-checkbox-circle-fill text-green-600 text-xl"></i>
@@ -429,28 +429,67 @@ function renderizarTriagemIncompleta(familias) {
         return;
     }
 
+    const paginacaoHTML = renderizarControlesPaginacao();
+
     container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            ${familias.map(familia => `
+        ${paginacaoHTML}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            ${familias.map(familia => {
+                const totalTriados = familia.total_triados || 0;
+                const totalIntegrantes = familia.total_integrantes || 0;
+                const naoTriados = totalIntegrantes - totalTriados;
+                const percentual = totalIntegrantes > 0 ? Math.round((totalTriados / totalIntegrantes) * 100) : 0;
+                const normais = totalTriados - (familia.total_hipertensos || 0);
+
+                return `
                 <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                     onclick="continuarTriagemFamilia(${familia.id_familia})">
-                    <div class="flex items-start justify-between mb-2">
-                        <h5 class="font-semibold text-yellow-900">${familia.nome_responsavel}</h5>
-                        <i class="ri-error-warning-line text-yellow-600 text-xl"></i>
-                    </div>
-                    <p class="text-sm text-yellow-700 mb-2">
-                        <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
-                    </p>
-                    <div class="flex items-center gap-3 text-xs text-yellow-600 mb-2">
-                        <span><i class="ri-checkbox-line mr-1"></i>${familia.triados} triados</span>
-                        <span><i class="ri-close-line mr-1"></i>${familia.nao_triados} pendentes</span>
-                    </div>
-                    <button class="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm">
-                        <i class="ri-play-line mr-1"></i>Completar Triagem
-                    </button>
+                     onclick="verResultadosFamilia(${familia.cod_seq_rastreamento_familia})">
+                        <div class="flex items-start justify-between mb-2">
+                            <h5 class="font-semibold text-yellow-900 pr-8">${familia.nome_responsavel}</h5>
+                            <i class="ri-error-warning-line text-yellow-600 text-xl"></i>
+                        </div>
+                        <p class="text-sm text-yellow-700 mb-2">
+                            <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
+                        </p>
+                        <div class="flex items-center justify-between text-xs text-yellow-700 mb-2">
+                            <span><i class="ri-team-line mr-1"></i>${familia.equipe}</span>
+                            <span>Micro: ${familia.microarea}</span>
+                        </div>
+                        <div class="mb-2">
+                            <div class="flex justify-between text-xs text-yellow-700 mb-1">
+                                <span>${totalTriados} de ${totalIntegrantes} triados</span>
+                                <span>${percentual}%</span>
+                            </div>
+                            <div class="w-full bg-yellow-200 rounded-full h-2">
+                                <div class="bg-yellow-600 h-2 rounded-full transition-all" style="width: ${percentual}%"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap mt-3">
+                            ${normais > 0 ? `
+                                <span class="px-2 py-1 bg-teal-600 text-white rounded text-xs">
+                                    <i class="ri-user-smile-line mr-1"></i>${normais} normais
+                                </span>
+                            ` : ''}
+                            ${familia.total_hipertensos > 0 ? `
+                                <span class="px-2 py-1 bg-red-600 text-white rounded text-xs">
+                                    <i class="ri-alert-line mr-1"></i>${familia.total_hipertensos} hipert.
+                                </span>
+                            ` : ''}
+                            ${naoTriados > 0 ? `
+                                <span class="px-2 py-1 bg-gray-500 text-white rounded text-xs">
+                                    <i class="ri-close-line mr-1"></i>${naoTriados} pendentes
+                                </span>
+                            ` : ''}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="ri-calendar-line mr-1"></i>Iniciado: ${formatarData(familia.data_inicio_rastreamento)}
+                        </p>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
+        ${paginacaoHTML}
     `;
 }
 
@@ -872,6 +911,34 @@ window.abrirModalSelecaoIntegrantes = async function(idFamilia) {
                             <div class="space-y-2">
                                 ${familia.integrantes.map(integrante => {
                                     const jaSelecionado = integrantesSelecionados.includes(integrante.cod_individual);
+                                    const jaTriado = integrante.resultado_triagem !== null && integrante.resultado_triagem !== undefined;
+
+                                    // Definir cor do badge baseado no resultado
+                                    let badgeClass = '';
+                                    let badgeIcon = '';
+                                    let badgeText = '';
+
+                                    if (jaTriado) {
+                                        const resultado = integrante.resultado_triagem.toUpperCase();
+                                        if (resultado === 'NORMAL') {
+                                            badgeClass = 'bg-green-100 text-green-700 border border-green-300';
+                                            badgeIcon = 'ri-checkbox-circle-line';
+                                            badgeText = 'Já triado - Normal';
+                                        } else if (resultado === 'LIMITROFE') {
+                                            badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-300';
+                                            badgeIcon = 'ri-error-warning-line';
+                                            badgeText = 'Já triado - Limítrofe';
+                                        } else if (resultado.includes('HAS')) {
+                                            badgeClass = 'bg-red-100 text-red-700 border border-red-300';
+                                            badgeIcon = 'ri-alert-line';
+                                            badgeText = 'Já triado - ' + resultado;
+                                        } else {
+                                            badgeClass = 'bg-blue-100 text-blue-700 border border-blue-300';
+                                            badgeIcon = 'ri-information-line';
+                                            badgeText = 'Já triado - ' + resultado;
+                                        }
+                                    }
+
                                     return `
                                         <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer ${jaSelecionado ? 'bg-blue-50 border-blue-300' : 'border-gray-200'}">
                                             <input type="checkbox"
@@ -882,9 +949,19 @@ window.abrirModalSelecaoIntegrantes = async function(idFamilia) {
                                                    data-nome="${integrante.nome}"
                                                    data-idade="${integrante.idade}">
                                             <div class="flex-1">
-                                                <span class="font-medium text-gray-900">${integrante.nome}</span>
-                                                <span class="text-sm text-gray-500 ml-2">${integrante.idade} anos ${integrante.sexo ? '- ' + integrante.sexo : ''}</span>
-                                                ${integrante.tem_diagnostico_has ? '<span class="text-xs text-orange-600 ml-2"><i class="ri-alert-line"></i> Já tem HAS</span>' : ''}
+                                                <div class="flex items-center justify-between">
+                                                    <div>
+                                                        <span class="font-medium text-gray-900">${integrante.nome}</span>
+                                                        <span class="text-sm text-gray-500 ml-2">${integrante.idade} anos ${integrante.sexo ? '- ' + integrante.sexo : ''}</span>
+                                                    </div>
+                                                    ${jaTriado ? `
+                                                        <span class="text-xs ${badgeClass} px-2 py-1 rounded-full ml-2">
+                                                            <i class="${badgeIcon}"></i> ${badgeText}
+                                                        </span>
+                                                    ` : ''}
+                                                </div>
+                                                ${integrante.tem_diagnostico_has ? '<span class="text-xs text-orange-600 mt-1 block"><i class="ri-alert-line"></i> Já tem diagnóstico de HAS</span>' : ''}
+                                                ${jaTriado ? '<span class="text-xs text-gray-500 mt-1 block"><i class="ri-information-line"></i> Pode ser selecionado novamente para retriagem</span>' : ''}
                                             </div>
                                         </label>
                                     `;
@@ -1269,6 +1346,20 @@ function atualizarContadorSelecao() {
     }
 }
 
+function atualizarContadorSelecaoIncompleta() {
+    const numSelecionadas = window.familiasSelecionadasPDF ? window.familiasSelecionadasPDF.size : 0;
+
+    const numEl = document.getElementById('num-selecionadas-incompleta');
+    const pdfCountEl = document.getElementById('pdf-count-incompleta');
+    const btnGerarPDF = document.getElementById('btn-gerar-pdf-incompleta');
+
+    if (numEl) numEl.textContent = numSelecionadas;
+    if (pdfCountEl) pdfCountEl.textContent = numSelecionadas;
+    if (btnGerarPDF) {
+        btnGerarPDF.disabled = numSelecionadas === 0;
+    }
+}
+
 // ============================================================================
 // GERAÇÃO DE PDF - FICHAS DE TRIAGEM
 // ============================================================================
@@ -1452,6 +1543,188 @@ window.gerarPDFTriagem = async function() {
 };
 
 // ============================================================================
+// GERAÇÃO DE PDF - FICHAS DE TRIAGEM INCOMPLETA
+// ============================================================================
+window.gerarPDFTriagemIncompleta = async function() {
+    try {
+        // Verificar se há famílias selecionadas
+        if (!window.familiasSelecionadasPDF || window.familiasSelecionadasPDF.size === 0) {
+            alert('Selecione pelo menos uma família para gerar o PDF.');
+            return;
+        }
+
+        console.log('Gerando PDF de triagem incompleta...');
+
+        // Buscar dados das famílias incompletas
+        const response = await fetch('/api/rastreamento/familias-incompletas-para-pdf');
+        const data = await response.json();
+
+        if (!data.success || data.familias.length === 0) {
+            alert('Nenhuma família com triagem incompleta para gerar PDF.');
+            return;
+        }
+
+        // Filtrar apenas famílias selecionadas
+        const familiasSelecionadas = data.familias.filter(f =>
+            window.familiasSelecionadasPDF.has(f.cod_seq_rastreamento_familia)
+        );
+
+        if (familiasSelecionadas.length === 0) {
+            alert('Nenhuma das famílias selecionadas foi encontrada.');
+            return;
+        }
+
+        console.log(`Gerando PDF com ${familiasSelecionadas.length} famílias incompletas selecionadas`);
+
+        // Criar novo documento PDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const margemEsq = 10;
+        const margemDir = 200;
+        const larguraPagina = margemDir - margemEsq;
+        let yAtual = 10;
+        let primeiraPagina = true;
+
+        // Para cada família selecionada
+        for (const familia of familiasSelecionadas) {
+            const integrantes = familia.integrantes || []; // Apenas integrantes NÃO triados
+            const linhasVazias = 2;
+            const totalLinhas = integrantes.length + linhasVazias;
+
+            // Altura necessária para uma família completa
+            const alturaBloco = 25 + (totalLinhas * 10);
+
+            // Verificar se cabe na página atual
+            if (yAtual + alturaBloco > 280 && !primeiraPagina) {
+                doc.addPage();
+                yAtual = 10;
+            }
+            primeiraPagina = false;
+
+            // CABEÇALHO BRANCO COM BORDA (instruções)
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(margemEsq, yAtual, larguraPagina, 15, 'FD');
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+
+            let yTexto = yAtual + 4;
+            doc.text('AFERIR A PRESSÃO ARTERIAL DOS MORADORES COM MAIS DE 20 ANOS DE IDADE', 105, yTexto, { align: 'center' });
+            yTexto += 4;
+            doc.text('01 VEZ POR DIA POR 05 (CINCO) DIAS', 105, yTexto, { align: 'center' });
+            yTexto += 4;
+            doc.text('DE MANHÃ EM JEJUM OU A NOITE ANTES DO JANTAR (NÃO ESCREVER 12X8, USAR 120X80)', 105, yTexto, { align: 'center' });
+
+            yAtual += 15;
+
+            // FAIXA AMARELA (Informações completas do domicílio) - Amarelo para indicar triagem incompleta
+            doc.setFillColor(255, 255, 0);
+            doc.rect(margemEsq, yAtual, larguraPagina, 6, 'F');
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+
+            const equipe = familia.equipe || '-';
+            const microarea = familia.microarea || '-';
+            const endereco = familia.endereco || '-';
+            const responsavel = familia.nome_responsavel.toUpperCase();
+
+            const textoCompleto = `${equipe} - MICRO-ÁREA: ${microarea} - ${endereco} - ${responsavel}`;
+            doc.text(textoCompleto, 105, yAtual + 4.5, { align: 'center' });
+
+            yAtual += 6;
+
+            // TABELA
+            const colCidadao = 90;
+            const colDia = 20;
+
+            // Cabeçalho da tabela
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.3);
+            doc.rect(margemEsq, yAtual, colCidadao, 8);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('CIDADÃO', margemEsq + 2, yAtual + 5.5);
+
+            // 5 colunas para os 5 dias
+            for (let i = 0; i < 5; i++) {
+                const xCol = margemEsq + colCidadao + (i * colDia);
+                doc.rect(xCol, yAtual, colDia, 8);
+                doc.setFontSize(7);
+                doc.text('___/___/_____', xCol + 2, yAtual + 5.5);
+                doc.setFontSize(9);
+            }
+
+            yAtual += 8;
+
+            // Linhas dos integrantes NÃO triados
+            for (const integrante of integrantes) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+
+                // Coluna CIDADÃO
+                doc.rect(margemEsq, yAtual, colCidadao, 10);
+                const textoIntegrante = `${integrante.nome_cidadao}, ${integrante.idade_no_rastreamento} anos`;
+                doc.text(textoIntegrante, margemEsq + 2, yAtual + 6.5);
+
+                // 5 colunas vazias para preencher
+                for (let i = 0; i < 5; i++) {
+                    const xCol = margemEsq + colCidadao + (i * colDia);
+                    doc.rect(xCol, yAtual, colDia, 10);
+                }
+
+                yAtual += 10;
+            }
+
+            // 2 LINHAS EM BRANCO (para outros integrantes)
+            for (let i = 0; i < linhasVazias; i++) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+
+                // Coluna CIDADÃO
+                doc.rect(margemEsq, yAtual, colCidadao, 10);
+                doc.text('Nome:', margemEsq + 2, yAtual + 6.5);
+
+                // 5 colunas vazias
+                for (let j = 0; j < 5; j++) {
+                    const xCol = margemEsq + colCidadao + (j * colDia);
+                    doc.rect(xCol, yAtual, colDia, 10);
+                }
+
+                yAtual += 10;
+            }
+
+            // Espaço entre famílias
+            yAtual += 5;
+        }
+
+        // Salvar PDF
+        const dataHora = new Date().toISOString().slice(0, 10);
+        doc.save(`Triagem_Incompleta_Hipertensao_${dataHora}.pdf`);
+
+        console.log('PDF de triagem incompleta gerado com sucesso!');
+        mostrarNotificacao(`PDF gerado com ${familiasSelecionadas.length} família(s) incompletas`, 'success');
+
+        // Limpar seleção
+        deselecionarTodasFamiliasPDF();
+
+    } catch (error) {
+        console.error('Erro ao gerar PDF de triagem incompleta:', error);
+        alert('Erro ao gerar PDF. Verifique o console.');
+    }
+};
+
+// ============================================================================
 // MODAL DE REGISTRO DE TRIAGEM (5 DIAS)
 // ============================================================================
 
@@ -1477,6 +1750,21 @@ window.continuarTriagemFamilia = async function(codRastreamentoFamilia) {
         dadosFamiliaTriagem = data.familia;
         dadosIntegrantesTriagem = data.integrantes || [];
 
+        // Preparar dados dos integrantes com aferições já salvas
+        dadosIntegrantesTriagem = dadosIntegrantesTriagem.map(integrante => {
+            // Se já tem aferições salvas, converter para o formato esperado
+            if (integrante.afericoes && integrante.afericoes.length > 0) {
+                integrante.afericoes = integrante.afericoes.map(af => ({
+                    pas: af.pressao_sistolica,
+                    pad: af.pressao_diastolica
+                }));
+            } else {
+                integrante.afericoes = [];
+            }
+
+            return integrante;
+        });
+
         // Preencher informações da família
         const infoFamilia = document.getElementById('info-familia-triagem');
         infoFamilia.innerHTML = `
@@ -1488,6 +1776,9 @@ window.continuarTriagemFamilia = async function(codRastreamentoFamilia) {
 
         // Renderizar tabela de integrantes
         renderizarTabelaIntegrantes();
+
+        // Restaurar valores salvos nos campos
+        restaurarAfericoesSalvas();
 
         // Mostrar modal
         document.getElementById('modal-registro-triagem').classList.remove('hidden');
@@ -1507,36 +1798,124 @@ function renderizarTabelaIntegrantes() {
 
     dadosIntegrantesTriagem.forEach((integrante, index) => {
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gray-50';
-        tr.innerHTML = `
-            <td class="border border-gray-300 px-4 py-3">
-                <div class="font-semibold text-gray-900">${integrante.nome_cidadao}</div>
-                <div class="text-sm text-gray-600">${integrante.idade_no_rastreamento} anos • ${integrante.sexo}</div>
-            </td>
-            ${[1,2,3,4,5].map(dia => `
-                <td class="border border-gray-300 px-2 py-2">
-                    <input type="text"
-                           class="w-full px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-pa"
-                           placeholder="___/___"
-                           maxlength="7"
-                           data-integrante-index="${index}"
-                           data-dia="${dia}"
-                           oninput="validarFormatoPA(this); calcularMediaIntegrante(${index})">
+        const somenteVisualizacao = integrante.somente_visualizacao === true;
+
+        // Estilo diferente para integrantes em modo visualização
+        tr.className = somenteVisualizacao ? 'bg-gray-50' : 'hover:bg-gray-50';
+
+        // Se é apenas visualização, mostrar dados já salvos de forma estática
+        if (somenteVisualizacao) {
+            // Buscar aferições salvas
+            const afericoesSalvas = integrante.afericoes || [];
+            const diasHTML = [1,2,3,4,5].map(dia => {
+                const afericao = afericoesSalvas.find(a => a.dia_medicao === dia);
+                const valor = afericao ? `${afericao.pressao_sistolica}/${afericao.pressao_diastolica}` : '---';
+                return `
+                    <td class="border border-gray-300 px-2 py-2 text-center bg-gray-100">
+                        <span class="text-gray-700 font-medium">${valor}</span>
+                    </td>
+                `;
+            }).join('');
+
+            // Calcular média se tiver aferições
+            let mediaHTML = '---';
+            let classificacaoHTML = '---';
+            let classificacaoClass = '';
+
+            if (integrante.media_pas && integrante.media_pad) {
+                mediaHTML = `${integrante.media_pas}/${integrante.media_pad}`;
+
+                // Definir classificação e cor
+                const resultado = integrante.resultado_rastreamento || '';
+                if (resultado === 'NORMAL') {
+                    classificacaoHTML = 'Normal';
+                    classificacaoClass = 'bg-green-100 text-green-700';
+                } else if (resultado === 'LIMITROFE') {
+                    classificacaoHTML = 'Limítrofe';
+                    classificacaoClass = 'bg-yellow-100 text-yellow-700';
+                } else if (resultado.includes('HAS')) {
+                    classificacaoHTML = resultado.replace('HAS_ESTAGIO_', 'HAS Estágio ');
+                    classificacaoClass = 'bg-red-100 text-red-700';
+                }
+            }
+
+            tr.innerHTML = `
+                <td class="border border-gray-300 px-4 py-3 bg-gray-100">
+                    <div class="font-semibold text-gray-900">${integrante.nome_cidadao}</div>
+                    <div class="text-sm text-gray-600">${integrante.idade_no_rastreamento} anos • ${integrante.sexo}</div>
+                    <div class="text-xs text-blue-600 mt-1"><i class="ri-eye-line"></i> Apenas visualização</div>
                 </td>
-            `).join('')}
-            <td class="border border-gray-300 px-4 py-3 text-center">
-                <div class="font-semibold text-gray-900" id="media-${index}">---</div>
-            </td>
-            <td class="border border-gray-300 px-4 py-3 text-center">
-                <span class="px-3 py-1 rounded-full text-xs font-semibold" id="classificacao-${index}">
-                    ---
-                </span>
-            </td>
-        `;
+                ${diasHTML}
+                <td class="border border-gray-300 px-4 py-3 text-center bg-gray-100">
+                    <div class="font-semibold text-gray-900">${mediaHTML}</div>
+                </td>
+                <td class="border border-gray-300 px-4 py-3 text-center bg-gray-100">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${classificacaoClass}">
+                        ${classificacaoHTML}
+                    </span>
+                </td>
+            `;
+        } else {
+            // Renderização normal com inputs editáveis
+            tr.innerHTML = `
+                <td class="border border-gray-300 px-4 py-3">
+                    <div class="font-semibold text-gray-900">${integrante.nome_cidadao}</div>
+                    <div class="text-sm text-gray-600">${integrante.idade_no_rastreamento} anos • ${integrante.sexo}</div>
+                </td>
+                ${[1,2,3,4,5].map(dia => `
+                    <td class="border border-gray-300 px-2 py-2">
+                        <input type="text"
+                               class="w-full px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-pa"
+                               placeholder="___/___"
+                               maxlength="7"
+                               data-integrante-index="${index}"
+                               data-dia="${dia}"
+                               oninput="validarFormatoPA(this); calcularMediaIntegrante(${index})">
+                    </td>
+                `).join('')}
+                <td class="border border-gray-300 px-4 py-3 text-center">
+                    <div class="font-semibold text-gray-900" id="media-${index}">---</div>
+                </td>
+                <td class="border border-gray-300 px-4 py-3 text-center">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold" id="classificacao-${index}">
+                        ---
+                    </span>
+                </td>
+            `;
+        }
+
         tbody.appendChild(tr);
     });
 
     atualizarContadorFinalizados();
+}
+
+/**
+ * Restaura aferições já salvas anteriormente nos campos do formulário
+ */
+function restaurarAfericoesSalvas() {
+    dadosIntegrantesTriagem.forEach((integrante, index) => {
+        // Pular integrantes em modo visualização (não têm campos editáveis)
+        if (integrante.somente_visualizacao) {
+            return;
+        }
+
+        // Se tem aferições salvas, preencher campos
+        if (integrante.afericoes && integrante.afericoes.length > 0) {
+            integrante.afericoes.forEach((afericao, diaIndex) => {
+                const dia = diaIndex + 1;
+                const input = document.querySelector(`input[data-integrante-index="${index}"][data-dia="${dia}"]`);
+                if (input) {
+                    input.value = `${afericao.pas}/${afericao.pad}`;
+                }
+            });
+        }
+
+        // Se tem média salva, recalcular para exibir
+        if (integrante.media_pas && integrante.media_pad) {
+            calcularMediaIntegrante(index);
+        }
+    });
 }
 
 /**
@@ -1625,21 +2004,27 @@ function classificarPA(pas, pad) {
  * Atualiza contador de integrantes finalizados
  */
 function atualizarContadorFinalizados() {
-    const total = dadosIntegrantesTriagem.length;
-    const finalizados = dadosIntegrantesTriagem.filter(i => i.media_pas && i.media_pad).length;
+    // Contar apenas integrantes que NÃO estão em modo visualização
+    const integrantesAtivos = dadosIntegrantesTriagem.filter(i => !i.somente_visualizacao);
+    const total = integrantesAtivos.length;
+    const finalizados = integrantesAtivos.filter(i => i.media_pas && i.media_pad).length;
 
     document.getElementById('contador-total').textContent = total;
     document.getElementById('contador-finalizados').textContent = finalizados;
 
-    // Habilitar botão salvar se pelo menos 1 integrante foi triado
-    const btnSalvar = document.getElementById('btn-salvar-triagem');
-    btnSalvar.disabled = finalizados === 0;
+    // Habilitar botão "Salvar Parcial" apenas se pelo menos 1 integrante foi triado
+    const btnSalvarParcial = document.getElementById('btn-salvar-parcial');
+    if (btnSalvarParcial) {
+        btnSalvarParcial.disabled = finalizados === 0;
+    }
+
+    // Botão "Finalizar Triagem" está sempre habilitado (não precisa fazer nada)
 
     // Mostrar mensagem se houver integrantes pendentes
     const msgParcial = document.getElementById('msg-salvamento-parcial');
     if (finalizados > 0 && finalizados < total) {
         msgParcial.classList.remove('hidden');
-        msgParcial.textContent = `⚠️ ${total - finalizados} integrante(s) ainda não foi(ram) triado(s). Ao salvar, a família ficará com triagem incompleta.`;
+        msgParcial.textContent = `⚠️ ${total - finalizados} integrante(s) ainda não foi(ram) triado(s).`;
     } else {
         msgParcial.classList.add('hidden');
     }
@@ -1655,11 +2040,11 @@ window.fecharModalTriagem = function() {
 };
 
 /**
- * Salva resultados da triagem
+ * Salva resultados parciais (mantém modal aberto para continuar depois)
  */
-window.salvarResultadosTriagem = async function() {
+window.salvarResultadosParciais = async function() {
     try {
-        console.log('Salvando resultados da triagem...');
+        console.log('Salvando resultados parciais...');
 
         // Filtrar apenas integrantes que foram triados (têm média calculada)
         const integrantesTriados = dadosIntegrantesTriagem.filter(i => i.media_pas && i.media_pad);
@@ -1677,7 +2062,8 @@ window.salvarResultadosTriagem = async function() {
                 media_pad: i.media_pad,
                 classificacao: i.classificacao,
                 afericoes: i.afericoes
-            }))
+            })),
+            salvar_parcial: true  // Indica que é salvamento parcial
         };
 
         const response = await fetch('/api/rastreamento/salvar-resultados', {
@@ -1689,19 +2075,104 @@ window.salvarResultadosTriagem = async function() {
         const data = await response.json();
 
         if (data.success) {
-            const msg = integrantesTriados.length < dadosIntegrantesTriagem.length
-                ? `Triagem parcial salva! ${integrantesTriados.length} de ${dadosIntegrantesTriagem.length} integrante(s). A família ficou com triagem incompleta.`
-                : 'Triagem completa salva com sucesso!';
-            mostrarNotificacao(msg, 'success');
+            mostrarNotificacao(`Salvamento parcial realizado! ${integrantesTriados.length} de ${dadosIntegrantesTriagem.length} integrante(s) salvos.`, 'success');
+            // Fechar modal
             fecharModalTriagem();
-            carregarDashboardAcompanhamento(); // Recarregar dashboard
+            // Recarregar dashboard para atualizar barrinha de progresso
+            carregarDashboardAcompanhamento();
         } else {
             alert('Erro ao salvar: ' + data.message);
         }
 
     } catch (error) {
-        console.error('Erro ao salvar resultados:', error);
-        alert('Erro ao salvar resultados. Verifique o console.');
+        console.error('Erro ao salvar resultados parciais:', error);
+        alert('Erro ao salvar. Verifique o console.');
+    }
+};
+
+/**
+ * Finaliza a triagem da família
+ * - Se nenhum triado: Remove família da triagem (volta para Sem Triagem)
+ * - Se algum triado: Salva e marca como Triagem Incompleta
+ * - Se todos triados: Salva e marca como Concluído
+ */
+window.finalizarTriagem = async function() {
+    try {
+        // Filtrar apenas integrantes ativos (não em modo visualização) e triados
+        const integrantesAtivos = dadosIntegrantesTriagem.filter(i => !i.somente_visualizacao);
+        const integrantesTriados = integrantesAtivos.filter(i => i.media_pas && i.media_pad);
+        const total = integrantesAtivos.length;
+
+        // Confirmar ação
+        let mensagemConfirmacao;
+        if (integrantesTriados.length === 0) {
+            mensagemConfirmacao = 'Nenhum integrante foi triado. Deseja remover esta família da triagem?';
+        } else if (integrantesTriados.length < total) {
+            mensagemConfirmacao = `Apenas ${integrantesTriados.length} de ${total} integrantes foram triados. Deseja finalizar mesmo assim? A família ficará com triagem incompleta.`;
+        } else {
+            mensagemConfirmacao = `Todos os ${total} integrantes foram triados. Deseja finalizar a triagem?`;
+        }
+
+        if (!confirm(mensagemConfirmacao)) {
+            return;
+        }
+
+        // Se nenhum foi triado, remover família da triagem
+        if (integrantesTriados.length === 0) {
+            const response = await fetch('/api/rastreamento/remover-familia-triagem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cod_rastreamento_familia: dadosFamiliaTriagem.cod_seq_rastreamento_familia
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                mostrarNotificacao('Família removida da triagem.', 'info');
+                fecharModalTriagem();
+                carregarDashboardAcompanhamento();
+            } else {
+                alert('Erro ao remover: ' + data.message);
+            }
+            return;
+        }
+
+        // Caso contrário, salvar os triados e finalizar
+        const payload = {
+            cod_rastreamento_familia: dadosFamiliaTriagem.cod_seq_rastreamento_familia,
+            integrantes: integrantesTriados.map(i => ({
+                cod_seq_rastreamento_cidadao: i.cod_seq_rastreamento_cidadao,
+                media_pas: i.media_pas,
+                media_pad: i.media_pad,
+                classificacao: i.classificacao,
+                afericoes: i.afericoes
+            })),
+            finalizar: true  // Indica que é finalização
+        };
+
+        const response = await fetch('/api/rastreamento/salvar-resultados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const msg = integrantesTriados.length === total
+                ? 'Triagem completa finalizada com sucesso!'
+                : `Triagem finalizada! ${integrantesTriados.length} de ${total} integrante(s). A família ficou com triagem incompleta.`;
+            mostrarNotificacao(msg, 'success');
+            fecharModalTriagem();
+            carregarDashboardAcompanhamento();
+        } else {
+            alert('Erro ao finalizar: ' + data.message);
+        }
+
+    } catch (error) {
+        console.error('Erro ao finalizar triagem:', error);
+        alert('Erro ao finalizar. Verifique o console.');
     }
 };
 
@@ -1710,3 +2181,181 @@ window.carregarDashboardAcompanhamento = carregarDashboardAcompanhamento;
 
 // selecionarAba definida globalmente
 console.log(">>> selecionarAba function loaded:", typeof window.selecionarAba);
+
+// ============================================================================
+// VISUALIZAÇÃO DE RESULTADOS DA TRIAGEM
+// ============================================================================
+
+let dadosFamiliaResultado = null; // Armazena dados da família sendo visualizada
+
+/**
+ * Abre modal com resultados detalhados da triagem de uma família
+ */
+window.verResultadosFamilia = async function(codRastreamentoFamilia) {
+    try {
+        const response = await fetch(`/api/rastreamento/visualizar-triagem/${codRastreamentoFamilia}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            alert('Erro ao carregar resultados: ' + data.message);
+            return;
+        }
+
+        dadosFamiliaResultado = data;
+
+        // Preencher informações do cabeçalho
+        document.getElementById('resultado-endereco').textContent =
+            `${data.familia.nome_responsavel} - ${data.familia.endereco} - Microárea ${data.familia.microarea}`;
+
+        // Preencher estatísticas
+        document.getElementById('resultado-total-integrantes').textContent = data.estatisticas.total_integrantes;
+        document.getElementById('resultado-total-triados').textContent = data.estatisticas.total_triados;
+        document.getElementById('resultado-total-normais').textContent = data.estatisticas.total_normais;
+        document.getElementById('resultado-total-hipertensos').textContent = data.estatisticas.total_hipertensos;
+
+        // Configurar status e badge
+        const statusContainer = document.getElementById('resultado-status-container');
+        const statusBadge = document.getElementById('resultado-status-badge');
+        const progressContainer = document.getElementById('resultado-progress-container');
+        const progressBar = document.getElementById('resultado-progress-bar');
+        const btnContinuarContainer = document.getElementById('resultado-btn-continuar-container');
+
+        if (data.familia.status_rastreamento === 'CONCLUIDO') {
+            statusContainer.className = 'mb-6 p-4 rounded-lg bg-green-50 border border-green-200';
+            statusBadge.className = 'ml-2 px-3 py-1 rounded-full text-sm font-semibold bg-green-600 text-white';
+            statusBadge.textContent = 'Triagem Completa';
+            progressContainer.classList.add('hidden');
+            btnContinuarContainer.classList.add('hidden');
+        } else {
+            statusContainer.className = 'mb-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200';
+            statusBadge.className = 'ml-2 px-3 py-1 rounded-full text-sm font-semibold bg-yellow-600 text-white';
+            statusBadge.textContent = 'Triagem Incompleta';
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = `${data.estatisticas.percentual_completo}%`;
+            btnContinuarContainer.classList.remove('hidden');
+        }
+
+        // Renderizar lista de integrantes
+        renderizarIntegrantesResultado(data.integrantes);
+
+        // Abrir modal
+        document.getElementById('modal-visualizar-resultados').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Erro ao visualizar resultados:', error);
+        alert('Erro ao carregar resultados. Verifique o console.');
+    }
+};
+
+/**
+ * Renderiza a lista de integrantes com seus resultados
+ */
+function renderizarIntegrantesResultado(integrantes) {
+    const container = document.getElementById('resultado-integrantes-list');
+
+    if (!integrantes || integrantes.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4">Nenhum integrante encontrado</p>';
+        return;
+    }
+
+    container.innerHTML = integrantes.map(integrante => {
+        const foiTriado = integrante.resultado_rastreamento !== null;
+
+        if (!foiTriado) {
+            // Integrante não triado
+            return `
+                <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-gray-800">${integrante.nome}</h4>
+                            <p class="text-sm text-gray-600">${integrante.idade} anos - ${integrante.sexo === 'M' ? 'Masculino' : 'Feminino'}</p>
+                        </div>
+                        <span class="px-3 py-1 bg-gray-300 text-gray-700 rounded-full text-xs font-semibold">
+                            Não Triado
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Integrante triado - mostrar detalhes
+        const isHipertenso = integrante.resultado_rastreamento === 'HIPERTENSO';
+        const borderColor = isHipertenso ? 'border-red-300' : 'border-teal-300';
+        const bgColor = isHipertenso ? 'bg-red-50' : 'bg-teal-50';
+        const badgeColor = isHipertenso ? 'bg-red-600' : 'bg-teal-600';
+        const badgeText = isHipertenso ? 'Hipertenso' : 'Normal';
+
+        // Renderizar aferições
+        const afericoesHtml = integrante.afericoes && integrante.afericoes.length > 0
+            ? integrante.afericoes.map(af => `
+                <span class="inline-block px-2 py-1 bg-white border border-gray-200 rounded text-xs mr-2 mb-1">
+                    Dia ${af.dia}: ${af.pas}/${af.pad}
+                </span>
+            `).join('')
+            : '<span class="text-xs text-gray-500">Sem aferições registradas</span>';
+
+        return `
+            <div class="border ${borderColor} rounded-lg p-4 ${bgColor}">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <h4 class="font-semibold text-gray-800">${integrante.nome}</h4>
+                        <p class="text-sm text-gray-600">${integrante.idade} anos - ${integrante.sexo === 'M' ? 'Masculino' : 'Feminino'}</p>
+                    </div>
+                    <span class="px-3 py-1 ${badgeColor} text-white rounded-full text-xs font-semibold">
+                        ${badgeText}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <p class="text-xs text-gray-600 mb-1">Média PA:</p>
+                        <p class="text-lg font-bold ${isHipertenso ? 'text-red-700' : 'text-teal-700'}">
+                            ${integrante.media_pas}/${integrante.media_pad} mmHg
+                        </p>
+                        <p class="text-xs text-gray-500">${integrante.numero_afericoes || 0} aferições</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 mb-1">Classificação:</p>
+                        <p class="text-sm font-semibold ${isHipertenso ? 'text-red-700' : 'text-teal-700'}">
+                            ${integrante.classificacao_risco || 'Não classificado'}
+                        </p>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-xs text-gray-600 mb-2">Aferições Registradas:</p>
+                    <div class="flex flex-wrap">
+                        ${afericoesHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Fecha modal de resultados
+ */
+window.fecharModalResultados = function() {
+    document.getElementById('modal-visualizar-resultados').classList.add('hidden');
+    dadosFamiliaResultado = null;
+};
+
+/**
+ * Continua triagem incompleta (abre modal de seleção de integrantes - carrinho)
+ */
+window.continuarTriagemIncompleta = function() {
+    if (!dadosFamiliaResultado) {
+        alert('Dados da família não encontrados');
+        return;
+    }
+
+    // Salvar ID da família antes de fechar o modal (pois fecharModalResultados limpa dadosFamiliaResultado)
+    const idFamilia = dadosFamiliaResultado.familia.id_familia;
+
+    // Fechar modal de resultados
+    fecharModalResultados();
+
+    // Abrir modal de seleção de integrantes (carrinho) para adicionar ao rastreamento
+    abrirModalSelecaoIntegrantes(idFamilia);
+};

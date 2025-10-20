@@ -10359,6 +10359,25 @@ def api_rastreamento_dashboard():
         resultado = cur.fetchone()
         total_triagem_completa_cards = resultado['total'] if resultado else 0
 
+        # COUNT para "Triagem Incompleta" nos cards (sem busca)
+        query_count_triagem_incompleta_cards = """
+        SELECT COUNT(DISTINCT rf.cod_seq_rastreamento_familia) as total
+        FROM sistemaaps.tb_rastreamento_familias rf
+        WHERE rf.status_rastreamento = 'TRIAGEM_INCOMPLETA'
+        """
+
+        params_triagem_incompleta_cards = []
+        if equipe:
+            query_count_triagem_incompleta_cards += " AND rf.equipe LIKE %s"
+            params_triagem_incompleta_cards.append(f"%{equipe}%")
+        if microarea:
+            query_count_triagem_incompleta_cards += " AND rf.microarea LIKE %s"
+            params_triagem_incompleta_cards.append(f"%{microarea}%")
+
+        cur.execute(query_count_triagem_incompleta_cards, params_triagem_incompleta_cards)
+        resultado = cur.fetchone()
+        total_triagem_incompleta_cards = resultado['total'] if resultado else 0
+
         # =====================================================================
         # CONTADORES PARA ABAS - COM busca por nome/endereço
         # =====================================================================
@@ -10590,9 +10609,91 @@ def api_rastreamento_dashboard():
             print(f">>> DEBUG: Página {pagina}: {len(triagem_completa)} famílias TRIAGEM COMPLETA de {total_triagem_completa} total")
 
         # =====================================================================
+        # DADOS DA ABA "TRIAGEM INCOMPLETA" - Famílias com alguns integrantes triados
+        # =====================================================================
+        total_triagem_incompleta = 0
+        triagem_incompleta = []
+
+        if aba == 'triagem-incompleta':
+            # COUNT para "Triagem Incompleta"
+            # Famílias com status TRIAGEM_INCOMPLETA (pelo menos 1 integrante triado mas não todos)
+            query_count_triagem_incompleta = """
+            SELECT COUNT(DISTINCT rf.cod_seq_rastreamento_familia) as total
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.mv_domicilios_resumo mv ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+            WHERE rf.status_rastreamento = 'TRIAGEM_INCOMPLETA'
+            """
+
+            params_triagem_incompleta = []
+            if equipe:
+                query_count_triagem_incompleta += " AND rf.equipe LIKE %s"
+                params_triagem_incompleta.append(f"%{equipe}%")
+            if microarea:
+                query_count_triagem_incompleta += " AND rf.microarea LIKE %s"
+                params_triagem_incompleta.append(f"%{microarea}%")
+            if busca and busca.strip():
+                query_count_triagem_incompleta += """ AND (
+                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
+                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                )"""
+                params_triagem_incompleta.extend([f"%{busca}%", f"%{busca}%"])
+
+            cur.execute(query_count_triagem_incompleta, params_triagem_incompleta)
+            resultado = cur.fetchone()
+            total_triagem_incompleta = resultado['total'] if resultado else 0
+
+            # Buscar dados paginados
+            query_triagem_incompleta = """
+            SELECT
+                rf.cod_seq_rastreamento_familia,
+                rf.co_seq_cds_domicilio_familia as id_familia,
+                CASE
+                    WHEN mv.responsaveis_info IS NOT NULL
+                    THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                    ELSE 'Sem responsável'
+                END as nome_responsavel,
+                mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco,
+                mv.bairro,
+                COALESCE(rf.microarea, '') as microarea,
+                COALESCE(rf.equipe, '') as equipe,
+                rf.data_inicio_rastreamento,
+                COUNT(rc.cod_seq_rastreamento_cidadao) as total_integrantes,
+                COUNT(CASE WHEN rc.resultado_rastreamento IS NOT NULL
+                      THEN 1 END) as total_triados,
+                COUNT(CASE WHEN rc.resultado_rastreamento = 'HIPERTENSO'
+                      THEN 1 END) as total_hipertensos
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN sistemaaps.mv_domicilios_resumo mv ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+            LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc
+                ON rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+            WHERE rf.status_rastreamento = 'TRIAGEM_INCOMPLETA'
+            """
+
+            if equipe:
+                query_triagem_incompleta += " AND rf.equipe LIKE %s"
+            if microarea:
+                query_triagem_incompleta += " AND rf.microarea LIKE %s"
+            if busca and busca.strip():
+                query_triagem_incompleta += """ AND (
+                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
+                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                )"""
+
+            query_triagem_incompleta += f"""
+            GROUP BY rf.cod_seq_rastreamento_familia, rf.co_seq_cds_domicilio_familia,
+                     mv.responsaveis_info, mv.logradouro_completo, mv.nu_domicilio,
+                     mv.bairro, rf.microarea, rf.equipe, rf.data_inicio_rastreamento
+            ORDER BY rf.data_inicio_rastreamento DESC
+            LIMIT {ITENS_POR_PAGINA} OFFSET {offset}
+            """
+
+            cur.execute(query_triagem_incompleta, params_triagem_incompleta)
+            triagem_incompleta = cur.fetchall()
+            print(f">>> DEBUG: Página {pagina}: {len(triagem_incompleta)} famílias TRIAGEM INCOMPLETA de {total_triagem_incompleta} total")
+
+        # =====================================================================
         # TEMPORARIAMENTE DESABILITADO - Outras abas
         # =====================================================================
-        triagem_incompleta = []
         nao_hipertensos = []
         hipertensos = []
 
@@ -10943,6 +11044,8 @@ def api_rastreamento_dashboard():
             total_itens_aba = total_em_triagem
         elif aba == 'triagem-completa':
             total_itens_aba = total_triagem_completa
+        elif aba == 'triagem-incompleta':
+            total_itens_aba = total_triagem_incompleta
         else:
             total_itens_aba = 0
 
@@ -10954,7 +11057,7 @@ def api_rastreamento_dashboard():
                 'sem_triagem': total_sem_triagem_cards,
                 'em_triagem': total_em_triagem_cards,
                 'triagem_completa': total_triagem_completa_cards,
-                'triagem_incompleta': 0,
+                'triagem_incompleta': total_triagem_incompleta_cards,
                 'nao_hipertensos': 0,
                 'hipertensos': 0
             },
@@ -10963,7 +11066,7 @@ def api_rastreamento_dashboard():
                 'sem_triagem': total_sem_triagem,
                 'em_triagem': total_em_triagem,
                 'triagem_completa': total_triagem_completa,
-                'triagem_incompleta': 0,
+                'triagem_incompleta': total_triagem_incompleta,
                 'nao_hipertensos': 0,
                 'hipertensos': 0
             },
@@ -10971,7 +11074,7 @@ def api_rastreamento_dashboard():
             'sem_triagem': sem_triagem,
             'em_triagem': em_triagem,
             'triagem_completa': triagem_completa,
-            'triagem_incompleta': [],
+            'triagem_incompleta': triagem_incompleta,
             'nao_hipertensos': [],
             'hipertensos': [],
             'paginacao': {
@@ -11181,7 +11284,16 @@ def api_rastreamento_familia(id_familia):
                     ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
                 WHERE rc.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
                   AND rf.co_seq_cds_domicilio_familia = %s
-            ) THEN true ELSE false END as em_rastreamento
+            ) THEN true ELSE false END as em_rastreamento,
+            -- Buscar resultado de triagem se já foi triado
+            (SELECT rc.resultado_rastreamento
+             FROM sistemaaps.tb_rastreamento_cidadaos rc
+             INNER JOIN sistemaaps.tb_rastreamento_familias rf
+                 ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+             WHERE rc.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
+               AND rf.co_seq_cds_domicilio_familia = %s
+             ORDER BY rc.created_at DESC
+             LIMIT 1) as resultado_triagem
         FROM tb_cds_cad_individual ci
         LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
         WHERE (
@@ -11198,6 +11310,7 @@ def api_rastreamento_familia(id_familia):
 
         cur.execute(query_integrantes, [
             id_familia,
+            id_familia,  # Para a subquery de resultado_triagem
             familia['cpf_responsavel'],
             familia['cns_responsavel'],
             familia['cpf_responsavel'],
@@ -11936,31 +12049,54 @@ def api_confirmar_triagem():
 
             co_seq_cds_cad_domiciliar = domicilio['co_cds_cad_domiciliar']
 
-            # Inserir registro de rastreamento da família
-            query_insert_familia = """
-            INSERT INTO sistemaaps.tb_rastreamento_familias (
-                co_seq_cds_domicilio_familia,
-                co_seq_cds_cad_domiciliar,
-                equipe,
-                microarea,
-                status_rastreamento,
-                data_inicio_rastreamento,
-                created_at,
-                updated_at
-            ) VALUES (%s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            RETURNING cod_seq_rastreamento_familia
-            """
+            # Verificar se família já está no rastreamento (evitar duplicatas)
+            cur.execute("""
+                SELECT cod_seq_rastreamento_familia
+                FROM sistemaaps.tb_rastreamento_familias
+                WHERE co_seq_cds_domicilio_familia = %s
+            """, [id_familia])
 
-            cur.execute(query_insert_familia, [
-                id_familia,
-                co_seq_cds_cad_domiciliar,
-                equipe,
-                microarea,
-                'EM_TRIAGEM'
-            ])
+            familia_existente = cur.fetchone()
 
-            cod_rastreamento_familia = cur.fetchone()['cod_seq_rastreamento_familia']
-            familias_inseridas += 1
+            if familia_existente:
+                # Família já existe, usar o código existente e atualizar status para EM_TRIAGEM
+                cod_rastreamento_familia = familia_existente['cod_seq_rastreamento_familia']
+                print(f">>> Aviso: Familia {id_familia} ja existe no rastreamento (cod: {cod_rastreamento_familia})")
+
+                # Atualizar status para EM_TRIAGEM (pode estar vindo de TRIAGEM_INCOMPLETA)
+                cur.execute("""
+                    UPDATE sistemaaps.tb_rastreamento_familias
+                    SET status_rastreamento = 'EM_TRIAGEM',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE cod_seq_rastreamento_familia = %s
+                """, [cod_rastreamento_familia])
+                print(f">>> Status da familia {id_familia} atualizado para EM_TRIAGEM")
+            else:
+                # Inserir registro de rastreamento da família
+                query_insert_familia = """
+                INSERT INTO sistemaaps.tb_rastreamento_familias (
+                    co_seq_cds_domicilio_familia,
+                    co_seq_cds_cad_domiciliar,
+                    equipe,
+                    microarea,
+                    status_rastreamento,
+                    data_inicio_rastreamento,
+                    created_at,
+                    updated_at
+                ) VALUES (%s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING cod_seq_rastreamento_familia
+                """
+
+                cur.execute(query_insert_familia, [
+                    id_familia,
+                    co_seq_cds_cad_domiciliar,
+                    equipe,
+                    microarea,
+                    'EM_TRIAGEM'
+                ])
+
+                cod_rastreamento_familia = cur.fetchone()['cod_seq_rastreamento_familia']
+                familias_inseridas += 1
 
             # Inserir integrantes no rastreamento
             for cod_individual in integrantes_ids:
@@ -11975,6 +12111,28 @@ def api_confirmar_triagem():
                 cidadao_info = cur.fetchone()
                 if not cidadao_info:
                     print(f"Aviso: Cidadao {cod_individual} nao encontrado")
+                    continue
+
+                # Verificar se integrante já foi inserido (evitar duplicatas)
+                cur.execute("""
+                    SELECT cod_seq_rastreamento_cidadao
+                    FROM sistemaaps.tb_rastreamento_cidadaos
+                    WHERE cod_rastreamento_familia = %s
+                      AND co_seq_cds_cad_individual = %s
+                """, [cod_rastreamento_familia, cod_individual])
+
+                integrante_existente = cur.fetchone()
+
+                if integrante_existente:
+                    print(f">>> Aviso: Integrante {cod_individual} ja cadastrado na familia {cod_rastreamento_familia}")
+                    # Atualizar elegivel_rastreamento para true (foi re-selecionado para retriagem)
+                    cur.execute("""
+                        UPDATE sistemaaps.tb_rastreamento_cidadaos
+                        SET elegivel_rastreamento = true,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE cod_seq_rastreamento_cidadao = %s
+                    """, [integrante_existente['cod_seq_rastreamento_cidadao']])
+                    print(f">>> Integrante {cod_individual} marcado como elegivel para retriagem")
                     continue
 
                 # Calcular idade
@@ -12014,9 +12172,23 @@ def api_confirmar_triagem():
 
                 integrantes_inseridos += 1
 
+            # Marcar como NÃO elegível os integrantes que NÃO foram selecionados
+            # mas que já existem na família (para aparecerem apenas como visualização)
+            if integrantes_ids:
+                placeholders = ','.join(['%s'] * len(integrantes_ids))
+                cur.execute(f"""
+                    UPDATE sistemaaps.tb_rastreamento_cidadaos
+                    SET elegivel_rastreamento = false,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE cod_rastreamento_familia = %s
+                      AND co_seq_cds_cad_individual NOT IN ({placeholders})
+                      AND resultado_rastreamento IS NOT NULL
+                """, [cod_rastreamento_familia] + integrantes_ids)
+                print(f">>> Integrantes nao selecionados marcados como apenas visualizacao")
+
         conn.commit()
 
-        print(f"✅ Triagem confirmada: {familias_inseridas} famílias, {integrantes_inseridos} integrantes")
+        print(f">>> Triagem confirmada: {familias_inseridas} familias, {integrantes_inseridos} integrantes")
 
         return jsonify({
             'success': True,
@@ -12156,6 +12328,128 @@ def get_familias_para_pdf():
 
 
 # ============================================================================
+# ENDPOINT: Buscar dados completos das famílias incompletas para PDF
+# ============================================================================
+@app.route('/api/rastreamento/familias-incompletas-para-pdf', methods=['GET'])
+def get_familias_incompletas_para_pdf():
+    """
+    Retorna dados completos das famílias com triagem incompleta para geração de PDF
+    """
+    conn = None
+    cur = None
+
+    try:
+        # Parâmetros opcionais de filtro
+        equipe = request.args.get('equipe', '')
+        microarea = request.args.get('microarea', '')
+
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Query para buscar famílias incompletas com seus integrantes
+        # Famílias com status TRIAGEM_INCOMPLETA (pelo menos 1 integrante triado mas não todos)
+        query = """
+        SELECT
+            rf.cod_seq_rastreamento_familia,
+            rf.co_seq_cds_domicilio_familia as id_familia,
+            CASE
+                WHEN mv.responsaveis_info IS NOT NULL
+                THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                ELSE 'Sem responsável'
+            END as nome_responsavel,
+            mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco,
+            mv.bairro,
+            COALESCE(rf.microarea, '') as microarea,
+            COALESCE(rf.equipe, '') as equipe,
+            rf.data_inicio_rastreamento,
+            (SELECT COUNT(*) FROM sistemaaps.tb_rastreamento_cidadaos rc
+             WHERE rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia) as total_integrantes,
+            (SELECT COUNT(*) FROM sistemaaps.tb_rastreamento_cidadaos rc
+             WHERE rc.cod_rastreamento_familia = rf.cod_seq_rastreamento_familia
+             AND rc.resultado_rastreamento IS NOT NULL) as total_triados
+        FROM sistemaaps.tb_rastreamento_familias rf
+        INNER JOIN sistemaaps.mv_domicilios_resumo mv
+            ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+        WHERE rf.status_rastreamento = 'TRIAGEM_INCOMPLETA'
+        """
+
+        params = []
+
+        if equipe:
+            query += " AND rf.equipe ILIKE %s"
+            params.append(f'%{equipe}%')
+
+        if microarea:
+            query += " AND rf.microarea ILIKE %s"
+            params.append(f'%{microarea}%')
+
+        query += " ORDER BY rf.equipe, rf.microarea, rf.data_inicio_rastreamento"
+
+        cur.execute(query, params)
+        familias = cur.fetchall()
+
+        # Para cada família, buscar APENAS os integrantes NÃO TRIADOS
+        resultado = []
+        for familia in familias:
+            # Buscar integrantes NÃO triados desta família
+            query_integrantes = """
+            SELECT
+                rc.cod_seq_rastreamento_cidadao,
+                rc.nome_cidadao,
+                rc.data_nascimento,
+                rc.idade_no_rastreamento,
+                rc.sexo,
+                rc.resultado_rastreamento
+            FROM sistemaaps.tb_rastreamento_cidadaos rc
+            WHERE rc.cod_rastreamento_familia = %s
+              AND rc.resultado_rastreamento IS NULL
+            ORDER BY rc.nome_cidadao
+            """
+
+            cur.execute(query_integrantes, [familia['cod_seq_rastreamento_familia']])
+            integrantes = cur.fetchall()
+
+            # Formatar data de nascimento para string
+            integrantes_formatados = []
+            for integrante in integrantes:
+                integrante_dict = dict(integrante)
+                if integrante_dict['data_nascimento']:
+                    integrante_dict['data_nascimento'] = integrante_dict['data_nascimento'].strftime('%d/%m/%Y')
+                integrantes_formatados.append(integrante_dict)
+
+            # Formatar data de início
+            familia_dict = dict(familia)
+            if familia_dict['data_inicio_rastreamento']:
+                familia_dict['data_inicio_rastreamento'] = familia_dict['data_inicio_rastreamento'].strftime('%d/%m/%Y')
+
+            familia_dict['integrantes'] = integrantes_formatados
+            resultado.append(familia_dict)
+
+        return jsonify({
+            'success': True,
+            'familias': resultado,
+            'total': len(resultado)
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar familias incompletas para PDF: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# ============================================================================
 # ENDPOINT: Buscar dados da família para registro de triagem
 # ============================================================================
 @app.route('/api/rastreamento/familia-triagem/<int:cod_rastreamento_familia>', methods=['GET'])
@@ -12211,7 +12505,14 @@ def get_familia_triagem(cod_rastreamento_familia):
             rc.data_nascimento,
             rc.idade_no_rastreamento,
             rc.sexo,
-            rc.resultado_rastreamento
+            rc.resultado_rastreamento,
+            rc.elegivel_rastreamento,
+            -- Se tem resultado E não é elegível, é apenas visualização
+            CASE
+                WHEN rc.resultado_rastreamento IS NOT NULL AND rc.elegivel_rastreamento = false
+                THEN true
+                ELSE false
+            END as somente_visualizacao
         FROM sistemaaps.tb_rastreamento_cidadaos rc
         WHERE rc.cod_rastreamento_familia = %s
         ORDER BY rc.nome_cidadao
@@ -12219,6 +12520,56 @@ def get_familia_triagem(cod_rastreamento_familia):
 
         cur.execute(query_integrantes, [cod_rastreamento_familia])
         integrantes = cur.fetchall()
+
+        # Para cada integrante, buscar aferições já salvas
+        integrantes_com_afericoes = []
+        for integrante in integrantes:
+            integrante_dict = dict(integrante)
+
+            # Buscar aferições da triagem
+            query_afericoes = """
+            SELECT
+                dia_medicao,
+                pressao_sistolica,
+                pressao_diastolica,
+                data_afericao
+            FROM sistemaaps.tb_rastreamento_afericoes_triagem
+            WHERE cod_rastreamento_cidadao = %s
+            ORDER BY dia_medicao
+            """
+
+            cur.execute(query_afericoes, [integrante_dict['cod_seq_rastreamento_cidadao']])
+            afericoes = cur.fetchall()
+
+            # Adicionar aferições ao integrante
+            integrante_dict['afericoes'] = [dict(a) for a in afericoes]
+
+            # Buscar média se existir
+            query_media = """
+            SELECT
+                media_pas,
+                media_pad,
+                numero_afericoes
+            FROM sistemaaps.tb_rastreamento_resultado_media_pa
+            WHERE cod_rastreamento_cidadao = %s
+              AND tipo_medicao = 'TRIAGEM'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+
+            cur.execute(query_media, [integrante_dict['cod_seq_rastreamento_cidadao']])
+            media = cur.fetchone()
+
+            if media:
+                integrante_dict['media_pas'] = media['media_pas']
+                integrante_dict['media_pad'] = media['media_pad']
+                integrante_dict['numero_afericoes'] = media['numero_afericoes']
+            else:
+                integrante_dict['media_pas'] = None
+                integrante_dict['media_pad'] = None
+                integrante_dict['numero_afericoes'] = 0
+
+            integrantes_com_afericoes.append(integrante_dict)
 
         # Formatar família
         familia_dict = dict(familia)
@@ -12228,7 +12579,7 @@ def get_familia_triagem(cod_rastreamento_familia):
         return jsonify({
             'success': True,
             'familia': familia_dict,
-            'integrantes': [dict(i) for i in integrantes]
+            'integrantes': integrantes_com_afericoes
         })
 
     except Exception as e:
@@ -12258,6 +12609,7 @@ def salvar_resultados_triagem():
         data = request.get_json()
         cod_rastreamento_familia = data.get('cod_rastreamento_familia')
         integrantes = data.get('integrantes', [])
+        finalizar = data.get('finalizar', False)  # Se True, é finalização; se False, é salvamento parcial
 
         if not cod_rastreamento_familia or not integrantes:
             return jsonify({'success': False, 'message': 'Dados incompletos'}), 400
@@ -12284,6 +12636,25 @@ def salvar_resultados_triagem():
                 print(f"AVISO: Integrante {cod_cidadao} tem menos de 3 aferições ({len(afericoes)})")
                 continue
 
+            # 0. DELETAR aferições e médias antigas (para permitir edição/remoção)
+            print(f"  >> Deletando afericoes antigas do integrante {cod_cidadao}...")
+
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_rastreamento_afericoes_triagem
+                WHERE cod_rastreamento_cidadao = %s
+            """, [cod_cidadao])
+            afericoes_deletadas = cur.rowcount
+
+            cur.execute("""
+                DELETE FROM sistemaaps.tb_rastreamento_resultado_media_pa
+                WHERE cod_rastreamento_cidadao = %s
+                  AND tipo_medicao = 'TRIAGEM'
+            """, [cod_cidadao])
+            medias_deletadas = cur.rowcount
+
+            if afericoes_deletadas > 0 or medias_deletadas > 0:
+                print(f"  >> Deletadas: {afericoes_deletadas} afericoes, {medias_deletadas} media(s)")
+
             # 1. Inserir cada aferição em tb_rastreamento_afericoes_triagem
             for idx, afericao in enumerate(afericoes):
                 query_insert_afericao = """
@@ -12303,7 +12674,7 @@ def salvar_resultados_triagem():
                     afericao['pad']
                 ])
 
-                print(f"  → Aferição dia {idx + 1}: {afericao['pas']}/{afericao['pad']}")
+                print(f"  >> Afericao dia {idx + 1}: {afericao['pas']}/{afericao['pad']}")
 
             # 2. Inserir média em tb_rastreamento_resultado_media_pa
             query_insert_media = """
@@ -12341,7 +12712,7 @@ def salvar_resultados_triagem():
 
             cur.execute(query_update, [resultado, cod_cidadao])
 
-            print(f"✅ Integrante {cod_cidadao}: {len(afericoes)} aferições, Média: {media_pas}/{media_pad}, Resultado: {resultado}")
+            print(f">>> Integrante {cod_cidadao}: {len(afericoes)} afericoes, Media: {media_pas}/{media_pad}, Resultado: {resultado}")
 
         # Verificar se todos os integrantes da família foram triados
         query_check_completo = """
@@ -12357,26 +12728,36 @@ def salvar_resultados_triagem():
         total_integrantes = resultado_check[0]
         total_triados = resultado_check[1]
 
-        # Definir status baseado na completude
-        if total_triados == total_integrantes:
-            novo_status = 'CONCLUIDO'
-            print(f"✅ Todos os {total_integrantes} integrantes foram triados - Status: CONCLUIDO")
+        # APENAS atualizar status se for FINALIZAÇÃO
+        if finalizar:
+            # Definir status baseado na completude
+            if total_triados == total_integrantes:
+                novo_status = 'CONCLUIDO'
+                print(f">>> Todos os {total_integrantes} integrantes foram triados - Status: CONCLUIDO")
+            elif total_triados > 0:
+                # Tem pelo menos 1 triado mas não todos - TRIAGEM INCOMPLETA
+                novo_status = 'TRIAGEM_INCOMPLETA'
+                print(f">>> Triagem parcial: {total_triados}/{total_integrantes} integrantes triados - Status: TRIAGEM_INCOMPLETA")
+            else:
+                # Nenhum integrante triado ainda - EM TRIAGEM
+                novo_status = 'EM_TRIAGEM'
+                print(f">>> Nenhum integrante triado ainda - Status: EM_TRIAGEM")
+
+            # Atualizar status da família
+            query_update_familia = """
+            UPDATE sistemaaps.tb_rastreamento_familias
+            SET
+                status_rastreamento = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE cod_seq_rastreamento_familia = %s
+            """
+
+            cur.execute(query_update_familia, [novo_status, cod_rastreamento_familia])
+
+            print(f">>> Familia {cod_rastreamento_familia} atualizada para {novo_status}")
         else:
-            novo_status = 'EM_TRIAGEM'
-            print(f"⚠️  Triagem parcial: {total_triados}/{total_integrantes} integrantes triados - Status: EM_TRIAGEM")
-
-        # Atualizar status da família
-        query_update_familia = """
-        UPDATE sistemaaps.tb_rastreamento_familias
-        SET
-            status_rastreamento = %s,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE cod_seq_rastreamento_familia = %s
-        """
-
-        cur.execute(query_update_familia, [novo_status, cod_rastreamento_familia])
-
-        print(f"✅ Família {cod_rastreamento_familia} atualizada para {novo_status}")
+            # Salvamento PARCIAL - NÃO atualizar status, apenas salvar os dados
+            print(f">>> Salvamento parcial: {total_triados}/{total_integrantes} integrantes triados - Status mantido (EM_TRIAGEM)")
 
         conn.commit()
 
@@ -12389,6 +12770,236 @@ def salvar_resultados_triagem():
         if conn:
             conn.rollback()
         print(f"Erro ao salvar resultados: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# ============================================================================
+# ENDPOINT: Remover família da triagem
+# ============================================================================
+@app.route('/api/rastreamento/remover-familia-triagem', methods=['POST'])
+def remover_familia_triagem():
+    """
+    Remove uma família da triagem (deleta registros)
+    Usado quando usuário finaliza sem triar ninguém
+    """
+    conn = None
+    cur = None
+
+    try:
+        data = request.get_json()
+        cod_rastreamento_familia = data.get('cod_rastreamento_familia')
+
+        if not cod_rastreamento_familia:
+            return jsonify({'success': False, 'message': 'Família não especificada'}), 400
+
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+        cur = conn.cursor()
+
+        # Deletar integrantes primeiro (chave estrangeira)
+        cur.execute("""
+            DELETE FROM sistemaaps.tb_rastreamento_cidadaos
+            WHERE cod_rastreamento_familia = %s
+        """, [cod_rastreamento_familia])
+
+        integrantes_deletados = cur.rowcount
+
+        # Deletar família
+        cur.execute("""
+            DELETE FROM sistemaaps.tb_rastreamento_familias
+            WHERE cod_seq_rastreamento_familia = %s
+        """, [cod_rastreamento_familia])
+
+        familias_deletadas = cur.rowcount
+
+        conn.commit()
+
+        print(f">>> Familia {cod_rastreamento_familia} removida da triagem ({integrantes_deletados} integrantes, {familias_deletadas} familia)")
+
+        return jsonify({
+            'success': True,
+            'message': 'Família removida da triagem'
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao remover família: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+# ============================================================================
+# ENDPOINT: Visualizar detalhes da triagem de uma família
+# ============================================================================
+@app.route('/api/rastreamento/visualizar-triagem/<int:cod_rastreamento_familia>', methods=['GET'])
+def visualizar_triagem_familia(cod_rastreamento_familia):
+    """
+    Retorna os detalhes completos da triagem de uma família
+    Usado para exibir modal com resultados individuais
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS
+        )
+        cur = conn.cursor()
+
+        # Buscar informações da família
+        query_familia = """
+        SELECT
+            rf.cod_seq_rastreamento_familia,
+            rf.co_seq_cds_domicilio_familia,
+            rf.status_rastreamento,
+            rf.data_inicio_rastreamento,
+            rf.data_finalizacao_rastreamento,
+            mv.logradouro_completo,
+            COALESCE(mv.microareas, '') as microarea,
+            CASE
+                WHEN mv.responsaveis_info IS NOT NULL
+                THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                ELSE 'Sem responsável'
+            END as nome_responsavel
+        FROM sistemaaps.tb_rastreamento_familias rf
+        LEFT JOIN sistemaaps.mv_domicilios_resumo mv
+            ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+        WHERE rf.cod_seq_rastreamento_familia = %s
+        """
+
+        cur.execute(query_familia, [cod_rastreamento_familia])
+        familia_row = cur.fetchone()
+
+        if not familia_row:
+            return jsonify({'success': False, 'message': 'Família não encontrada'}), 404
+
+        familia = {
+            'cod_rastreamento_familia': familia_row[0],
+            'id_familia': familia_row[1],
+            'status_rastreamento': familia_row[2],
+            'data_inicio': familia_row[3].strftime('%d/%m/%Y') if familia_row[3] else None,
+            'data_finalizacao': familia_row[4].strftime('%d/%m/%Y') if familia_row[4] else None,
+            'endereco': familia_row[5],
+            'microarea': familia_row[6],
+            'nome_responsavel': familia_row[7]
+        }
+
+        # Buscar integrantes com resultados da triagem
+        query_integrantes = """
+        SELECT
+            rc.cod_seq_rastreamento_cidadao,
+            rc.nome_cidadao,
+            rc.idade_no_rastreamento,
+            rc.sexo,
+            rc.resultado_rastreamento,
+            CASE
+                WHEN rmp.media_pas IS NULL THEN NULL
+                WHEN rmp.media_pas < 130 AND rmp.media_pad < 85 THEN 'Normal'
+                WHEN (rmp.media_pas BETWEEN 130 AND 139) OR (rmp.media_pad BETWEEN 85 AND 89) THEN 'Limítrofe'
+                WHEN (rmp.media_pas BETWEEN 140 AND 159) OR (rmp.media_pad BETWEEN 90 AND 99) THEN 'HAS Estágio 1'
+                WHEN rmp.media_pas >= 160 OR rmp.media_pad >= 100 THEN 'HAS Estágio 2'
+                ELSE 'Não classificado'
+            END as classificacao_risco,
+            rmp.media_pas,
+            rmp.media_pad,
+            rmp.numero_afericoes
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        LEFT JOIN sistemaaps.tb_rastreamento_resultado_media_pa rmp
+            ON rmp.cod_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
+            AND rmp.tipo_medicao = 'TRIAGEM'
+        WHERE rc.cod_rastreamento_familia = %s
+        ORDER BY rc.nome_cidadao
+        """
+
+        cur.execute(query_integrantes, [cod_rastreamento_familia])
+        integrantes_rows = cur.fetchall()
+
+        integrantes = []
+        for row in integrantes_rows:
+            integrante_data = {
+                'cod_cidadao': row[0],
+                'nome': row[1],
+                'idade': row[2],
+                'sexo': row[3],
+                'resultado_rastreamento': row[4],
+                'classificacao_risco': row[5],
+                'media_pas': row[6],
+                'media_pad': row[7],
+                'numero_afericoes': row[8],
+                'afericoes': []
+            }
+
+            # Se o integrante foi triado, buscar suas aferições
+            if row[4]:  # resultado_rastreamento não é NULL
+                query_afericoes = """
+                SELECT
+                    dia_medicao,
+                    pressao_sistolica,
+                    pressao_diastolica,
+                    data_afericao
+                FROM sistemaaps.tb_rastreamento_afericoes_triagem
+                WHERE cod_rastreamento_cidadao = %s
+                ORDER BY dia_medicao
+                """
+
+                cur.execute(query_afericoes, [row[0]])
+                afericoes_rows = cur.fetchall()
+
+                for af_row in afericoes_rows:
+                    integrante_data['afericoes'].append({
+                        'dia': af_row[0],
+                        'pas': af_row[1],
+                        'pad': af_row[2],
+                        'data': af_row[3].strftime('%d/%m/%Y') if af_row[3] else None
+                    })
+
+            integrantes.append(integrante_data)
+
+        # Calcular estatísticas
+        total_integrantes = len(integrantes)
+        total_triados = sum(1 for i in integrantes if i['resultado_rastreamento'])
+        total_hipertensos = sum(1 for i in integrantes if i['resultado_rastreamento'] == 'HIPERTENSO')
+        total_normais = sum(1 for i in integrantes if i['resultado_rastreamento'] == 'NORMAL')
+
+        return jsonify({
+            'success': True,
+            'familia': familia,
+            'integrantes': integrantes,
+            'estatisticas': {
+                'total_integrantes': total_integrantes,
+                'total_triados': total_triados,
+                'total_hipertensos': total_hipertensos,
+                'total_normais': total_normais,
+                'percentual_completo': round((total_triados / total_integrantes * 100) if total_integrantes > 0 else 0, 1)
+            }
+        })
+
+    except Exception as e:
+        print(f">>> ERRO ao buscar detalhes da triagem: {e}")
+        import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 

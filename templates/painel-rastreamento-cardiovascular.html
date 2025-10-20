@@ -38,7 +38,7 @@
     <script src="{{ url_for('static', filename='rastreamento_steps.js') }}" defer></script>
 
     <!-- Dashboard de acompanhamento -->
-    <script src="{{ url_for('static', filename='dashboard_rastreamento.js') }}?v=15" defer></script>
+    <script src="{{ url_for('static', filename='dashboard_rastreamento.js') }}?v=16" defer></script>
 
     <style>
         body {
@@ -499,13 +499,90 @@
                                 class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100">
                             <i class="ri-close-line mr-1"></i>Cancelar
                         </button>
-                        <button onclick="salvarResultadosTriagem()" id="btn-salvar-triagem"
-                                class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        <button onclick="salvarResultadosParciais()" id="btn-salvar-parcial"
+                                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled>
-                            <i class="ri-save-line mr-1"></i>Salvar Resultados
+                            <i class="ri-save-line mr-1"></i>Salvar Resultados Parciais
+                        </button>
+                        <button onclick="finalizarTriagem()" id="btn-finalizar-triagem"
+                                class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold">
+                            <i class="ri-check-double-line mr-1"></i>Finalizar Triagem
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Visualizar Resultados da Triagem -->
+    <div id="modal-visualizar-resultados" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="ri-eye-line mr-2"></i>Resultados da Triagem
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1" id="resultado-endereco"></p>
+                </div>
+                <button onclick="fecharModalResultados()" class="text-gray-400 hover:text-gray-600 text-2xl">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- Estatísticas -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="resultado-total-integrantes">0</div>
+                        <div class="text-xs text-blue-700 mt-1">Total Integrantes</div>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-green-600" id="resultado-total-triados">0</div>
+                        <div class="text-xs text-green-700 mt-1">Triados</div>
+                    </div>
+                    <div class="bg-teal-50 border border-teal-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-teal-600" id="resultado-total-normais">0</div>
+                        <div class="text-xs text-teal-700 mt-1">Normais</div>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-red-600" id="resultado-total-hipertensos">0</div>
+                        <div class="text-xs text-red-700 mt-1">Hipertensos</div>
+                    </div>
+                </div>
+
+                <!-- Status da Triagem -->
+                <div class="mb-6 p-4 rounded-lg" id="resultado-status-container">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="font-semibold text-gray-700">Status:</span>
+                            <span id="resultado-status-badge" class="ml-2 px-3 py-1 rounded-full text-sm font-semibold"></span>
+                        </div>
+                        <div id="resultado-progress-container" class="hidden">
+                            <div class="text-sm text-gray-600 mb-1">Progresso da Triagem</div>
+                            <div class="w-64 bg-gray-200 rounded-full h-3">
+                                <div id="resultado-progress-bar" class="bg-blue-600 h-3 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Integrantes -->
+                <div class="space-y-4" id="resultado-integrantes-list">
+                    <!-- Será preenchido via JavaScript -->
+                </div>
+
+                <!-- Botão para continuar triagem (se incompleta) -->
+                <div id="resultado-btn-continuar-container" class="hidden mt-6 text-center">
+                    <button onclick="continuarTriagemIncompleta()" class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold">
+                        <i class="ri-edit-box-line mr-2"></i>Continuar Triagem
+                    </button>
+                </div>
+            </div>
+
+            <div class="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end">
+                <button onclick="fecharModalResultados()" class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-semibold">
+                    <i class="ri-close-line mr-1"></i>Fechar
+                </button>
             </div>
         </div>
     </div>
