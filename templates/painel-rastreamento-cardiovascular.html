@@ -38,7 +38,7 @@
     <script src="{{ url_for('static', filename='rastreamento_steps.js') }}" defer></script>
 
     <!-- Dashboard de acompanhamento -->
-    <script src="{{ url_for('static', filename='dashboard_rastreamento.js') }}?v=10" defer></script>
+    <script src="{{ url_for('static', filename='dashboard_rastreamento.js') }}?v=15" defer></script>
 
     <style>
         body {
@@ -214,22 +214,22 @@
                 <div class="border-b border-gray-200 px-6 pt-6">
                     <nav class="flex flex-wrap gap-2" id="abas-navegacao">
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg active" data-aba="sem-triagem">
-                            <i class="ri-file-list-line mr-1"></i>Sem Triagem
+                            <i class="ri-file-list-line mr-1"></i>Sem Triagem <span class="count-aba">(0)</span>
                         </button>
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="em-triagem">
-                            <i class="ri-loader-4-line mr-1"></i>Em Triagem
+                            <i class="ri-loader-4-line mr-1"></i>Em Triagem <span class="count-aba">(0)</span>
                         </button>
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="triagem-completa">
-                            <i class="ri-checkbox-circle-line mr-1"></i>Triagem Completa
+                            <i class="ri-checkbox-circle-line mr-1"></i>Triagem Completa <span class="count-aba">(0)</span>
                         </button>
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="triagem-incompleta">
-                            <i class="ri-error-warning-line mr-1"></i>Triagem Incompleta
+                            <i class="ri-error-warning-line mr-1"></i>Triagem Incompleta <span class="count-aba">(0)</span>
                         </button>
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="nao-hipertensos">
-                            <i class="ri-user-smile-line mr-1"></i>Não Hipertensos
+                            <i class="ri-user-smile-line mr-1"></i>Não Hipertensos <span class="count-aba">(0)</span>
                         </button>
                         <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="hipertensos">
-                            <i class="ri-alert-line mr-1"></i>Hipertensos
+                            <i class="ri-alert-line mr-1"></i>Hipertensos <span class="count-aba">(0)</span>
                         </button>
                     </nav>
                 </div>
@@ -411,6 +411,100 @@
                 <div class="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
                     <button onclick="fecharModalManual()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancelar</button>
                     <button onclick="salvarResultadoManual()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRO DE TRIAGEM (5 DIAS) -->
+    <div id="modal-registro-triagem" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-7xl w-full my-8">
+                <!-- Cabeçalho -->
+                <div class="flex items-center justify-between p-6 border-b bg-blue-50">
+                    <div>
+                        <h3 class="text-xl font-bold text-blue-900">
+                            <i class="ri-heart-pulse-line mr-2"></i>Registro de Triagem de Hipertensão
+                        </h3>
+                        <p class="text-sm text-blue-700 mt-1" id="info-familia-triagem">
+                            <!-- Será preenchido via JavaScript -->
+                        </p>
+                    </div>
+                    <button class="text-gray-400 hover:text-gray-600" onclick="fecharModalTriagem()">
+                        <i class="ri-close-line text-2xl"></i>
+                    </button>
+                </div>
+
+                <!-- Conteúdo -->
+                <div class="p-6">
+                    <div class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p class="text-sm text-yellow-800">
+                            <i class="ri-information-line mr-1"></i>
+                            <strong>Instruções:</strong> Digite no mínimo 3 aferições de pressão arterial (formato: 120/80).
+                            O sistema calculará automaticamente a média e a classificação. Máximo de 5 aferições.
+                        </p>
+                    </div>
+
+                    <!-- Tabela de Integrantes -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse border border-gray-300">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                                        Integrante
+                                    </th>
+                                    <th class="border border-gray-300 px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Dia 1
+                                    </th>
+                                    <th class="border border-gray-300 px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Dia 2
+                                    </th>
+                                    <th class="border border-gray-300 px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Dia 3
+                                    </th>
+                                    <th class="border border-gray-300 px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Dia 4
+                                    </th>
+                                    <th class="border border-gray-300 px-3 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Dia 5
+                                    </th>
+                                    <th class="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Média
+                                    </th>
+                                    <th class="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                                        Classificação
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-integrantes-triagem">
+                                <!-- Será preenchido via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Rodapé -->
+                <div class="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
+                    <div class="text-sm text-gray-600">
+                        <i class="ri-checkbox-line mr-1"></i>
+                        <span id="contador-finalizados">0</span> de <span id="contador-total">0</span> integrantes com dados completos
+                    </div>
+
+                    <!-- Mensagem de salvamento parcial -->
+                    <div id="msg-salvamento-parcial" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="fecharModalTriagem()"
+                                class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100">
+                            <i class="ri-close-line mr-1"></i>Cancelar
+                        </button>
+                        <button onclick="salvarResultadosTriagem()" id="btn-salvar-triagem"
+                                class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled>
+                            <i class="ri-save-line mr-1"></i>Salvar Resultados
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

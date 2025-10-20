@@ -113,7 +113,7 @@ window.selecionarAba = function(nomeAba) {
 // RENDERIZAÇÃO DOS CONTADORES
 // ============================================================================
 function renderizarDashboard(dashboard) {
-    // Atualizar contadores
+    // Atualizar contadores DOS CARDS (sempre sem busca, apenas equipe/microárea)
     document.getElementById('count-sem-triagem').textContent = dashboard.contadores?.sem_triagem || 0;
     document.getElementById('count-em-triagem').textContent = dashboard.contadores?.em_triagem || 0;
     document.getElementById('count-triagem-completa').textContent = dashboard.contadores?.triagem_completa || 0;
@@ -121,8 +121,52 @@ function renderizarDashboard(dashboard) {
     document.getElementById('count-nao-hipertensos').textContent = dashboard.contadores?.nao_hipertensos || 0;
     document.getElementById('count-hipertensos').textContent = dashboard.contadores?.hipertensos || 0;
 
+    // Atualizar contadores DAS ABAS (com busca, se houver)
+    if (dashboard.tem_busca && dashboard.contadores_abas) {
+        // Quando há busca, mostrar contadores filtrados nas abas
+        atualizarContadoresAbas(dashboard.contadores_abas);
+    } else {
+        // Sem busca, as abas usam os mesmos contadores dos cards
+        atualizarContadoresAbas(dashboard.contadores);
+    }
+
     // Renderizar conteúdo da aba ativa
     renderizarConteudoAba(window.estadoDashboard.abaAtiva, dashboard);
+}
+
+function atualizarContadoresAbas(contadores) {
+    // Atualizar os números nos botões das abas
+    const btnSemTriagem = document.querySelector('.aba-btn[data-aba="sem-triagem"]');
+    const btnEmTriagem = document.querySelector('.aba-btn[data-aba="em-triagem"]');
+    const btnTriagemCompleta = document.querySelector('.aba-btn[data-aba="triagem-completa"]');
+    const btnTriagemIncompleta = document.querySelector('.aba-btn[data-aba="triagem-incompleta"]');
+    const btnNaoHipertensos = document.querySelector('.aba-btn[data-aba="nao-hipertensos"]');
+    const btnHipertensos = document.querySelector('.aba-btn[data-aba="hipertensos"]');
+
+    if (btnSemTriagem) {
+        const countSpan = btnSemTriagem.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.sem_triagem || 0})`;
+    }
+    if (btnEmTriagem) {
+        const countSpan = btnEmTriagem.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.em_triagem || 0})`;
+    }
+    if (btnTriagemCompleta) {
+        const countSpan = btnTriagemCompleta.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.triagem_completa || 0})`;
+    }
+    if (btnTriagemIncompleta) {
+        const countSpan = btnTriagemIncompleta.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.triagem_incompleta || 0})`;
+    }
+    if (btnNaoHipertensos) {
+        const countSpan = btnNaoHipertensos.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.nao_hipertensos || 0})`;
+    }
+    if (btnHipertensos) {
+        const countSpan = btnHipertensos.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.hipertensos || 0})`;
+    }
 }
 
 function renderizarDashboardVazio() {
@@ -293,7 +337,7 @@ function renderizarEmTriagem(familias) {
                                onclick="event.stopPropagation()">
                     </div>
 
-                    <div onclick="continuarTriagemFamilia(${familia.id_familia})" class="cursor-pointer">
+                    <div onclick="continuarTriagemFamilia(${familia.cod_seq_rastreamento_familia})" class="cursor-pointer">
                         <h5 class="font-semibold text-blue-900 mb-2 pr-8">${familia.nome_responsavel}</h5>
                         <p class="text-sm text-blue-700 mb-2">
                             <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
@@ -332,11 +376,16 @@ function renderizarTriagemCompleta(familias) {
         return;
     }
 
+    const paginacaoHTML = renderizarControlesPaginacao();
+
     container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            ${familias.map(familia => `
+        ${paginacaoHTML}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            ${familias.map(familia => {
+                const normais = (familia.total_triados || 0) - (familia.total_hipertensos || 0);
+                return `
                 <div class="border border-green-200 bg-green-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                     onclick="verResultadosFamilia(${familia.id_familia})">
+                     onclick="verResultadosFamilia(${familia.cod_rastreamento_familia})">
                     <div class="flex items-start justify-between mb-2">
                         <h5 class="font-semibold text-green-900">${familia.nome_responsavel}</h5>
                         <i class="ri-checkbox-circle-fill text-green-600 text-xl"></i>
@@ -344,22 +393,28 @@ function renderizarTriagemCompleta(familias) {
                     <p class="text-sm text-green-700 mb-2">
                         <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
                     </p>
+                    <div class="flex items-center justify-between text-xs text-green-700 mb-2">
+                        <span><i class="ri-team-line mr-1"></i>${familia.equipe}</span>
+                        <span>Micro: ${familia.microarea}</span>
+                    </div>
                     <div class="flex items-center gap-2 mt-3">
                         <span class="px-2 py-1 bg-green-600 text-white rounded text-xs">
-                            <i class="ri-user-smile-line mr-1"></i>${familia.normais} normais
+                            <i class="ri-user-smile-line mr-1"></i>${normais} normais
                         </span>
-                        ${familia.hipertensos > 0 ? `
+                        ${familia.total_hipertensos > 0 ? `
                             <span class="px-2 py-1 bg-red-600 text-white rounded text-xs">
-                                <i class="ri-alert-line mr-1"></i>${familia.hipertensos} hipert.
+                                <i class="ri-alert-line mr-1"></i>${familia.total_hipertensos} hipert.
                             </span>
                         ` : ''}
                     </div>
                     <p class="text-xs text-gray-500 mt-2">
-                        <i class="ri-calendar-line mr-1"></i>${formatarData(familia.data_conclusao)}
+                        <i class="ri-calendar-line mr-1"></i>Iniciado: ${formatarData(familia.data_inicio_rastreamento)}
                     </p>
                 </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
+        ${paginacaoHTML}
     `;
 }
 
@@ -1393,6 +1448,260 @@ window.gerarPDFTriagem = async function() {
     } catch (error) {
         console.error('Erro ao gerar PDF:', error);
         alert('Erro ao gerar PDF. Verifique o console.');
+    }
+};
+
+// ============================================================================
+// MODAL DE REGISTRO DE TRIAGEM (5 DIAS)
+// ============================================================================
+
+let dadosFamiliaTriagem = null;
+let dadosIntegrantesTriagem = [];
+
+/**
+ * Abre modal para registrar resultados da triagem
+ */
+window.continuarTriagemFamilia = async function(codRastreamentoFamilia) {
+    try {
+        console.log('Abrindo triagem para família:', codRastreamentoFamilia);
+
+        // Buscar dados completos da família via API
+        const response = await fetch(`/api/rastreamento/familia-triagem/${codRastreamentoFamilia}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            alert('Erro ao carregar dados da família: ' + data.message);
+            return;
+        }
+
+        dadosFamiliaTriagem = data.familia;
+        dadosIntegrantesTriagem = data.integrantes || [];
+
+        // Preencher informações da família
+        const infoFamilia = document.getElementById('info-familia-triagem');
+        infoFamilia.innerHTML = `
+            <strong>${dadosFamiliaTriagem.nome_responsavel}</strong> •
+            ${dadosFamiliaTriagem.equipe} •
+            Microárea: ${dadosFamiliaTriagem.microarea} •
+            ${dadosFamiliaTriagem.endereco}
+        `;
+
+        // Renderizar tabela de integrantes
+        renderizarTabelaIntegrantes();
+
+        // Mostrar modal
+        document.getElementById('modal-registro-triagem').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Erro ao abrir modal de triagem:', error);
+        alert('Erro ao carregar triagem. Verifique o console.');
+    }
+};
+
+/**
+ * Renderiza tabela com integrantes
+ */
+function renderizarTabelaIntegrantes() {
+    const tbody = document.getElementById('tbody-integrantes-triagem');
+    tbody.innerHTML = '';
+
+    dadosIntegrantesTriagem.forEach((integrante, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        tr.innerHTML = `
+            <td class="border border-gray-300 px-4 py-3">
+                <div class="font-semibold text-gray-900">${integrante.nome_cidadao}</div>
+                <div class="text-sm text-gray-600">${integrante.idade_no_rastreamento} anos • ${integrante.sexo}</div>
+            </td>
+            ${[1,2,3,4,5].map(dia => `
+                <td class="border border-gray-300 px-2 py-2">
+                    <input type="text"
+                           class="w-full px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-pa"
+                           placeholder="___/___"
+                           maxlength="7"
+                           data-integrante-index="${index}"
+                           data-dia="${dia}"
+                           oninput="validarFormatoPA(this); calcularMediaIntegrante(${index})">
+                </td>
+            `).join('')}
+            <td class="border border-gray-300 px-4 py-3 text-center">
+                <div class="font-semibold text-gray-900" id="media-${index}">---</div>
+            </td>
+            <td class="border border-gray-300 px-4 py-3 text-center">
+                <span class="px-3 py-1 rounded-full text-xs font-semibold" id="classificacao-${index}">
+                    ---
+                </span>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    atualizarContadorFinalizados();
+}
+
+/**
+ * Valida formato de PA (120/80)
+ */
+window.validarFormatoPA = function(input) {
+    let valor = input.value.replace(/[^0-9\/]/g, '');
+
+    // Auto-adicionar barra após 3 dígitos
+    if (valor.length === 3 && !valor.includes('/')) {
+        valor = valor + '/';
+    }
+
+    input.value = valor;
+};
+
+/**
+ * Calcula média e classificação de um integrante
+ */
+window.calcularMediaIntegrante = function(index) {
+    const inputs = document.querySelectorAll(`input[data-integrante-index="${index}"]`);
+    const valores = [];
+
+    inputs.forEach(input => {
+        const val = input.value.trim();
+        if (val && val.includes('/')) {
+            const [pas, pad] = val.split('/').map(v => parseInt(v));
+            if (pas && pad) {
+                valores.push({ pas, pad });
+            }
+        }
+    });
+
+    // Precisa ter no mínimo 3 valores (até 5)
+    if (valores.length >= 3 && valores.length <= 5) {
+        const mediaPAS = Math.round(valores.reduce((sum, v) => sum + v.pas, 0) / valores.length);
+        const mediaPAD = Math.round(valores.reduce((sum, v) => sum + v.pad, 0) / valores.length);
+
+        // Atualizar média
+        document.getElementById(`media-${index}`).textContent = `${mediaPAS}/${mediaPAD}`;
+
+        // Calcular classificação
+        const classificacao = classificarPA(mediaPAS, mediaPAD);
+        const spanClassif = document.getElementById(`classificacao-${index}`);
+        spanClassif.textContent = classificacao.nome;
+        spanClassif.className = `px-3 py-1 rounded-full text-xs font-semibold ${classificacao.classe}`;
+
+        // Salvar no objeto
+        dadosIntegrantesTriagem[index].media_pas = mediaPAS;
+        dadosIntegrantesTriagem[index].media_pad = mediaPAD;
+        dadosIntegrantesTriagem[index].classificacao = classificacao.codigo;
+        dadosIntegrantesTriagem[index].afericoes = valores;
+        dadosIntegrantesTriagem[index].num_afericoes = valores.length;
+
+    } else {
+        document.getElementById(`media-${index}`).textContent = '---';
+        document.getElementById(`classificacao-${index}`).textContent = '---';
+        document.getElementById(`classificacao-${index}`).className = 'px-3 py-1 rounded-full text-xs font-semibold';
+
+        // Limpar dados se não tiver mínimo
+        delete dadosIntegrantesTriagem[index].media_pas;
+        delete dadosIntegrantesTriagem[index].media_pad;
+        delete dadosIntegrantesTriagem[index].classificacao;
+        delete dadosIntegrantesTriagem[index].afericoes;
+    }
+
+    atualizarContadorFinalizados();
+};
+
+/**
+ * Classifica PA segundo diretrizes
+ */
+function classificarPA(pas, pad) {
+    if (pas < 130 && pad < 85) {
+        return { codigo: 'NORMAL', nome: 'Normal', classe: 'bg-green-100 text-green-800' };
+    } else if ((pas >= 130 && pas <= 139) || (pad >= 85 && pad <= 89)) {
+        return { codigo: 'LIMITROFE', nome: 'Limítrofe', classe: 'bg-yellow-100 text-yellow-800' };
+    } else if ((pas >= 140 && pas <= 159) || (pad >= 90 && pad <= 99)) {
+        return { codigo: 'HAS_ESTAGIO_1', nome: 'HAS Estágio 1', classe: 'bg-orange-100 text-orange-800' };
+    } else {
+        return { codigo: 'HAS_ESTAGIO_2', nome: 'HAS Estágio 2', classe: 'bg-red-100 text-red-800' };
+    }
+}
+
+/**
+ * Atualiza contador de integrantes finalizados
+ */
+function atualizarContadorFinalizados() {
+    const total = dadosIntegrantesTriagem.length;
+    const finalizados = dadosIntegrantesTriagem.filter(i => i.media_pas && i.media_pad).length;
+
+    document.getElementById('contador-total').textContent = total;
+    document.getElementById('contador-finalizados').textContent = finalizados;
+
+    // Habilitar botão salvar se pelo menos 1 integrante foi triado
+    const btnSalvar = document.getElementById('btn-salvar-triagem');
+    btnSalvar.disabled = finalizados === 0;
+
+    // Mostrar mensagem se houver integrantes pendentes
+    const msgParcial = document.getElementById('msg-salvamento-parcial');
+    if (finalizados > 0 && finalizados < total) {
+        msgParcial.classList.remove('hidden');
+        msgParcial.textContent = `⚠️ ${total - finalizados} integrante(s) ainda não foi(ram) triado(s). Ao salvar, a família ficará com triagem incompleta.`;
+    } else {
+        msgParcial.classList.add('hidden');
+    }
+}
+
+/**
+ * Fecha modal de triagem
+ */
+window.fecharModalTriagem = function() {
+    document.getElementById('modal-registro-triagem').classList.add('hidden');
+    dadosFamiliaTriagem = null;
+    dadosIntegrantesTriagem = [];
+};
+
+/**
+ * Salva resultados da triagem
+ */
+window.salvarResultadosTriagem = async function() {
+    try {
+        console.log('Salvando resultados da triagem...');
+
+        // Filtrar apenas integrantes que foram triados (têm média calculada)
+        const integrantesTriados = dadosIntegrantesTriagem.filter(i => i.media_pas && i.media_pad);
+
+        if (integrantesTriados.length === 0) {
+            alert('Nenhum integrante foi triado ainda.');
+            return;
+        }
+
+        const payload = {
+            cod_rastreamento_familia: dadosFamiliaTriagem.cod_seq_rastreamento_familia,
+            integrantes: integrantesTriados.map(i => ({
+                cod_seq_rastreamento_cidadao: i.cod_seq_rastreamento_cidadao,
+                media_pas: i.media_pas,
+                media_pad: i.media_pad,
+                classificacao: i.classificacao,
+                afericoes: i.afericoes
+            }))
+        };
+
+        const response = await fetch('/api/rastreamento/salvar-resultados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const msg = integrantesTriados.length < dadosIntegrantesTriagem.length
+                ? `Triagem parcial salva! ${integrantesTriados.length} de ${dadosIntegrantesTriagem.length} integrante(s). A família ficou com triagem incompleta.`
+                : 'Triagem completa salva com sucesso!';
+            mostrarNotificacao(msg, 'success');
+            fecharModalTriagem();
+            carregarDashboardAcompanhamento(); // Recarregar dashboard
+        } else {
+            alert('Erro ao salvar: ' + data.message);
+        }
+
+    } catch (error) {
+        console.error('Erro ao salvar resultados:', error);
+        alert('Erro ao salvar resultados. Verifique o console.');
     }
 };
 
