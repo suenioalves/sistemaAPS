@@ -33,7 +33,8 @@
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\d sistemaaps.tb_rastreamento_afericoes_triagem\")",
       "Bash(del ver_estrutura_afericoes.py)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\d sistemaaps.mv_domicilios_resumo\")",
-      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"UPDATE sistemaaps.tb_rastreamento_familias SET status_rastreamento = ''TRIAGEM_INCOMPLETA'' WHERE status_rastreamento = ''EM_TRIAGEM'' AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NOT NULL) AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NULL);\")"
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"UPDATE sistemaaps.tb_rastreamento_familias SET status_rastreamento = ''TRIAGEM_INCOMPLETA'' WHERE status_rastreamento = ''EM_TRIAGEM'' AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NOT NULL) AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NULL);\")",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT COUNT(*) FROM sistemaaps.tb_rastreamento_cidadaos WHERE resultado_rastreamento IS NOT NULL\")"
     ],
     "deny": [],
     "ask": [],

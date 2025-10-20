@@ -2280,9 +2280,9 @@ def build_hiperdia_has_filters(args):
 
     # Filtro por status MRPA (Controlado/Descompensado)
     if status_filter == 'Controlado':
-        where_clauses.append("EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)")
+        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)")
     elif status_filter == 'Descompensado':
-        where_clauses.append("EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)")
+        where_clauses.append("EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)")
 
     # Mapeamento de ordenação
     sort_mapping = {
@@ -2347,13 +2347,13 @@ def api_pacientes_hiperdia_has():
                     CASE WHEN med.data_inicio IS NOT NULL THEN med.data_inicio ELSE '1900-01-01'::date END DESC, 
                     med.nome_medicamento
             ) AS tratamento_atual
-            FROM tb_hiperdia_has_medicamentos med
+            FROM sistemaaps.tb_hiperdia_has_medicamentos med
             WHERE med.codcidadao = m.cod_paciente 
               AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
         ) tratamento ON TRUE
         LEFT JOIN LATERAL (
             SELECT mrpa.media_pa_sistolica || 'x' || mrpa.media_pa_diastolica || 'mmHg' AS mrpa_atual
-            FROM tb_hiperdia_mrpa mrpa
+            FROM sistemaaps.tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
             ORDER BY mrpa.data_mrpa DESC
@@ -2361,7 +2361,7 @@ def api_pacientes_hiperdia_has():
         ) ultima_mrpa ON TRUE
         LEFT JOIN LATERAL (
             SELECT mrpa.status_mrpa
-            FROM tb_hiperdia_mrpa mrpa
+            FROM sistemaaps.tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
             ORDER BY mrpa.data_mrpa DESC
@@ -2369,7 +2369,7 @@ def api_pacientes_hiperdia_has():
         ) ultimo_status_mrpa ON TRUE
         LEFT JOIN LATERAL (
             SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END AS tem_monitoramento_ativo
-            FROM tb_hiperdia_has_acompanhamento ac
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento ac
             WHERE ac.cod_cidadao = m.cod_paciente
               AND ac.status_acao = 'PENDENTE'
               AND ac.cod_acao IN (1, 2, 3, 4)
@@ -2380,11 +2380,11 @@ def api_pacientes_hiperdia_has():
             WHERE ex.rn = 1
         ) exames ON TRUE
         LEFT JOIN LATERAL (
-            SELECT data_agendamento, cod_acao  
-            FROM tb_hiperdia_has_acompanhamento 
-            WHERE cod_cidadao = m.cod_paciente 
+            SELECT data_agendamento, cod_acao
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
+            WHERE cod_cidadao = m.cod_paciente
               AND status_acao = 'PENDENTE'
-            ORDER BY data_agendamento ASC  
+            ORDER BY data_agendamento ASC
             LIMIT 1
         ) pa_futura ON TRUE
         """
@@ -2454,7 +2454,7 @@ def api_get_total_hipertensos():
         FROM sistemaaps.mv_hiperdia_hipertensao m
         LEFT JOIN LATERAL (
             SELECT data_agendamento
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = m.cod_paciente
               AND status_acao = 'PENDENTE'
               AND data_agendamento >= CURRENT_DATE
@@ -2481,7 +2481,7 @@ def api_get_total_hipertensos():
                     CASE WHEN med.data_inicio IS NOT NULL THEN med.data_inicio ELSE '1900-01-01'::date END DESC, 
                     med.nome_medicamento
             ) AS tratamento_atual
-            FROM tb_hiperdia_has_medicamentos med
+            FROM sistemaaps.tb_hiperdia_has_medicamentos med
             WHERE med.codcidadao = m.cod_paciente 
               AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
         ) tratamento ON TRUE
@@ -2515,7 +2515,7 @@ def api_get_hipertensos_mrpa_pendente():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para QUALQUER ação pendente
-        pendente_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_has_acompanhamento ha WHERE ha.cod_cidadao = m.cod_paciente AND ha.status_acao = 'PENDENTE')"
+        pendente_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha WHERE ha.cod_cidadao = m.cod_paciente AND ha.status_acao = 'PENDENTE')"
         
         # Adiciona a condição de ação pendente à lista de condições existentes
         where_clauses.append(pendente_condition)
@@ -2549,7 +2549,7 @@ def api_get_hipertensos_controlados():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos controlados (status_mrpa = 1)
-        controlados_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)"
+        controlados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 1)"
 
         # Adiciona a condição de controlados à lista de condições existentes
         where_clauses.append(controlados_condition)
@@ -2583,7 +2583,7 @@ def api_get_hipertensos_descompensados():
 
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos descompensados (status_mrpa = 0)
-        descompensados_condition = "EXISTS (SELECT 1 FROM tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)"
+        descompensados_condition = "EXISTS (SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento WHERE ac.cod_cidadao = m.cod_paciente AND mrpa.status_mrpa = 0)"
 
         # Adiciona a condição de descompensados à lista de condições existentes
         where_clauses.append(descompensados_condition)
@@ -2622,7 +2622,7 @@ def api_get_hipertensos_em_avaliacao():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos em avaliação (ações pendentes 1, 2, 4, 5)
         em_avaliacao_condition = """EXISTS (
-            SELECT 1 FROM tb_hiperdia_has_acompanhamento ha
+            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
             WHERE ha.cod_cidadao = m.cod_paciente
             AND ha.status_acao = 'PENDENTE'
             AND ha.cod_acao IN (1, 2, 4, 5)
@@ -2661,7 +2661,7 @@ def api_get_hipertensos_aguardando_exames():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos aguardando exames (ações pendentes 4, 5)
         aguardando_exames_condition = """EXISTS (
-            SELECT 1 FROM tb_hiperdia_has_acompanhamento ha
+            SELECT 1 FROM sistemaaps.tb_hiperdia_has_acompanhamento ha
             WHERE ha.cod_cidadao = m.cod_paciente
             AND ha.status_acao = 'PENDENTE'
             AND ha.cod_acao IN (4, 5)
@@ -2699,7 +2699,7 @@ def api_get_hipertensos_sem_avaliacao():
         where_clauses, _, query_params, status_filter = build_hiperdia_has_filters(request.args)
         # Condição para hipertensos sem avaliação (sem status_mrpa definido)
         sem_avaliacao_condition = """NOT EXISTS (
-            SELECT 1 FROM tb_hiperdia_mrpa mrpa
+            SELECT 1 FROM sistemaaps.tb_hiperdia_mrpa mrpa
             JOIN sistemaaps.tb_hiperdia_has_acompanhamento ac ON mrpa.cod_acompanhamento = ac.cod_acompanhamento
             WHERE ac.cod_cidadao = m.cod_paciente
         )"""
@@ -2773,7 +2773,7 @@ def api_hiperdia_timeline(cod_cidadao):
                 sistemaaps.tb_hiperdia_has_cardiologia card ON ac.cod_acompanhamento = card.cod_acompanhamento
             LEFT JOIN LATERAL (
                 SELECT ha_next.cod_acao, ha_next.data_agendamento
-                FROM tb_hiperdia_has_acompanhamento ha_next
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento ha_next
                 WHERE ha_next.cod_acao_origem = ac.cod_acompanhamento
                   AND ha_next.status_acao = 'PENDENTE'
                   AND ha_next.data_agendamento >= CURRENT_DATE
@@ -2923,7 +2923,7 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
         # Primeiro, buscar informações da ação para identificar referências posteriores
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -2942,7 +2942,7 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
         # Buscar todas as ações posteriores que referenciam esta ação
         cur.execute("""
             SELECT cod_acompanhamento, cod_acao, status_acao
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_acao_origem = %(cod_acompanhamento)s
             ORDER BY cod_acompanhamento ASC
         """, {'cod_acompanhamento': cod_acompanhamento})
@@ -2954,31 +2954,31 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
             # 1. Remover dados relacionados à ação principal (se existirem)
             # Remover dados de MRPA
             cur.execute("""
-                DELETE FROM tb_hiperdia_mrpa
+                DELETE FROM sistemaaps.tb_hiperdia_mrpa
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de tratamento
             cur.execute("""
-                DELETE FROM tb_hiperdia_tratamento
+                DELETE FROM sistemaaps.tb_hiperdia_tratamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de resultados de exames
             cur.execute("""
-                DELETE FROM tb_hiperdia_resultados_exames
+                DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de risco cardiovascular
             cur.execute("""
-                DELETE FROM tb_hiperdia_risco_cv
+                DELETE FROM sistemaaps.tb_hiperdia_risco_cv
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
             # Remover dados de nutrição
             cur.execute("""
-                DELETE FROM tb_hiperdia_nutricao
+                DELETE FROM sistemaaps.tb_hiperdia_nutricao
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -2988,39 +2988,39 @@ def api_cancelar_acao_hiperdia(cod_acompanhamento):
                 
                 # Remover dados relacionados à ação posterior
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_mrpa
+                    DELETE FROM sistemaaps.tb_hiperdia_mrpa
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_tratamento
+                    DELETE FROM sistemaaps.tb_hiperdia_tratamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_resultados_exames
+                    DELETE FROM sistemaaps.tb_hiperdia_resultados_exames
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_risco_cv
+                    DELETE FROM sistemaaps.tb_hiperdia_risco_cv
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_nutricao
+                    DELETE FROM sistemaaps.tb_hiperdia_nutricao
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
                 # Remover a ação posterior
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_has_acompanhamento
+                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
             # 3. Finalmente, remover a ação principal
             cur.execute("""
-                DELETE FROM tb_hiperdia_has_acompanhamento
+                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -3077,7 +3077,7 @@ def api_atualizar_status_acao_hiperdia(cod_acompanhamento):
         # Primeiro, verificar se a ação existe e está pendente
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -3144,7 +3144,7 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
         # Primeiro, buscar informações da ação para identificar referências posteriores
         cur.execute("""
             SELECT cod_cidadao, cod_acao, status_acao, cod_acao_origem
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_acompanhamento = %(cod_acompanhamento)s
         """, {'cod_acompanhamento': cod_acompanhamento})
         
@@ -3157,7 +3157,7 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
         # Buscar todas as ações posteriores que referenciam esta ação
         cur.execute("""
             SELECT cod_acompanhamento, cod_acao, status_acao
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_acao_origem = %(cod_acompanhamento)s
             ORDER BY cod_acompanhamento ASC
         """, {'cod_acompanhamento': cod_acompanhamento})
@@ -3196,13 +3196,13 @@ def api_excluir_acao_hiperdia(cod_acompanhamento):
 
                 # Remover a ação posterior
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_has_acompanhamento
+                    DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
                     WHERE cod_acompanhamento = %(cod_acompanhamento)s
                 """, {'cod_acompanhamento': cod_acompanhamento_posterior})
 
             # 3. Finalmente, remover a ação principal
             cur.execute("""
-                DELETE FROM tb_hiperdia_has_acompanhamento
+                DELETE FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_acompanhamento = %(cod_acompanhamento)s
             """, {'cod_acompanhamento': cod_acompanhamento})
 
@@ -3250,7 +3250,7 @@ def api_hiperdia_pending_action_by_type(cod_cidadao, cod_acao):
 
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = %(cod_cidadao)s
               AND cod_acao = %(cod_acao)s
               AND status_acao = 'PENDENTE'
@@ -3288,7 +3288,7 @@ def api_hiperdia_latest_pending_action_by_type(cod_cidadao, cod_acao):
 
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao, cod_acao, status_acao, data_agendamento, data_realizacao, observacoes, responsavel_pela_acao
-            FROM tb_hiperdia_has_acompanhamento
+            FROM sistemaaps.tb_hiperdia_has_acompanhamento
             WHERE cod_cidadao = %(cod_cidadao)s
               AND cod_acao = %(cod_acao)s
               AND status_acao = 'PENDENTE'
@@ -3375,7 +3375,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                 return jsonify({"sucesso": False, "erro": "Dados da modificação de tratamento não fornecidos."}), 400
             
             # Check if a treatment record already exists for this cod_acompanhamento
-            cur.execute("SELECT 1 FROM tb_hiperdia_tratamento WHERE cod_acompanhamento = %s", (cod_acompanhamento_atualizado,))
+            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_tratamento WHERE cod_acompanhamento = %s", (cod_acompanhamento_atualizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -3431,7 +3431,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Avaliar MRPA" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 2
                     AND status_acao = 'PENDENTE'
@@ -3620,7 +3620,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Avaliar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 5
                     AND status_acao = 'PENDENTE'
@@ -3666,7 +3666,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
 
             # Salvar os dados dos resultados dos exames
             print(f"[LOG] Salvando dados dos resultados dos exames na tabela tb_hiperdia_resultados_exames")
-            cur.execute("SELECT 1 FROM tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -3715,7 +3715,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Registrar consulta nutrição" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                   AND cod_acao = 8
                   AND status_acao = 'PENDENTE'
@@ -3740,7 +3740,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
                     'cod_acompanhamento': cod_acompanhamento_realizado
                 })
                 # Atualiza/insere dados na tabela de nutrição
-                cur.execute("SELECT 1 FROM tb_hiperdia_nutricao WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+                cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_nutricao WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
                 exists = cur.fetchone()
                 if exists:
                     sql_upsert_nutricao = """
@@ -3782,7 +3782,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
             # Buscar ação pendente de "Solicitar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 4
                     AND status_acao = 'PENDENTE'
@@ -3862,7 +3862,7 @@ def api_hiperdia_update_acao(cod_acompanhamento):
 
             # Salvar os dados do RCV
             print(f"[LOG] Salvando dados do RCV na tabela tb_hiperdia_risco_cv")
-            cur.execute("SELECT 1 FROM tb_hiperdia_risco_cv WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_risco_cv WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
             if exists:
                 print(f"[LOG] Atualizando dados existentes do RCV")
@@ -4084,7 +4084,7 @@ def api_registrar_acao_hiperdia():
                 
                 # Verificar se existe ação "Iniciar MRPA" PENDENTE para este cidadão
                 sql_check_pendente = """
-                    SELECT cod_acompanhamento FROM tb_hiperdia_has_acompanhamento
+                    SELECT cod_acompanhamento FROM sistemaaps.tb_hiperdia_has_acompanhamento
                     WHERE cod_cidadao = %(cod_cidadao)s AND cod_acao = 1 AND status_acao = 'PENDENTE'
                     ORDER BY data_agendamento DESC LIMIT 1;
                 """
@@ -4189,7 +4189,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Avaliar MRPA" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 2
                     AND status_acao = 'PENDENTE'
@@ -4357,7 +4357,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Solicitar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 4
                     AND status_acao = 'PENDENTE'
@@ -4446,7 +4446,7 @@ def api_registrar_acao_hiperdia():
             # Buscar ação pendente de "Avaliar Exames" para este paciente
             cur.execute('''
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_has_acompanhamento
+                FROM sistemaaps.tb_hiperdia_has_acompanhamento
                 WHERE cod_cidadao = %(cod_cidadao)s
                     AND cod_acao = 5
                     AND status_acao = 'PENDENTE'
@@ -4492,7 +4492,7 @@ def api_registrar_acao_hiperdia():
 
             # Salvar os dados dos resultados dos exames
             print(f"[LOG] Salvando dados dos resultados dos exames na tabela tb_hiperdia_resultados_exames")
-            cur.execute("SELECT 1 FROM tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
+            cur.execute("SELECT 1 FROM sistemaaps.tb_hiperdia_resultados_exames WHERE cod_acompanhamento = %s", (cod_acompanhamento_realizado,))
             exists = cur.fetchone()
 
             if exists:
@@ -4673,7 +4673,7 @@ def api_registrar_acao_hiperdia():
                 print(f"[LOG] Buscando ação 'Encaminhar Cardiologia' pendente para finalizar...")
                 cur.execute('''
                     SELECT cod_acompanhamento 
-                    FROM tb_hiperdia_has_acompanhamento 
+                    FROM sistemaaps.tb_hiperdia_has_acompanhamento 
                     WHERE cod_cidadao = %(cod_cidadao)s 
                         AND cod_acao = 10 
                         AND status_acao = 'PENDENTE'
@@ -5847,7 +5847,7 @@ def api_generate_prescriptions_pdf():
                         observacao,
                         updated_at,
                         created_at
-                    FROM tb_hiperdia_has_medicamentos
+                    FROM sistemaaps.tb_hiperdia_has_medicamentos
                     WHERE codcidadao = %(cod_paciente)s
                     AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                     ORDER BY created_at DESC, nome_medicamento
@@ -6234,7 +6234,7 @@ def api_generate_prescription_pdf_individual():
                 observacao,
                 updated_at,
                 created_at
-            FROM tb_hiperdia_has_medicamentos
+            FROM sistemaaps.tb_hiperdia_has_medicamentos
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, nome_medicamento
@@ -6540,7 +6540,7 @@ def api_pacientes_hiperdia_dm():
                     ultima_acao.data_realizacao as acao_atual_data_realizacao,
                     (
                         SELECT trat.status_tratamento
-                        FROM tb_hiperdia_dm_tratamento trat
+                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
                         INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                             ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                         WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6572,7 +6572,7 @@ def api_pacientes_hiperdia_dm():
                         a.data_realizacao,
                         a.created_at,
                         a.cod_acompanhamento
-                    FROM tb_hiperdia_dm_acompanhamento a
+                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
                     LEFT JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
                     WHERE a.cod_cidadao = d.cod_paciente
                     ORDER BY a.created_at DESC
@@ -6623,7 +6623,7 @@ def api_pacientes_hiperdia_dm():
             # Verificar se tem medicamentos ativos para diabetes
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM tb_hiperdia_dm_medicamentos med
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
                     WHERE med.codcidadao = cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
@@ -6657,7 +6657,7 @@ def api_pacientes_hiperdia_dm():
                     ultima_acao.cod_acompanhamento,
                     (
                         SELECT trat.status_tratamento
-                        FROM tb_hiperdia_dm_tratamento trat
+                        FROM sistemaaps.tb_hiperdia_dm_tratamento trat
                         WHERE trat.cod_acompanhamento = ultima_acao.cod_acompanhamento
                         ORDER BY trat.data_modificacao DESC
                         LIMIT 1
@@ -6668,7 +6668,7 @@ def api_pacientes_hiperdia_dm():
                         a.cod_acao,
                         a.status_acao,
                         a.cod_acompanhamento
-                    FROM tb_hiperdia_dm_acompanhamento a
+                    FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
                     WHERE a.cod_cidadao = d.cod_paciente
                     ORDER BY a.created_at DESC
                     LIMIT 1
@@ -6723,7 +6723,7 @@ def api_get_total_diabeticos():
                     a.cod_acao,
                     a.status_acao,
                     a.cod_acompanhamento
-                FROM tb_hiperdia_dm_acompanhamento a
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
                 WHERE a.cod_cidadao = d.cod_paciente
                 ORDER BY a.created_at DESC
                 LIMIT 1
@@ -6752,7 +6752,7 @@ def api_get_total_diabeticos():
             # Controlados: status_tratamento = 1 (adequado) ou 2 (aceitável)
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6765,7 +6765,7 @@ def api_get_total_diabeticos():
             # Descompensados: status_tratamento = 3
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6779,7 +6779,7 @@ def api_get_total_diabeticos():
             where_clauses.append("""
                 ultima_acao.status_acao IN ('AGUARDANDO', 'REALIZADA')
                 AND NOT EXISTS (
-                    SELECT 1 FROM tb_hiperdia_dm_tratamento trat
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_tratamento trat
                     INNER JOIN sistemaaps.tb_hiperdia_dm_acompanhamento acomp
                         ON acomp.cod_acompanhamento = trat.cod_acompanhamento
                     WHERE acomp.cod_cidadao = d.cod_paciente
@@ -6791,7 +6791,7 @@ def api_get_total_diabeticos():
         elif status == 'ComTratamento':
             where_clauses.append("""
                 EXISTS (
-                    SELECT 1 FROM tb_hiperdia_dm_medicamentos med
+                    SELECT 1 FROM sistemaaps.tb_hiperdia_dm_medicamentos med
                     WHERE med.codcidadao = d.cod_paciente
                     AND (med.data_fim IS NULL OR med.data_fim > CURRENT_DATE)
                 )
@@ -6863,7 +6863,7 @@ def api_diabetes_timeline(cod_paciente):
                 trat.status_tratamento,
                 trat.observacoes as tratamento_observacoes,
                 trat.mudanca_proposta
-            FROM tb_hiperdia_dm_acompanhamento a
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento a
             JOIN sistemaaps.tb_hiperdia_dm_tipos_acao ta ON a.cod_acao = ta.cod_acao
             LEFT JOIN sistemaaps.tb_hiperdia_mrg mrg ON a.cod_acompanhamento = mrg.cod_acompanhamento
             LEFT JOIN sistemaaps.tb_hiperdia_dm_exames ex ON a.cod_acompanhamento = ex.cod_acompanhamento
@@ -7215,7 +7215,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
         # Verificar se a ação existe e buscar informações completas
         cur.execute("""
             SELECT cod_acompanhamento, status_acao, cod_cidadao, cod_acao, responsavel_pela_acao
-            FROM tb_hiperdia_dm_acompanhamento
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
 
@@ -7243,7 +7243,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
             # Verificar se já não existe uma ação 4 pendente/aguardando para este paciente
             cur.execute("""
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_dm_acompanhamento
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
                 WHERE cod_cidadao = %s
                 AND cod_acao = 4
                 AND status_acao IN ('AGUARDANDO', 'PENDENTE')
@@ -7283,7 +7283,7 @@ def api_diabetes_update_timeline_status(cod_acompanhamento):
             # Verificar se já não existe uma ação 2 pendente/aguardando para este paciente
             cur.execute("""
                 SELECT cod_acompanhamento
-                FROM tb_hiperdia_dm_acompanhamento
+                FROM sistemaaps.tb_hiperdia_dm_acompanhamento
                 WHERE cod_cidadao = %s
                 AND cod_acao = 2
                 AND status_acao IN ('AGUARDANDO', 'PENDENTE')
@@ -7362,7 +7362,7 @@ def api_diabetes_delete_timeline_action(cod_acompanhamento):
         # Verificar se a ação existe
         cur.execute("""
             SELECT cod_acompanhamento, cod_cidadao
-            FROM tb_hiperdia_dm_acompanhamento 
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
@@ -7372,13 +7372,13 @@ def api_diabetes_delete_timeline_action(cod_acompanhamento):
         
         # Primeiro, excluir dados MRG relacionados (se existirem)
         cur.execute("""
-            DELETE FROM tb_hiperdia_mrg 
+            DELETE FROM sistemaaps.tb_hiperdia_mrg 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
         # Excluir a ação principal
         cur.execute("""
-            DELETE FROM tb_hiperdia_dm_acompanhamento 
+            DELETE FROM sistemaaps.tb_hiperdia_dm_acompanhamento 
             WHERE cod_acompanhamento = %s
         """, (cod_acompanhamento,))
         
@@ -7424,7 +7424,7 @@ def api_diabetes_update_subtarefa(cod_subtarefa):
         # Verificar se a subtarefa existe e se a ação não foi cancelada
         cur.execute("""
             SELECT st.cod_subtarefa, a.status_acao
-            FROM tb_hiperdia_dm_acompanhamento_subtarefas st
+            FROM sistemaaps.tb_hiperdia_dm_acompanhamento_subtarefas st
             JOIN sistemaaps.tb_hiperdia_dm_acompanhamento a ON st.cod_acompanhamento = a.cod_acompanhamento
             WHERE st.cod_subtarefa = %s
         """, (cod_subtarefa,))
@@ -7489,7 +7489,7 @@ def api_get_jornada_insulina(cod_cidadao):
                 ins.tipo_insulina,
                 ins.doses_estruturadas,
                 ins.frequencia_dia
-            FROM tb_hiperdia_dm_insulinoterapia i
+            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia i
             LEFT JOIN sistemaaps.tb_hiperdia_dm_insulina ins ON i.cod_seq_insulina = ins.cod_seq_insulina
             WHERE i.codcidadao = %s
             ORDER BY i.data_registro DESC
@@ -7500,7 +7500,7 @@ def api_get_jornada_insulina(cod_cidadao):
         # Buscar fase atual
         cur.execute("""
             SELECT fase_tratamento, status_fase
-            FROM tb_hiperdia_dm_insulinoterapia
+            FROM sistemaaps.tb_hiperdia_dm_insulinoterapia
             WHERE codcidadao = %s AND status_fase = 'EM_ANDAMENTO'
             ORDER BY data_registro DESC
             LIMIT 1
@@ -7663,7 +7663,7 @@ def api_get_insulinas_paciente(cod_cidadao):
                 data_inicio,
                 data_fim,
                 observacoes
-            FROM tb_hiperdia_dm_insulina
+            FROM sistemaaps.tb_hiperdia_dm_insulina
             WHERE codcidadao = %s
               AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)
             ORDER BY tipo_insulina, data_inicio DESC
@@ -7804,7 +7804,7 @@ def api_diabetes_medicamentos_atuais(cod_cidadao):
                 data_inicio,
                 observacoes,
                 updated_at
-            FROM tb_hiperdia_dm_medicamentos
+            FROM sistemaaps.tb_hiperdia_dm_medicamentos
             WHERE codcidadao = %(cod_cidadao)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY nome_medicamento
@@ -8874,7 +8874,7 @@ def api_diabetes_insulinas_atuais(cod_cidadao):
                 data_inicio,
                 observacoes,
                 created_at
-            FROM tb_hiperdia_dm_insulina 
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE codcidadao = %s 
             AND data_fim IS NULL
             ORDER BY tipo_insulina, created_at DESC
@@ -8953,7 +8953,7 @@ def api_diabetes_adicionar_insulina():
         
         # Verificar se já existe insulina do mesmo tipo ativa para o paciente
         check_query = """
-            SELECT COUNT(*) FROM tb_hiperdia_dm_insulina 
+            SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE codcidadao = %s AND tipo_insulina = %s AND data_fim IS NULL
         """
         cur.execute(check_query, (cod_cidadao, tipo_insulina))
@@ -9015,7 +9015,7 @@ def api_diabetes_obter_detalhes_insulina(cod_seq_insulina):
             SELECT cod_seq_insulina, codcidadao, tipo_insulina, frequencia_dia, 
                    doses_estruturadas, data_inicio, data_fim, observacoes,
                    status, motivo_interrupcao, created_at, updated_at
-            FROM tb_hiperdia_dm_insulina 
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(query, (cod_seq_insulina,))
@@ -9072,7 +9072,7 @@ def api_diabetes_atualizar_insulina(cod_seq_insulina):
         select_query = """
             SELECT codcidadao, tipo_insulina, frequencia_dia, doses_estruturadas, 
                    data_inicio, observacoes 
-            FROM tb_hiperdia_dm_insulina 
+            FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(select_query, (cod_seq_insulina,))
@@ -9182,7 +9182,7 @@ def api_diabetes_interromper_insulina(cod_seq_insulina):
         
         # Verificar se a insulina existe e está ativa
         check_query = """
-            SELECT codcidadao, tipo_insulina FROM tb_hiperdia_dm_insulina 
+            SELECT codcidadao, tipo_insulina FROM sistemaaps.tb_hiperdia_dm_insulina 
             WHERE cod_seq_insulina = %s AND data_fim IS NULL
         """
         cur.execute(check_query, (cod_seq_insulina,))
@@ -9260,7 +9260,7 @@ def api_diabetes_generate_prescriptions_pdf():
                             data_inicio,
                             observacoes,
                             created_at
-                        FROM tb_hiperdia_dm_medicamentos
+                        FROM sistemaaps.tb_hiperdia_dm_medicamentos
                         WHERE codcidadao = %(cod_paciente)s
                         AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                         ORDER BY created_at DESC, nome_medicamento
@@ -9277,7 +9277,7 @@ def api_diabetes_generate_prescriptions_pdf():
                             data_inicio,
                             observacoes,
                             created_at
-                        FROM tb_hiperdia_dm_insulina
+                        FROM sistemaaps.tb_hiperdia_dm_insulina
                         WHERE codcidadao = %(cod_paciente)s
                         AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
                         ORDER BY created_at DESC, tipo_insulina
@@ -9550,7 +9550,7 @@ def api_diabetes_generate_prescription_pdf_individual():
                 data_inicio,
                 observacoes,
                 created_at
-            FROM tb_hiperdia_dm_medicamentos
+            FROM sistemaaps.tb_hiperdia_dm_medicamentos
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, nome_medicamento
@@ -9567,7 +9567,7 @@ def api_diabetes_generate_prescription_pdf_individual():
                 data_inicio,
                 observacoes,
                 created_at
-            FROM tb_hiperdia_dm_insulina
+            FROM sistemaaps.tb_hiperdia_dm_insulina
             WHERE codcidadao = %(cod_paciente)s
             AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
             ORDER BY created_at DESC, tipo_insulina
@@ -9842,7 +9842,7 @@ def api_diabetes_avaliar_tratamento():
             if any([exames.get('hemoglobina_glicada'), exames.get('glicemia_media'), exames.get('glicemia_jejum')]):
                 # Verificar se já existe exame para este acompanhamento
                 cur.execute("""
-                    SELECT COUNT(*) FROM tb_hiperdia_dm_exames
+                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_exames
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -9879,7 +9879,7 @@ def api_diabetes_avaliar_tratamento():
         if 'mapeamentos' in data and data['mapeamentos']:
             # Verificar se já existem mapeamentos para este acompanhamento
             cur.execute("""
-                SELECT COUNT(*) FROM tb_hiperdia_mrg
+                SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_mrg
                 WHERE cod_acompanhamento = %s
             """, (cod_acompanhamento,))
 
@@ -9888,7 +9888,7 @@ def api_diabetes_avaliar_tratamento():
             if mapeamentos_existem:
                 # Deletar mapeamentos antigos e inserir novos (estratégia de replace)
                 cur.execute("""
-                    DELETE FROM tb_hiperdia_mrg
+                    DELETE FROM sistemaaps.tb_hiperdia_mrg
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -9927,7 +9927,7 @@ def api_diabetes_avaliar_tratamento():
             if status_tratamento:
                 # Verificar se já existe registro de tratamento para este acompanhamento
                 cur.execute("""
-                    SELECT COUNT(*) FROM tb_hiperdia_dm_tratamento
+                    SELECT COUNT(*) FROM sistemaaps.tb_hiperdia_dm_tratamento
                     WHERE cod_acompanhamento = %s
                 """, (cod_acompanhamento,))
 
@@ -11258,6 +11258,7 @@ def api_rastreamento_familia(id_familia):
             }), 404
 
         # Buscar integrantes da família (≥20 anos)
+        # Busca TODOS os moradores do domicílio através da vinculação por CPF/CNS
         query_integrantes = """
         SELECT DISTINCT
             ci.co_seq_cds_cad_individual as cod_individual,
@@ -11294,14 +11295,16 @@ def api_rastreamento_familia(id_familia):
                AND rf.co_seq_cds_domicilio_familia = %s
              ORDER BY rc.created_at DESC
              LIMIT 1) as resultado_triagem
-        FROM tb_cds_cad_individual ci
-        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
-        WHERE (
-            ci.nu_cpf_responsavel = %s
-            OR ci.nu_cartao_sus_responsavel = %s
-            OR ci.nu_cpf_cidadao = %s
-            OR ci.nu_cns_cidadao = %s
+        FROM tb_cds_domicilio_familia df
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
         )
+        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+        WHERE df.co_cds_cad_domiciliar = %s
+        AND df.st_mudanca = 0
         AND ci.st_versao_atual = 1
         AND ci.st_ficha_inativa = 0
         AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
@@ -11309,12 +11312,9 @@ def api_rastreamento_familia(id_familia):
         """
 
         cur.execute(query_integrantes, [
-            id_familia,
+            id_familia,  # Para a subquery em_rastreamento
             id_familia,  # Para a subquery de resultado_triagem
-            familia['cpf_responsavel'],
-            familia['cns_responsavel'],
-            familia['cpf_responsavel'],
-            familia['cns_responsavel']
+            familia['id_domicilio']  # Buscar por domicílio
         ])
         integrantes = cur.fetchall()
 
@@ -12621,7 +12621,7 @@ def salvar_resultados_triagem():
             user=DB_USER,
             password=DB_PASS
         )
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # Para cada integrante, salvar aferições e média
         for integrante in integrantes:
@@ -12696,10 +12696,14 @@ def salvar_resultados_triagem():
             ])
 
             # 3. Atualizar resultado em tb_rastreamento_cidadaos
-            if classificacao == 'NORMAL':
-                resultado = 'NORMAL'
+            # Classificação baseada em MRPA (Monitorização Residencial)
+            # 2 categorias de triagem:
+            # NAO_HIPERTENSO: PAS < 130 E PAD < 80
+            # SUSPEITO_HAS: PAS >= 130 E/OU PAD >= 80
+            if classificacao == 'NAO_HIPERTENSO':
+                resultado = 'NAO_HIPERTENSO'
             else:
-                resultado = 'HIPERTENSO'
+                resultado = 'SUSPEITO_HAS'
 
             query_update = """
             UPDATE sistemaaps.tb_rastreamento_cidadaos
@@ -12715,18 +12719,59 @@ def salvar_resultados_triagem():
             print(f">>> Integrante {cod_cidadao}: {len(afericoes)} afericoes, Media: {media_pas}/{media_pad}, Resultado: {resultado}")
 
         # Verificar se todos os integrantes da família foram triados
-        query_check_completo = """
-        SELECT
-            COUNT(*) as total_integrantes,
-            COUNT(CASE WHEN resultado_rastreamento IS NOT NULL THEN 1 END) as total_triados
-        FROM sistemaaps.tb_rastreamento_cidadaos
-        WHERE cod_rastreamento_familia = %s
+        # Buscar o co_cds_cad_domiciliar da família para contar integrantes elegíveis
+        cur.execute("""
+            SELECT d.co_seq_cds_cad_domiciliar as id_domicilio
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN tb_cds_domicilio_familia df
+                ON df.co_seq_cds_domicilio_familia = rf.co_seq_cds_domicilio_familia
+            INNER JOIN tb_cds_cad_domiciliar d
+                ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE rf.cod_seq_rastreamento_familia = %s
+        """, [cod_rastreamento_familia])
+        familia_info = cur.fetchone()
+        id_domicilio = familia_info['id_domicilio']
+
+        # Contar integrantes ELEGÍVEIS do domicílio (mesma lógica do modal de seleção)
+        # Idade >= 20, não possui diagnóstico de HAS, pertence ao domicílio
+        query_total_elegiveis = """
+        SELECT COUNT(DISTINCT ci.co_seq_cds_cad_individual) as total_elegiveis
+        FROM tb_cds_domicilio_familia df
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        WHERE df.co_cds_cad_domiciliar = %s
+        AND df.st_mudanca = 0
+        AND ci.st_versao_atual = 1
+        AND ci.st_ficha_inativa = 0
+        AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
+        AND NOT EXISTS (
+            SELECT 1
+            FROM sistemaaps.mv_hiperdia_hipertensao h
+            INNER JOIN tb_cidadao c ON c.co_seq_cidadao = h.cod_paciente
+            WHERE c.co_unico_ultima_ficha = ci.co_unico_ficha
+            AND c.st_ativo = 1
+        )
         """
 
-        cur.execute(query_check_completo, [cod_rastreamento_familia])
-        resultado_check = cur.fetchone()
-        total_integrantes = resultado_check[0]
-        total_triados = resultado_check[1]
+        cur.execute(query_total_elegiveis, [id_domicilio])
+        total_elegiveis_familia = cur.fetchone()['total_elegiveis']
+
+        # Contar quantos JÁ FORAM TRIADOS (têm resultado)
+        query_total_triados = """
+        SELECT COUNT(*) as total_triados
+        FROM sistemaaps.tb_rastreamento_cidadaos
+        WHERE cod_rastreamento_familia = %s
+          AND resultado_rastreamento IS NOT NULL
+        """
+
+        cur.execute(query_total_triados, [cod_rastreamento_familia])
+        total_triados = cur.fetchone()['total_triados']
+
+        total_integrantes = total_elegiveis_familia
 
         # APENAS atualizar status se for FINALIZAÇÃO
         if finalizar:
@@ -12907,53 +12952,121 @@ def visualizar_triagem_familia(cod_rastreamento_familia):
             'nome_responsavel': familia_row[7]
         }
 
-        # Buscar integrantes com resultados da triagem
+        # Buscar o id_domicilio da família
+        cur.execute("""
+            SELECT d.co_seq_cds_cad_domiciliar as id_domicilio
+            FROM sistemaaps.tb_rastreamento_familias rf
+            INNER JOIN tb_cds_domicilio_familia df
+                ON df.co_seq_cds_domicilio_familia = rf.co_seq_cds_domicilio_familia
+            INNER JOIN tb_cds_cad_domiciliar d
+                ON d.co_seq_cds_cad_domiciliar = df.co_cds_cad_domiciliar
+            WHERE rf.cod_seq_rastreamento_familia = %s
+        """, [cod_rastreamento_familia])
+        domicilio_row = cur.fetchone()
+        id_domicilio = domicilio_row[0] if domicilio_row else None
+
+        # Buscar TODOS os integrantes elegíveis do domicílio (>=20 anos, sem HAS)
+        # E verificar quais já foram triados
         query_integrantes = """
-        SELECT
+        SELECT DISTINCT
+            ci.co_seq_cds_cad_individual,
+            ci.no_cidadao,
+            EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento))::INTEGER as idade,
+            s.no_sexo as sexo,
+            -- Verificar se já tem diagnóstico de HAS
+            CASE WHEN EXISTS (
+                SELECT 1
+                FROM sistemaaps.mv_hiperdia_hipertensao h
+                INNER JOIN tb_cidadao c ON c.co_seq_cidadao = h.cod_paciente
+                WHERE c.co_unico_ultima_ficha = ci.co_unico_ficha
+                AND c.st_ativo = 1
+            ) THEN true ELSE false END as tem_diagnostico_has,
+            -- Buscar dados da triagem se foi triado
             rc.cod_seq_rastreamento_cidadao,
-            rc.nome_cidadao,
-            rc.idade_no_rastreamento,
-            rc.sexo,
             rc.resultado_rastreamento,
-            CASE
-                WHEN rmp.media_pas IS NULL THEN NULL
-                WHEN rmp.media_pas < 130 AND rmp.media_pad < 85 THEN 'Normal'
-                WHEN (rmp.media_pas BETWEEN 130 AND 139) OR (rmp.media_pad BETWEEN 85 AND 89) THEN 'Limítrofe'
-                WHEN (rmp.media_pas BETWEEN 140 AND 159) OR (rmp.media_pad BETWEEN 90 AND 99) THEN 'HAS Estágio 1'
-                WHEN rmp.media_pas >= 160 OR rmp.media_pad >= 100 THEN 'HAS Estágio 2'
-                ELSE 'Não classificado'
-            END as classificacao_risco,
             rmp.media_pas,
             rmp.media_pad,
             rmp.numero_afericoes
-        FROM sistemaaps.tb_rastreamento_cidadaos rc
-        LEFT JOIN sistemaaps.tb_rastreamento_resultado_media_pa rmp
-            ON rmp.cod_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
+        FROM tb_cds_domicilio_familia df
+        INNER JOIN tb_cds_cad_individual ci ON (
+            ci.nu_cpf_responsavel = df.nu_cpf_cidadao
+            OR ci.nu_cpf_cidadao = df.nu_cpf_cidadao
+            OR ci.nu_cartao_sus_responsavel = df.nu_cartao_sus
+            OR ci.nu_cns_cidadao = df.nu_cartao_sus
+        )
+        LEFT JOIN tb_sexo s ON s.co_sexo = ci.co_sexo
+        -- LEFT JOIN para trazer dados da triagem SE existir
+        LEFT JOIN sistemaaps.tb_rastreamento_cidadaos rc ON (
+            rc.co_seq_cds_cad_individual = ci.co_seq_cds_cad_individual
+            AND rc.cod_rastreamento_familia = %s
+        )
+        LEFT JOIN sistemaaps.tb_rastreamento_resultado_media_pa rmp ON (
+            rmp.cod_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
             AND rmp.tipo_medicao = 'TRIAGEM'
-        WHERE rc.cod_rastreamento_familia = %s
-        ORDER BY rc.nome_cidadao
+        )
+        WHERE df.co_cds_cad_domiciliar = %s
+        AND df.st_mudanca = 0
+        AND ci.st_versao_atual = 1
+        AND ci.st_ficha_inativa = 0
+        AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, ci.dt_nascimento)) >= 20
+        ORDER BY ci.no_cidadao
         """
 
-        cur.execute(query_integrantes, [cod_rastreamento_familia])
+        cur.execute(query_integrantes, [cod_rastreamento_familia, id_domicilio])
         integrantes_rows = cur.fetchall()
 
         integrantes = []
         for row in integrantes_rows:
+            # Nova estrutura:
+            # row[0] = ci.co_seq_cds_cad_individual
+            # row[1] = ci.no_cidadao
+            # row[2] = idade
+            # row[3] = sexo
+            # row[4] = tem_diagnostico_has
+            # row[5] = rc.cod_seq_rastreamento_cidadao
+            # row[6] = rc.resultado_rastreamento
+            # row[7] = rmp.media_pas
+            # row[8] = rmp.media_pad
+            # row[9] = rmp.numero_afericoes
+
+            cod_individual = row[0]
+            nome = row[1]
+            idade = row[2]
+            sexo = row[3]
+            tem_diagnostico_has = row[4]
+            cod_rastreamento_cidadao = row[5]
+            resultado_rastreamento = row[6]
+            media_pas = row[7]
+            media_pad = row[8]
+            numero_afericoes = row[9]
+
+            # Classificação de risco baseada nas médias
+            if media_pas is None or media_pad is None:
+                classificacao_risco = None
+            elif media_pas < 130 and media_pad < 80:
+                classificacao_risco = 'Normal'
+            elif media_pas >= 130 or media_pad >= 80:
+                classificacao_risco = 'Suspeito de HAS'
+            else:
+                classificacao_risco = 'Não classificado'
+
             integrante_data = {
-                'cod_cidadao': row[0],
-                'nome': row[1],
-                'idade': row[2],
-                'sexo': row[3],
-                'resultado_rastreamento': row[4],
-                'classificacao_risco': row[5],
-                'media_pas': row[6],
-                'media_pad': row[7],
-                'numero_afericoes': row[8],
+                'cod_cidadao': cod_rastreamento_cidadao,  # Pode ser NULL se não foi triado
+                'cod_individual': cod_individual,
+                'nome': nome,
+                'idade': idade,
+                'sexo': sexo,
+                'tem_diagnostico_has': tem_diagnostico_has,
+                'resultado_rastreamento': resultado_rastreamento,
+                'classificacao_risco': classificacao_risco,
+                'media_pas': media_pas,
+                'media_pad': media_pad,
+                'numero_afericoes': numero_afericoes,
                 'afericoes': []
             }
 
             # Se o integrante foi triado, buscar suas aferições
-            if row[4]:  # resultado_rastreamento não é NULL
+            if cod_rastreamento_cidadao:  # Tem registro na tb_rastreamento_cidadaos
                 query_afericoes = """
                 SELECT
                     dia_medicao,
@@ -12965,7 +13078,7 @@ def visualizar_triagem_familia(cod_rastreamento_familia):
                 ORDER BY dia_medicao
                 """
 
-                cur.execute(query_afericoes, [row[0]])
+                cur.execute(query_afericoes, [cod_rastreamento_cidadao])
                 afericoes_rows = cur.fetchall()
 
                 for af_row in afericoes_rows:
@@ -12978,11 +13091,15 @@ def visualizar_triagem_familia(cod_rastreamento_familia):
 
             integrantes.append(integrante_data)
 
-        # Calcular estatísticas
-        total_integrantes = len(integrantes)
-        total_triados = sum(1 for i in integrantes if i['resultado_rastreamento'])
-        total_hipertensos = sum(1 for i in integrantes if i['resultado_rastreamento'] == 'HIPERTENSO')
-        total_normais = sum(1 for i in integrantes if i['resultado_rastreamento'] == 'NORMAL')
+        # Calcular estatísticas (considerando apenas elegíveis - sem diagnóstico de HAS)
+        integrantes_elegiveis = [i for i in integrantes if not i['tem_diagnostico_has']]
+        total_integrantes = len(integrantes_elegiveis)
+        total_triados = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'])
+        total_suspeitos_has = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] == 'SUSPEITO_HAS')
+        total_nao_hipertensos = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] == 'NAO_HIPERTENSO')
+        # Manter compatibilidade com nomes antigos
+        total_hipertensos = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] in ['HIPERTENSO', 'SUSPEITO_HAS'])
+        total_normais = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] in ['NORMAL', 'NAO_HIPERTENSO'])
 
         return jsonify({
             'success': True,

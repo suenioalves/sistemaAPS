@@ -920,18 +920,14 @@ window.abrirModalSelecaoIntegrantes = async function(idFamilia) {
 
                                     if (jaTriado) {
                                         const resultado = integrante.resultado_triagem.toUpperCase();
-                                        if (resultado === 'NORMAL') {
+                                        if (resultado === 'NAO_HIPERTENSO' || resultado === 'NORMAL') {
                                             badgeClass = 'bg-green-100 text-green-700 border border-green-300';
                                             badgeIcon = 'ri-checkbox-circle-line';
-                                            badgeText = 'Já triado - Normal';
-                                        } else if (resultado === 'LIMITROFE') {
-                                            badgeClass = 'bg-yellow-100 text-yellow-700 border border-yellow-300';
-                                            badgeIcon = 'ri-error-warning-line';
-                                            badgeText = 'Já triado - Limítrofe';
-                                        } else if (resultado.includes('HAS')) {
+                                            badgeText = 'Já triado - Não Hipertenso';
+                                        } else if (resultado === 'SUSPEITO_HAS' || resultado.includes('HAS')) {
                                             badgeClass = 'bg-red-100 text-red-700 border border-red-300';
                                             badgeIcon = 'ri-alert-line';
-                                            badgeText = 'Já triado - ' + resultado;
+                                            badgeText = 'Já triado - Suspeito de HAS';
                                         } else {
                                             badgeClass = 'bg-blue-100 text-blue-700 border border-blue-300';
                                             badgeIcon = 'ri-information-line';
@@ -1823,18 +1819,28 @@ function renderizarTabelaIntegrantes() {
             let classificacaoClass = '';
 
             if (integrante.media_pas && integrante.media_pad) {
-                mediaHTML = `${integrante.media_pas}/${integrante.media_pad}`;
+                // Buscar a data da primeira aferição (data em que foi feita a triagem)
+                const primeiraAfericao = afericoesSalvas.length > 0 ? afericoesSalvas[0] : null;
+                const dataTriagem = primeiraAfericao && primeiraAfericao.data_afericao
+                    ? primeiraAfericao.data_afericao
+                    : 'Data não disponível';
 
-                // Definir classificação e cor
+                // Montar HTML da média com data e valor
+                mediaHTML = `
+                    <div class="text-xs text-gray-500 mb-1">${dataTriagem}</div>
+                    <div class="font-bold text-gray-900">${integrante.media_pas}/${integrante.media_pad}</div>
+                `;
+
+                // Definir classificação e cor (nova nomenclatura)
                 const resultado = integrante.resultado_rastreamento || '';
-                if (resultado === 'NORMAL') {
-                    classificacaoHTML = 'Normal';
+                if (resultado === 'NORMAL' || resultado === 'NAO_HIPERTENSO') {
+                    classificacaoHTML = 'Não Hipertenso';
                     classificacaoClass = 'bg-green-100 text-green-700';
                 } else if (resultado === 'LIMITROFE') {
                     classificacaoHTML = 'Limítrofe';
                     classificacaoClass = 'bg-yellow-100 text-yellow-700';
-                } else if (resultado.includes('HAS')) {
-                    classificacaoHTML = resultado.replace('HAS_ESTAGIO_', 'HAS Estágio ');
+                } else if (resultado === 'HIPERTENSO' || resultado === 'SUSPEITO_HAS' || resultado.includes('HAS')) {
+                    classificacaoHTML = 'Suspeito de HAS';
                     classificacaoClass = 'bg-red-100 text-red-700';
                 }
             }
@@ -1847,7 +1853,7 @@ function renderizarTabelaIntegrantes() {
                 </td>
                 ${diasHTML}
                 <td class="border border-gray-300 px-4 py-3 text-center bg-gray-100">
-                    <div class="font-semibold text-gray-900">${mediaHTML}</div>
+                    ${mediaHTML}
                 </td>
                 <td class="border border-gray-300 px-4 py-3 text-center bg-gray-100">
                     <span class="px-3 py-1 rounded-full text-xs font-semibold ${classificacaoClass}">
@@ -1986,17 +1992,21 @@ window.calcularMediaIntegrante = function(index) {
 };
 
 /**
- * Classifica PA segundo diretrizes
+ * Classifica PA segundo critérios de MRPA (Monitorização Residencial da Pressão Arterial)
+ * Triagem com 3 a 5 medidas
+ *
+ * Categorias de triagem (2 grupos):
+ * - Não Hipertenso: PAS < 130 E PAD < 80 (verde)
+ * - Suspeito de Hipertensão: PAS ≥ 130 E/OU PAD ≥ 80 (vermelho)
  */
 function classificarPA(pas, pad) {
-    if (pas < 130 && pad < 85) {
-        return { codigo: 'NORMAL', nome: 'Normal', classe: 'bg-green-100 text-green-800' };
-    } else if ((pas >= 130 && pas <= 139) || (pad >= 85 && pad <= 89)) {
-        return { codigo: 'LIMITROFE', nome: 'Limítrofe', classe: 'bg-yellow-100 text-yellow-800' };
-    } else if ((pas >= 140 && pas <= 159) || (pad >= 90 && pad <= 99)) {
-        return { codigo: 'HAS_ESTAGIO_1', nome: 'HAS Estágio 1', classe: 'bg-orange-100 text-orange-800' };
-    } else {
-        return { codigo: 'HAS_ESTAGIO_2', nome: 'HAS Estágio 2', classe: 'bg-red-100 text-red-800' };
+    // Suspeito de Hipertensão: PAS ≥ 130 E/OU PAD ≥ 80
+    if (pas >= 130 || pad >= 80) {
+        return { codigo: 'SUSPEITO_HAS', nome: 'Suspeito de HAS', classe: 'bg-red-100 text-red-800' };
+    }
+    // Não Hipertenso: PAS < 130 E PAD < 80
+    else {
+        return { codigo: 'NAO_HIPERTENSO', nome: 'Não Hipertenso', classe: 'bg-green-100 text-green-800' };
     }
 }
 
@@ -2279,11 +2289,12 @@ function renderizarIntegrantesResultado(integrantes) {
         }
 
         // Integrante triado - mostrar detalhes
-        const isHipertenso = integrante.resultado_rastreamento === 'HIPERTENSO';
+        // Aceitar tanto nomenclatura antiga quanto nova
+        const isHipertenso = ['HIPERTENSO', 'SUSPEITO_HAS'].includes(integrante.resultado_rastreamento);
         const borderColor = isHipertenso ? 'border-red-300' : 'border-teal-300';
         const bgColor = isHipertenso ? 'bg-red-50' : 'bg-teal-50';
         const badgeColor = isHipertenso ? 'bg-red-600' : 'bg-teal-600';
-        const badgeText = isHipertenso ? 'Hipertenso' : 'Normal';
+        const badgeText = isHipertenso ? 'Suspeito de HAS' : 'Não Hipertenso';
 
         // Renderizar aferições
         const afericoesHtml = integrante.afericoes && integrante.afericoes.length > 0
