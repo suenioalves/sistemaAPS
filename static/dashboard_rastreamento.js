@@ -1819,16 +1819,23 @@ function renderizarTabelaIntegrantes() {
             let classificacaoClass = '';
 
             if (integrante.media_pas && integrante.media_pad) {
-                // Buscar a data da primeira aferição (data em que foi feita a triagem)
-                const primeiraAfericao = afericoesSalvas.length > 0 ? afericoesSalvas[0] : null;
-                const dataTriagem = primeiraAfericao && primeiraAfericao.data_afericao
-                    ? primeiraAfericao.data_afericao
-                    : 'Data não disponível';
+                // Usar created_at do integrante (data em que a triagem foi salva)
+                let dataTriagem = 'Data não disponível';
+                if (integrante.created_at) {
+                    // Converter created_at para formato DD/MM/YYYY
+                    const data = new Date(integrante.created_at);
+                    const dia = String(data.getDate()).padStart(2, '0');
+                    const mes = String(data.getMonth() + 1).padStart(2, '0');
+                    const ano = data.getFullYear();
+                    dataTriagem = `${dia}/${mes}/${ano}`;
+                }
 
-                // Montar HTML da média com data e valor
+                // Montar HTML da média com data e valor - TUDO CENTRALIZADO
                 mediaHTML = `
-                    <div class="text-xs text-gray-500 mb-1">${dataTriagem}</div>
-                    <div class="font-bold text-gray-900">${integrante.media_pas}/${integrante.media_pad}</div>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500 mb-1">${dataTriagem}</div>
+                        <div class="font-bold text-gray-900">${integrante.media_pas}/${integrante.media_pad}</div>
+                    </div>
                 `;
 
                 // Definir classificação e cor (nova nomenclatura)

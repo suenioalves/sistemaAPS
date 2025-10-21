@@ -12507,6 +12507,7 @@ def get_familia_triagem(cod_rastreamento_familia):
             rc.sexo,
             rc.resultado_rastreamento,
             rc.elegivel_rastreamento,
+            rc.created_at,
             -- Se tem resultado E não é elegível, é apenas visualização
             CASE
                 WHEN rc.resultado_rastreamento IS NOT NULL AND rc.elegivel_rastreamento = false
