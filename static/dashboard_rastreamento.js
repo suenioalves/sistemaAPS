@@ -220,10 +220,16 @@ function renderizarConteudoAba(nomeAba, dashboard) {
             renderizarTriagemIncompleta(dashboard.triagem_incompleta || []);
             break;
         case 'nao-hipertensos':
-            renderizarNaoHipertensos(dashboard.nao_hipertensos || []);
+            // Carregar dados dos Não Hipertensos via endpoint específico
+            if (typeof carregarNaoHipertensos === 'function') {
+                carregarNaoHipertensos(1);
+            }
             break;
-        case 'hipertensos':
-            renderizarHipertensos(dashboard.hipertensos || []);
+        case 'suspeitos-has':
+            // Carregar dados dos Suspeitos de HAS via endpoint específico
+            if (typeof carregarSuspeitosHAS === 'function') {
+                carregarSuspeitosHAS(1);
+            }
             break;
     }
 }

@@ -429,10 +429,11 @@ function criarCardAnaliseMRPA(cidadao) {
         mediaPAD = numDias > 0 ? Math.round(somaPAD / numDias) : 0;
     }
 
-    // Classificar
+    // Classificar (nova nomenclatura conforme Diretriz Brasileira 2025)
     const isSuspeito = mediaPAS >= LIMITE_PAS_HIPERTENSO || mediaPAD >= LIMITE_PAD_HIPERTENSO;
-    const classificacao = isSuspeito ? 'SUSPEITO' : 'NORMAL';
+    const classificacao = isSuspeito ? 'SUSPEITO_HAS' : 'NAO_HIPERTENSO';
     const corClassificacao = isSuspeito ? 'red' : 'green';
+    const classificacaoDisplay = isSuspeito ? 'Suspeito de HAS' : 'Não Hipertenso';
 
     // Armazenar classificação no estado
     if (isSuspeito) {
@@ -461,7 +462,7 @@ function criarCardAnaliseMRPA(cidadao) {
                 <p class="text-sm text-gray-600">${cidadao.idade} anos • ${tipoEntrada === 'media' ? 'Média manual' : `${numDias} dias de aferições`}</p>
             </div>
             <span class="px-3 py-1 bg-${corClassificacao}-100 text-${corClassificacao}-700 rounded-full text-sm font-bold">
-                ${classificacao}
+                ${classificacaoDisplay}
             </span>
         </div>
 
@@ -1408,7 +1409,7 @@ function criarCardResultadoFinal(cidadao) {
         }
     } else if (resultadoMRPA) {
         // Só fez MRPA
-        if (resultadoMRPA.classificacao === 'NORMAL') {
+        if (resultadoMRPA.classificacao === 'NAO_HIPERTENSO') {
             diagnosticoAutomatico = 'NÃO HIPERTENSO';
             corDiagnostico = 'green';
             iconeDiagnostico = 'ri-check-fill';
@@ -1453,8 +1454,8 @@ function criarCardResultadoFinal(cidadao) {
                 <h5 class="text-xs font-semibold text-gray-700 mb-2">Resultado MRPA:</h5>
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-700">Média: <strong>${resultadoMRPA.media_pas}x${resultadoMRPA.media_pad}</strong> (${resultadoMRPA.num_dias} dias)</span>
-                    <span class="text-xs px-2 py-1 bg-${resultadoMRPA.classificacao === 'NORMAL' ? 'green' : 'orange'}-100 text-${resultadoMRPA.classificacao === 'NORMAL' ? 'green' : 'orange'}-700 rounded">
-                        ${resultadoMRPA.classificacao}
+                    <span class="text-xs px-2 py-1 bg-${resultadoMRPA.classificacao === 'NAO_HIPERTENSO' ? 'green' : 'orange'}-100 text-${resultadoMRPA.classificacao === 'NAO_HIPERTENSO' ? 'green' : 'orange'}-700 rounded">
+                        ${resultadoMRPA.classificacao === 'NAO_HIPERTENSO' ? 'Não Hipertenso' : 'Suspeito de HAS'}
                     </span>
                 </div>
             </div>
