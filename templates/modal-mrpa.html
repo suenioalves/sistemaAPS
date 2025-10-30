@@ -1,0 +1,168 @@
+<!-- Modal de Entrada de Dados MRPA -->
+<div id="modal-mrpa" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-6xl mx-4 my-8">
+        <!-- Cabeçalho -->
+        <div class="bg-gradient-to-r from-orange-600 to-orange-700 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold flex items-center gap-2">
+                        <i class="ri-heart-pulse-line text-2xl"></i>
+                        MRPA - Monitoramento Residencial da Pressão Arterial
+                    </h3>
+                    <p class="text-orange-100 text-sm mt-1" id="mrpa-paciente-info"></p>
+                </div>
+                <button onclick="fecharModalMRPA()" class="text-white hover:text-orange-200 transition-colors">
+                    <i class="ri-close-line text-3xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Abas de Modo de Entrada -->
+        <div class="bg-gray-50 px-6 py-3 border-b border-gray-200">
+            <div class="flex gap-2">
+                <button id="btn-modo-completo" onclick="alternarModoEntrada('completo')"
+                        class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors bg-orange-600 text-white">
+                    <i class="ri-file-list-3-line mr-2"></i>Entrada Completa (5 dias)
+                </button>
+                <button id="btn-modo-media" onclick="alternarModoEntrada('media')"
+                        class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    <i class="ri-calculator-line mr-2"></i>Entrada Direta da Média
+                </button>
+            </div>
+        </div>
+
+        <!-- Corpo do Modal -->
+        <div class="p-6 max-h-[70vh] overflow-y-auto">
+
+            <!-- MODO: ENTRADA COMPLETA -->
+            <div id="modo-entrada-completo">
+                <!-- Tabela de 5 dias -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse border border-gray-300">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" class="bg-gray-100 border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700">DATA</th>
+                                <th colspan="3" class="bg-blue-100 border border-gray-300 px-2 py-1 text-xs font-bold text-blue-900">
+                                    ANTES DO CAFÉ DA MANHÃ (EM JEJUM)
+                                </th>
+                                <th colspan="3" class="bg-gray-100 border border-gray-300 px-2 py-1 text-xs font-bold text-gray-700">
+                                    ANTES DO JANTAR (EM JEJUM)
+                                </th>
+                            </tr>
+                            <tr>
+                                <th class="bg-blue-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-blue-800">1ª medida</th>
+                                <th class="bg-blue-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-blue-800">
+                                    2ª medida<br><span class="text-[9px] font-normal">(1 min depois)</span>
+                                </th>
+                                <th class="bg-blue-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-blue-800">
+                                    3ª medida<br><span class="text-[9px] font-normal">(1 min depois)</span>
+                                </th>
+                                <th class="bg-gray-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-gray-700">1ª medida</th>
+                                <th class="bg-gray-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-gray-700">
+                                    2ª medida<br><span class="text-[9px] font-normal">(1 min depois)</span>
+                                </th>
+                                <th class="bg-gray-50 border border-gray-300 px-2 py-1 text-[10px] font-semibold text-gray-700">
+                                    3ª medida<br><span class="text-[9px] font-normal">(1 min depois)</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-mrpa-dias">
+                            <!-- Será preenchido via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Média Calculada -->
+                <div class="mt-6 bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                    <h4 class="font-bold text-green-900 mb-3 flex items-center gap-2">
+                        <i class="ri-calculator-line"></i>
+                        Média Calculada Automaticamente
+                    </h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white rounded-lg p-3 border border-green-300">
+                            <p class="text-xs text-gray-600 mb-1">Pressão Arterial Sistólica (PAS)</p>
+                            <p class="text-2xl font-bold text-green-700" id="media-pas-calculada">---</p>
+                            <p class="text-xs text-gray-500 mt-1">mmHg</p>
+                        </div>
+                        <div class="bg-white rounded-lg p-3 border border-green-300">
+                            <p class="text-xs text-gray-600 mb-1">Pressão Arterial Diastólica (PAD)</p>
+                            <p class="text-2xl font-bold text-green-700" id="media-pad-calculada">---</p>
+                            <p class="text-xs text-gray-500 mt-1">mmHg</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 p-3 bg-white rounded-lg border border-green-300">
+                        <p class="text-sm font-semibold" id="classificacao-resultado">
+                            Classificação: <span class="text-gray-500">Preencha as medições</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODO: ENTRADA DIRETA DA MÉDIA -->
+            <div id="modo-entrada-media" class="hidden">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                    <p class="text-sm text-blue-800">
+                        <strong>Entrada Direta:</strong> Utilize este modo se você já possui a média calculada das medições MRPA realizadas.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Média PAS (Sistólica) *
+                        </label>
+                        <input type="number" id="input-media-pas"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg font-semibold"
+                               placeholder="Ex: 135"
+                               min="50" max="300"
+                               onchange="calcularClassificacaoMedia()">
+                        <p class="text-xs text-gray-500 mt-1">Valores entre 50 e 300 mmHg</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Média PAD (Diastólica) *
+                        </label>
+                        <input type="number" id="input-media-pad"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg font-semibold"
+                               placeholder="Ex: 85"
+                               min="30" max="200"
+                               onchange="calcularClassificacaoMedia()">
+                        <p class="text-xs text-gray-500 mt-1">Valores entre 30 e 200 mmHg</p>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Observações (opcional)
+                    </label>
+                    <textarea id="input-observacoes-media"
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                              rows="3"
+                              placeholder="Ex: Medições realizadas em casa pelo próprio paciente..."></textarea>
+                </div>
+
+                <!-- Classificação da Média -->
+                <div class="mt-6 bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                    <h4 class="font-bold text-green-900 mb-2">Classificação</h4>
+                    <p class="text-lg font-semibold" id="classificacao-media">
+                        <span class="text-gray-500">Preencha PAS e PAD para ver a classificação</span>
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Rodapé -->
+        <div class="bg-gray-50 px-6 py-4 rounded-b-lg border-t border-gray-200 flex justify-between items-center">
+            <button onclick="fecharModalMRPA()"
+                    class="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                <i class="ri-close-line mr-2"></i>Cancelar
+            </button>
+            <button onclick="salvarDadosMRPA()"
+                    class="px-8 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-bold hover:from-green-700 hover:to-green-800 transition-colors shadow-lg">
+                <i class="ri-save-line mr-2"></i>Salvar MRPA
+            </button>
+        </div>
+    </div>
+</div>

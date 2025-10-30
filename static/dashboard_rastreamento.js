@@ -118,8 +118,9 @@ function renderizarDashboard(dashboard) {
     document.getElementById('count-em-triagem').textContent = dashboard.contadores?.em_triagem || 0;
     document.getElementById('count-triagem-completa').textContent = dashboard.contadores?.triagem_completa || 0;
     document.getElementById('count-triagem-incompleta').textContent = dashboard.contadores?.triagem_incompleta || 0;
-    document.getElementById('count-nao-hipertensos').textContent = dashboard.contadores?.nao_hipertensos || 0;
+    document.getElementById('count-suspeitos-has').textContent = dashboard.contadores?.suspeitos_has || 0;
     document.getElementById('count-hipertensos').textContent = dashboard.contadores?.hipertensos || 0;
+    document.getElementById('count-nao-hipertensos').textContent = dashboard.contadores?.nao_hipertensos || 0;
 
     // Atualizar contadores DAS ABAS (com busca, se houver)
     if (dashboard.tem_busca && dashboard.contadores_abas) {
@@ -140,8 +141,9 @@ function atualizarContadoresAbas(contadores) {
     const btnEmTriagem = document.querySelector('.aba-btn[data-aba="em-triagem"]');
     const btnTriagemCompleta = document.querySelector('.aba-btn[data-aba="triagem-completa"]');
     const btnTriagemIncompleta = document.querySelector('.aba-btn[data-aba="triagem-incompleta"]');
-    const btnNaoHipertensos = document.querySelector('.aba-btn[data-aba="nao-hipertensos"]');
+    const btnSuspeitosHas = document.querySelector('.aba-btn[data-aba="suspeitos-has"]');
     const btnHipertensos = document.querySelector('.aba-btn[data-aba="hipertensos"]');
+    const btnNaoHipertensos = document.querySelector('.aba-btn[data-aba="nao-hipertensos"]');
 
     if (btnSemTriagem) {
         const countSpan = btnSemTriagem.querySelector('.count-aba');
@@ -159,13 +161,17 @@ function atualizarContadoresAbas(contadores) {
         const countSpan = btnTriagemIncompleta.querySelector('.count-aba');
         if (countSpan) countSpan.textContent = `(${contadores.triagem_incompleta || 0})`;
     }
-    if (btnNaoHipertensos) {
-        const countSpan = btnNaoHipertensos.querySelector('.count-aba');
-        if (countSpan) countSpan.textContent = `(${contadores.nao_hipertensos || 0})`;
+    if (btnSuspeitosHas) {
+        const countSpan = btnSuspeitosHas.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.suspeitos_has || 0})`;
     }
     if (btnHipertensos) {
         const countSpan = btnHipertensos.querySelector('.count-aba');
         if (countSpan) countSpan.textContent = `(${contadores.hipertensos || 0})`;
+    }
+    if (btnNaoHipertensos) {
+        const countSpan = btnNaoHipertensos.querySelector('.count-aba');
+        if (countSpan) countSpan.textContent = `(${contadores.nao_hipertensos || 0})`;
     }
 }
 
@@ -175,11 +181,12 @@ function renderizarDashboardVazio() {
     document.getElementById('count-em-triagem').textContent = '0';
     document.getElementById('count-triagem-completa').textContent = '0';
     document.getElementById('count-triagem-incompleta').textContent = '0';
-    document.getElementById('count-nao-hipertensos').textContent = '0';
+    document.getElementById('count-suspeitos-has').textContent = '0';
     document.getElementById('count-hipertensos').textContent = '0';
+    document.getElementById('count-nao-hipertensos').textContent = '0';
 
     // Mostrar mensagens vazias em todas as abas
-    const abas = ['sem-triagem', 'em-triagem', 'triagem-completa', 'triagem-incompleta', 'nao-hipertensos', 'hipertensos'];
+    const abas = ['sem-triagem', 'em-triagem', 'triagem-completa', 'triagem-incompleta', 'suspeitos-has', 'hipertensos', 'nao-hipertensos'];
     abas.forEach(aba => {
         const container = document.getElementById(`aba-${aba}`);
         if (container) {
@@ -253,22 +260,22 @@ function renderizarSemTriagem(familias) {
     const paginacaoHTML = renderizarControlesPaginacao();
 
     container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             ${familias.map(familia => {
                 const jaNoCarrinho = window.estadoDashboard.carrinhoTriagem.some(f => f.id_familia === familia.id_familia);
                 return `
-                <div class="border ${jaNoCarrinho ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer relative"
+                <div class="border ${jaNoCarrinho ? 'border-blue-500 bg-blue-50' : 'border-gray-200'} rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer relative"
                      onclick="abrirModalSelecaoIntegrantes(${familia.id_familia})">
                     ${jaNoCarrinho ? '<span class="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded"><i class="ri-check-line"></i> Selecionada</span>' : ''}
                     <h5 class="font-semibold text-gray-900 mb-2">${familia.nome_responsavel}</h5>
                     <p class="text-sm text-gray-600 mb-2">
                         <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
                     </p>
-                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                    <div class="flex items-center gap-2 text-[10px] text-gray-500">
                         <span><i class="ri-home-line mr-1"></i>Microárea: ${familia.microarea}</span>
                         <span><i class="ri-group-line mr-1"></i>${familia.total_integrantes} int.</span>
                     </div>
-                    <button class="mt-3 w-full ${jaNoCarrinho ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'} hover:bg-blue-600 px-3 py-2 rounded text-sm">
+                    <button class="mt-2 w-full ${jaNoCarrinho ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'} hover:bg-blue-600 px-2 py-1.5 rounded text-xs">
                         <i class="ri-user-add-line mr-1"></i>${jaNoCarrinho ? 'Editar Seleção' : 'Selecionar Integrantes'}
                     </button>
                 </div>
@@ -323,7 +330,7 @@ function renderizarEmTriagem(familias) {
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             ${familias.map(familia => {
                 const total = familia.total_integrantes || 0;
                 const finalizados = familia.total_finalizados || 0;
@@ -331,7 +338,7 @@ function renderizarEmTriagem(familias) {
                 const isSelected = window.familiasSelecionadasPDF.has(familia.cod_seq_rastreamento_familia);
 
                 return `
-                <div class="border border-blue-200 bg-blue-50 rounded-lg p-4 hover:shadow-md transition-shadow relative ${isSelected ? 'ring-2 ring-blue-500' : ''}"
+                <div class="border border-blue-200 bg-blue-50 rounded-lg p-3 hover:shadow-md transition-shadow relative ${isSelected ? 'ring-2 ring-blue-500' : ''}"
                      data-familia-id="${familia.cod_seq_rastreamento_familia}">
                     <!-- Checkbox de seleção -->
                     <div class="absolute top-2 right-2">
@@ -348,10 +355,10 @@ function renderizarEmTriagem(familias) {
                         <p class="text-sm text-blue-700 mb-2">
                             <i class="ri-map-pin-line mr-1"></i>${familia.endereco}
                         </p>
-                        <div class="flex items-center gap-3 text-xs text-blue-600 mb-2">
+                        <div class="flex items-center gap-2 text-[10px] text-blue-600 mb-2">
                             <span><i class="ri-home-line mr-1"></i>Microárea: ${familia.microarea}</span>
                         </div>
-                        <div class="flex items-center gap-3 text-xs text-blue-600 mb-2">
+                        <div class="flex items-center gap-2 text-[10px] text-blue-600 mb-2">
                             <span><i class="ri-group-line mr-1"></i>${total} integrante${total !== 1 ? 's' : ''}</span>
                             <span><i class="ri-checkbox-line mr-1"></i>${finalizados} finalizado${finalizados !== 1 ? 's' : ''}</span>
                         </div>
@@ -359,7 +366,7 @@ function renderizarEmTriagem(familias) {
                             <div class="bg-blue-600 h-2 rounded-full" style="width: ${progresso}%"></div>
                         </div>
                         <p class="text-xs text-blue-600 mb-3">${progresso}% completo</p>
-                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm">
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 rounded text-xs">
                             <i class="ri-play-line mr-1"></i>Continuar Triagem
                         </button>
                     </div>
@@ -386,11 +393,11 @@ function renderizarTriagemCompleta(familias) {
 
     container.innerHTML = `
         ${paginacaoHTML}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             ${familias.map(familia => {
                 const normais = (familia.total_triados || 0) - (familia.total_hipertensos || 0);
                 return `
-                <div class="border border-green-200 bg-green-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                <div class="border border-green-200 bg-green-50 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
                      onclick="verResultadosFamilia(${familia.cod_seq_rastreamento_familia})">
                     <div class="flex items-start justify-between mb-2">
                         <h5 class="font-semibold text-green-900">${familia.nome_responsavel}</h5>
@@ -440,7 +447,7 @@ function renderizarTriagemIncompleta(familias) {
     container.innerHTML = `
         ${paginacaoHTML}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             ${familias.map(familia => {
                 const totalTriados = familia.total_triados || 0;
                 const totalIntegrantes = familia.total_integrantes || 0;
@@ -449,7 +456,7 @@ function renderizarTriagemIncompleta(familias) {
                 const normais = totalTriados - (familia.total_hipertensos || 0);
 
                 return `
-                <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
                      onclick="verResultadosFamilia(${familia.cod_seq_rastreamento_familia})">
                         <div class="flex items-start justify-between mb-2">
                             <h5 class="font-semibold text-yellow-900 pr-8">${familia.nome_responsavel}</h5>
@@ -517,7 +524,7 @@ function renderizarNaoHipertensos(pacientes) {
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
                             <h5 class="font-semibold text-teal-900 text-sm">${paciente.nome}</h5>
-                            <div class="flex items-center gap-3 text-xs text-teal-700 mt-1">
+                            <div class="flex items-center gap-2 text-[10px] text-teal-700 mt-1">
                                 <span><i class="ri-calendar-line mr-1"></i>${paciente.idade} anos</span>
                                 <span><i class="ri-user-line mr-1"></i>${paciente.sexo}</span>
                             </div>
@@ -557,7 +564,7 @@ function renderizarHipertensos(pacientes) {
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
                             <h5 class="font-semibold text-red-900 text-sm">${paciente.nome}</h5>
-                            <div class="flex items-center gap-3 text-xs text-red-700 mt-1">
+                            <div class="flex items-center gap-2 text-[10px] text-red-700 mt-1">
                                 <span><i class="ri-calendar-line mr-1"></i>${paciente.idade} anos</span>
                                 <span><i class="ri-user-line mr-1"></i>${paciente.sexo}</span>
                             </div>
@@ -1115,7 +1122,7 @@ window.abrirCarrinhoTriagem = function() {
                 <div class="px-6 py-4 overflow-y-auto flex-1">
                     <div class="space-y-4">
                         ${carrinho.map((familia, index) => `
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                                 <!-- Cabeçalho da família -->
                                 <div class="flex items-start justify-between mb-3">
                                     <div class="flex-1">
@@ -2103,6 +2110,13 @@ window.salvarResultadosParciais = async function() {
             fecharModalTriagem();
             // Recarregar dashboard para atualizar barrinha de progresso
             carregarDashboardAcompanhamento();
+            // Atualizar também as tabelas de Suspeitos HAS e Não Hipertensos
+            if (typeof carregarSuspeitosHAS === 'function') {
+                carregarSuspeitosHAS(1);
+            }
+            if (typeof carregarNaoHipertensos === 'function') {
+                carregarNaoHipertensos(1);
+            }
         } else {
             alert('Erro ao salvar: ' + data.message);
         }
@@ -2155,6 +2169,13 @@ window.finalizarTriagem = async function() {
                 mostrarNotificacao('Família removida da triagem.', 'info');
                 fecharModalTriagem();
                 carregarDashboardAcompanhamento();
+                // Atualizar também as tabelas de Suspeitos HAS e Não Hipertensos
+                if (typeof carregarSuspeitosHAS === 'function') {
+                    carregarSuspeitosHAS(1);
+                }
+                if (typeof carregarNaoHipertensos === 'function') {
+                    carregarNaoHipertensos(1);
+                }
             } else {
                 alert('Erro ao remover: ' + data.message);
             }
@@ -2189,6 +2210,13 @@ window.finalizarTriagem = async function() {
             mostrarNotificacao(msg, 'success');
             fecharModalTriagem();
             carregarDashboardAcompanhamento();
+            // Atualizar também as tabelas de Suspeitos HAS e Não Hipertensos
+            if (typeof carregarSuspeitosHAS === 'function') {
+                carregarSuspeitosHAS(1);
+            }
+            if (typeof carregarNaoHipertensos === 'function') {
+                carregarNaoHipertensos(1);
+            }
         } else {
             alert('Erro ao finalizar: ' + data.message);
         }
@@ -2347,7 +2375,7 @@ function renderizarIntegrantesResultado(integrantes) {
                 </div>
 
                 <div>
-                    <p class="text-xs text-gray-600 mb-2">Aferições Registradas:</p>
+                    <p class="text-[11px] text-gray-600 mb-1">Aferições Registradas:</p>
                     <div class="flex flex-wrap">
                         ${afericoesHtml}
                     </div>

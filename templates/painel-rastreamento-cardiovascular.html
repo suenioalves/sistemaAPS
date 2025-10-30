@@ -93,8 +93,14 @@
         }
 
         .aba-btn[data-aba="suspeitos-has"].active {
-            color: #dc2626;
-            border-bottom-color: #dc2626;
+            color: #ea580c;
+            border-bottom-color: #ea580c;
+            background-color: #ffedd5;
+        }
+
+        .aba-btn[data-aba="hipertensos"].active {
+            color: #b91c1c;
+            border-bottom-color: #b91c1c;
             background-color: #fee2e2;
         }
 
@@ -189,55 +195,70 @@
                 </div>
             </div>
 
-            <!-- CONTADORES DAS 6 CATEGORIAS -->
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+                        <!-- CONTADORES DAS 7 CATEGORIAS -->
+            <div class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
 
-                <!-- Sem Triagem -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-gray-400"
-                     onclick="selecionarAba('sem-triagem')">
-                    <div class="text-3xl font-bold text-gray-600" id="count-sem-triagem">0</div>
-                    <div class="text-xs text-gray-600 mt-1 font-semibold">Sem Triagem</div>
-                    <div class="text-xs text-gray-400 mt-1">Nenhum int. triado</div>
+                <!-- GRUPO: Triagem de Hipertensão nos Domicílios/Famílias (4 primeiros cards) -->
+                <div class="md:col-span-4 border-4 border-gray-700 rounded-xl p-4 bg-gray-50 relative">
+                    <!-- Título do contorno -->
+                    <div class="absolute -top-3 left-6 bg-white px-3 py-1">
+                        <span class="text-sm font-bold text-gray-700">Triagem de Hipertensão nos Domicílios/Famílias</span>
+                    </div>
+
+                    <!-- Grid dos 4 cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
+                        <!-- 1. Sem Triagem -->
+                        <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-gray-400"
+                             onclick="selecionarAba('sem-triagem')">
+                            <div class="text-2xl font-bold text-gray-600" id="count-sem-triagem">0</div>
+                            <div class="text-[10px] text-gray-600 mt-1 font-semibold leading-tight">Sem Triagem</div>
+                        </div>
+
+                        <!-- 2. Em Triagem -->
+                        <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-gray-700"
+                             onclick="selecionarAba('em-triagem')">
+                            <div class="text-2xl font-bold text-blue-600" id="count-em-triagem">0</div>
+                            <div class="text-[10px] text-blue-600 mt-1 font-semibold leading-tight">Em Triagem</div>
+                        </div>
+
+                        <!-- 3. Triagem Completa -->
+                        <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-green-500"
+                             onclick="selecionarAba('triagem-completa')">
+                            <div class="text-2xl font-bold text-green-600" id="count-triagem-completa">0</div>
+                            <div class="text-[10px] text-green-600 mt-1 font-semibold leading-tight">Triagem Completa</div>
+                        </div>
+
+                        <!-- 4. Triagem Incompleta -->
+                        <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-yellow-500"
+                             onclick="selecionarAba('triagem-incompleta')">
+                            <div class="text-2xl font-bold text-yellow-600" id="count-triagem-incompleta">0</div>
+                            <div class="text-[10px] text-yellow-600 mt-1 font-semibold leading-tight">Triagem Incompleta</div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Em Triagem -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-blue-500"
-                     onclick="selecionarAba('em-triagem')">
-                    <div class="text-3xl font-bold text-blue-600" id="count-em-triagem">0</div>
-                    <div class="text-xs text-blue-600 mt-1 font-semibold">Em Triagem</div>
-                    <div class="text-xs text-gray-400 mt-1">≥1 int. triado</div>
-                </div>
+                <!-- GRUPO: Outros cards (3 últimos) -->
+                <div class="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <!-- 5. Suspeitos de Hipertensão -->
+                    <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-orange-500"
+                         onclick="selecionarAba('suspeitos-has')">
+                        <div class="text-2xl font-bold text-orange-600" id="count-suspeitos-has">0</div>
+                        <div class="text-[10px] text-orange-600 mt-1 font-semibold leading-tight">Suspeitos HAS</div>
+                    </div>
 
-                <!-- Família - Triagem Completa -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-green-500"
-                     onclick="selecionarAba('triagem-completa')">
-                    <div class="text-3xl font-bold text-green-600" id="count-triagem-completa">0</div>
-                    <div class="text-xs text-green-600 mt-1 font-semibold">Família - Triagem Completa</div>
-                    <div class="text-xs text-gray-400 mt-1">Todos triados</div>
-                </div>
+                    <!-- 6. Hipertensos (confirmados) -->
+                    <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-red-600"
+                         onclick="selecionarAba('hipertensos')">
+                        <div class="text-2xl font-bold text-red-700" id="count-hipertensos">0</div>
+                        <div class="text-[10px] text-red-700 mt-1 font-semibold leading-tight">Hipertensos</div>
+                    </div>
 
-                <!-- Família - Triagem Incompleta -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-yellow-500"
-                     onclick="selecionarAba('triagem-incompleta')">
-                    <div class="text-3xl font-bold text-yellow-600" id="count-triagem-incompleta">0</div>
-                    <div class="text-xs text-yellow-600 mt-1 font-semibold">Família - Triagem Incompleta</div>
-                    <div class="text-xs text-gray-400 mt-1">Algum não triado</div>
-                </div>
-
-                <!-- Não Hipertensos -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-teal-500"
-                     onclick="selecionarAba('nao-hipertensos')">
-                    <div class="text-3xl font-bold text-teal-600" id="count-nao-hipertensos">0</div>
-                    <div class="text-xs text-teal-600 mt-1 font-semibold">Não Hipertensos</div>
-                    <div class="text-xs text-gray-400 mt-1">Pacientes</div>
-                </div>
-
-                <!-- Hipertensos -->
-                <div class="bg-white rounded-lg shadow-sm p-4 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-red-500"
-                     onclick="selecionarAba('hipertensos')">
-                    <div class="text-3xl font-bold text-red-600" id="count-hipertensos">0</div>
-                    <div class="text-xs text-red-600 mt-1 font-semibold">Hipertensos</div>
-                    <div class="text-xs text-gray-400 mt-1">Pacientes</div>
+                    <!-- 7. Não Hipertensos -->
+                    <div class="bg-white rounded-lg shadow-sm p-3 text-center cursor-pointer hover:shadow-md transition-shadow border-b-4 border-teal-500"
+                         onclick="selecionarAba('nao-hipertensos')">
+                        <div class="text-2xl font-bold text-teal-600" id="count-nao-hipertensos">0</div>
+                        <div class="text-[10px] text-teal-600 mt-1 font-semibold leading-tight">Não Hipertensos</div>
+                    </div>
                 </div>
 
             </div>
@@ -246,24 +267,27 @@
             <div class="bg-white rounded-lg shadow-sm mb-6">
                 <!-- Navegação das Abas -->
                 <div class="border-b border-gray-200 px-6 pt-6">
-                    <nav class="flex flex-wrap gap-2" id="abas-navegacao">
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg active" data-aba="sem-triagem">
-                            <i class="ri-file-list-line mr-1"></i>Sem Triagem <span class="count-aba">(0)</span>
+                    <nav class="flex flex-wrap gap-1" id="abas-navegacao">
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg active" data-aba="sem-triagem">
+                            Sem Triagem <span class="count-aba">(0)</span>
                         </button>
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="em-triagem">
-                            <i class="ri-loader-4-line mr-1"></i>Em Triagem <span class="count-aba">(0)</span>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="em-triagem">
+                            Em Triagem <span class="count-aba">(0)</span>
                         </button>
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="triagem-completa">
-                            <i class="ri-checkbox-circle-line mr-1"></i>Triagem Completa <span class="count-aba">(0)</span>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="triagem-completa">
+                            Triagem Completa <span class="count-aba">(0)</span>
                         </button>
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="triagem-incompleta">
-                            <i class="ri-error-warning-line mr-1"></i>Triagem Incompleta <span class="count-aba">(0)</span>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="triagem-incompleta">
+                            Triagem Incompleta <span class="count-aba">(0)</span>
                         </button>
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="nao-hipertensos">
-                            <i class="ri-user-smile-line mr-1"></i>Não Hipertensos <span class="count-aba">(0)</span>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="suspeitos-has">
+                            Suspeitos HAS <span class="count-aba">(0)</span>
                         </button>
-                        <button class="aba-btn px-4 py-2 text-sm font-medium rounded-t-lg" data-aba="suspeitos-has">
-                            <i class="ri-alert-line mr-1"></i>Suspeitos de Hipertensão <span class="count-aba">(0)</span>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="hipertensos">
+                            Hipertensos <span class="count-aba">(0)</span>
+                        </button>
+                        <button class="aba-btn px-2 py-2 text-[11px] font-medium rounded-t-lg" data-aba="nao-hipertensos">
+                            Não Hipertensos <span class="count-aba">(0)</span>
                         </button>
                     </nav>
                 </div>
@@ -315,10 +339,54 @@
                         <div id="paginacao-nao-hipertensos" class="mt-4"></div>
                     </div>
                     <div id="aba-suspeitos-has" class="aba-conteudo hidden">
+                        <!-- Botões de ação em lote -->
+                        <div class="mb-4 flex gap-2">
+                            <button onclick="gerarPDFsSuspeitosSelecionados()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <i class="ri-file-pdf-line mr-2"></i>Gerar PDFs MRPA (Selecionados)
+                            </button>
+                            <button onclick="gerarPDFsTodosSuspeitos()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <i class="ri-file-pdf-line mr-2"></i>Gerar PDFs MRPA (Todos)
+                            </button>
+                            <span id="count-selecionados-suspeitos" class="text-sm text-gray-600 self-center ml-2"></span>
+                        </div>
+
                         <!-- Tabela de Suspeitos de Hipertensão -->
                         <div class="overflow-x-auto">
                             <table class="min-w-full bg-white border border-gray-200 rounded-lg text-xs">
-                                <thead class="bg-red-50">
+                                <thead class="bg-orange-50">
+                                    <tr>
+                                        <th class="px-1 py-1 text-center text-[10px] font-semibold text-orange-900 border-b">
+                                            <input type="checkbox" id="select-all-suspeitos" class="rounded" onclick="toggleSelectAllSuspeitos()">
+                                        </th>
+                                        <th class="px-2 py-2 text-left text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Nome</th>
+                                        <th class="px-2 py-2 text-left text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">CNS/CPF</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Idade</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Sexo</th>
+                                        <th class="px-2 py-2 text-left text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Domicílio</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Equipe</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Micro</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">PA Triagem</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">Data</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-orange-900 uppercase tracking-tight border-b">MRPA</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lista-suspeitos-has">
+                                    <tr>
+                                        <td colspan="11" class="px-4 py-8 text-center text-gray-400">
+                                            Carregando...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Paginação -->
+                        <div id="paginacao-suspeitos-has" class="mt-4"></div>
+                    </div>
+                    <div id="aba-hipertensos" class="aba-conteudo hidden">
+                        <!-- Tabela de Hipertensos (confirmados) -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border border-gray-200 rounded-lg text-xs">
+                                <thead class="bg-red-100">
                                     <tr>
                                         <th class="px-2 py-2 text-left text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Nome</th>
                                         <th class="px-2 py-2 text-left text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">CNS/CPF</th>
@@ -328,15 +396,14 @@
                                         <th class="px-2 py-2 text-left text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Responsável</th>
                                         <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Equipe</th>
                                         <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Micro</th>
-                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">PA</th>
+                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">PA MRPA</th>
                                         <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Data</th>
-                                        <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Validade</th>
                                         <th class="px-2 py-2 text-center text-[10px] font-semibold text-red-900 uppercase tracking-tight border-b">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody id="lista-suspeitos-has">
+                                <tbody id="lista-hipertensos">
                                     <tr>
-                                        <td colspan="12" class="px-4 py-8 text-center text-gray-400">
+                                        <td colspan="11" class="px-4 py-8 text-center text-gray-400">
                                             Carregando...
                                         </td>
                                     </tr>
@@ -344,7 +411,7 @@
                             </table>
                         </div>
                         <!-- Paginação -->
-                        <div id="paginacao-suspeitos-has" class="mt-4"></div>
+                        <div id="paginacao-hipertensos" class="mt-4"></div>
                     </div>
                 </div>
             </div>
@@ -632,7 +699,7 @@
                 <!-- Estatísticas -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-blue-600" id="resultado-total-integrantes">0</div>
+                        <div class="text-2xl font-bold text-gray-700" id="resultado-total-integrantes">0</div>
                         <div class="text-xs text-blue-700 mt-1">Total Integrantes</div>
                     </div>
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
@@ -737,6 +804,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal MRPA -->
+    {% include 'modal-mrpa.html' %}
 
 </body>
 

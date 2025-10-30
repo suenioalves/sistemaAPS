@@ -36,7 +36,13 @@
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"UPDATE sistemaaps.tb_rastreamento_familias SET status_rastreamento = ''TRIAGEM_INCOMPLETA'' WHERE status_rastreamento = ''EM_TRIAGEM'' AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NOT NULL) AND EXISTS (SELECT 1 FROM sistemaaps.tb_rastreamento_cidadaos rc WHERE rc.cod_rastreamento_familia = tb_rastreamento_familias.cod_seq_rastreamento_familia AND rc.resultado_rastreamento IS NULL);\")",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT COUNT(*) FROM sistemaaps.tb_rastreamento_cidadaos WHERE resultado_rastreamento IS NOT NULL\")",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT cod_seq_rastreamento_cidadao, nome_cidadao, resultado_rastreamento FROM sistemaaps.tb_rastreamento_cidadaos WHERE cod_rastreamento_familia = (SELECT cod_seq_rastreamento_familia FROM sistemaaps.tb_rastreamento_familias WHERE co_seq_cds_cad_domiciliar = 77110 AND status_rastreamento = ''CONCLUIDO'') ORDER BY nome_cidadao;\")",
-      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT ci.no_cidadao, ci.nu_cpf_cidadao, ci.nu_cns_cidadao, CAST(ci.nu_cns_cidadao AS VARCHAR) as cns_string FROM tb_cds_cad_individual ci WHERE ci.no_cidadao LIKE ''%NIURIANE DA SILVA CHAGAS%'' LIMIT 1;\")"
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT ci.no_cidadao, ci.nu_cpf_cidadao, ci.nu_cns_cidadao, CAST(ci.nu_cns_cidadao AS VARCHAR) as cns_string FROM tb_cds_cad_individual ci WHERE ci.no_cidadao LIKE ''%NIURIANE DA SILVA CHAGAS%'' LIMIT 1;\")",
+      "Bash(taskkill /PID 15232 /F)",
+      "Bash(del fix_refresh.py)",
+      "Bash(copy \"modelo_mrpa.png\" \"static/modelo_mrpa.png\")",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\d sistemaaps.tb_rastreamento_afericoes_mrpa\")",
+      "Bash(del add_paginacao_function.py)",
+      "Bash(taskkill //F //IM python.exe)"
     ],
     "deny": [],
     "ask": [],
