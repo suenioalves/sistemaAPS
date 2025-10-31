@@ -1148,6 +1148,223 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function generateRelatorioPage(doc, selectedAdolescents) {
+        // Primeira página: Relatório com tabela de adolescentes
+        const pageWidth = 297; // A4 landscape
+        const pageHeight = 210;
+        const margin = 15;
+        let currentY = margin;
+
+        // Título do relatório
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(79, 70, 229); // Primary color (indigo-600)
+        doc.text("Relatório de Adolescentes - Plafam Ativo", pageWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
+
+        // Subtítulo com data
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        const dataAtual = new Date().toLocaleDateString('pt-BR');
+        doc.text(`Gerado em: ${dataAtual}`, pageWidth / 2, currentY, { align: 'center' });
+        currentY += 12;
+
+        // Configuração da tabela
+        const colWidths = {
+            nome: 45,
+            cns: 22,
+            mae: 40,
+            idade: 12,
+            equipe: 25,
+            microarea: 15,
+            agente: 35,
+            metodo: 45,
+            observacao: 35
+        };
+
+        const startX = margin;
+        let xPos = startX;
+
+        // Cabeçalho da tabela
+        doc.setFillColor(79, 70, 229); // Primary color
+        doc.rect(startX, currentY, pageWidth - (margin * 2), 8, 'F');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255); // Branco
+
+        // Headers
+        doc.text("Nome da Adolescente", xPos + 2, currentY + 5.5);
+        xPos += colWidths.nome;
+        doc.text("CNS", xPos + 2, currentY + 5.5);
+        xPos += colWidths.cns;
+        doc.text("Nome da Mãe", xPos + 2, currentY + 5.5);
+        xPos += colWidths.mae;
+        doc.text("Idade", xPos + 2, currentY + 5.5);
+        xPos += colWidths.idade;
+        doc.text("Equipe", xPos + 2, currentY + 5.5);
+        xPos += colWidths.equipe;
+        doc.text("Micro-área", xPos + 2, currentY + 5.5);
+        xPos += colWidths.microarea;
+        doc.text("Agente", xPos + 2, currentY + 5.5);
+        xPos += colWidths.agente;
+        doc.text("Método - Situação", xPos + 2, currentY + 5.5);
+        xPos += colWidths.metodo;
+        doc.text("Observação", xPos + 2, currentY + 5.5);
+
+        currentY += 8;
+
+        // Linhas da tabela
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(0, 0, 0);
+
+        selectedAdolescents.forEach((ado, index) => {
+            // Verifica se precisa de nova página
+            if (currentY > pageHeight - margin - 10) {
+                doc.addPage();
+                currentY = margin;
+
+                // Reimprime o cabeçalho
+                xPos = startX;
+                doc.setFillColor(79, 70, 229);
+                doc.rect(startX, currentY, pageWidth - (margin * 2), 8, 'F');
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+
+                doc.text("Nome da Adolescente", xPos + 2, currentY + 5.5);
+                xPos += colWidths.nome;
+                doc.text("CNS", xPos + 2, currentY + 5.5);
+                xPos += colWidths.cns;
+                doc.text("Nome da Mãe", xPos + 2, currentY + 5.5);
+                xPos += colWidths.mae;
+                doc.text("Idade", xPos + 2, currentY + 5.5);
+                xPos += colWidths.idade;
+                doc.text("Equipe", xPos + 2, currentY + 5.5);
+                xPos += colWidths.equipe;
+                doc.text("Micro-área", xPos + 2, currentY + 5.5);
+                xPos += colWidths.microarea;
+                doc.text("Agente", xPos + 2, currentY + 5.5);
+                xPos += colWidths.agente;
+                doc.text("Método - Situação", xPos + 2, currentY + 5.5);
+                xPos += colWidths.metodo;
+                doc.text("Observação", xPos + 2, currentY + 5.5);
+
+                currentY += 8;
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7);
+                doc.setTextColor(0, 0, 0);
+            }
+
+            // Cor alternada nas linhas
+            if (index % 2 === 0) {
+                doc.setFillColor(249, 250, 251); // gray-50
+                doc.rect(startX, currentY, pageWidth - (margin * 2), 7, 'F');
+            }
+
+            // Dados da linha
+            xPos = startX;
+            const rowY = currentY + 5;
+
+            // Nome da Adolescente
+            const nomeAdolescente = doc.splitTextToSize(ado.nome_paciente || '-', colWidths.nome - 4);
+            doc.text(nomeAdolescente[0] || '-', xPos + 2, rowY);
+            xPos += colWidths.nome;
+
+            // CNS
+            const cnsTexto = ado.cartao_sus ? String(ado.cartao_sus) : '-';
+            doc.text(cnsTexto, xPos + 2, rowY);
+            xPos += colWidths.cns;
+
+            // Nome da Mãe
+            const nomeMae = doc.splitTextToSize(ado.nome_responsavel || '-', colWidths.mae - 4);
+            doc.text(nomeMae[0] || '-', xPos + 2, rowY);
+            xPos += colWidths.mae;
+
+            // Idade
+            const idadeTexto = ado.idade_calculada ? String(ado.idade_calculada) : '-';
+            doc.text(idadeTexto, xPos + 2, rowY);
+            xPos += colWidths.idade;
+
+            // Equipe
+            const nomeEquipe = doc.splitTextToSize(ado.nome_equipe || '-', colWidths.equipe - 4);
+            doc.text(nomeEquipe[0] || '-', xPos + 2, rowY);
+            xPos += colWidths.equipe;
+
+            // Micro-área
+            const microareaTexto = ado.microarea ? String(ado.microarea) : '-';
+            doc.text(microareaTexto, xPos + 2, rowY);
+            xPos += colWidths.microarea;
+
+            // Agente
+            const nomeAgente = doc.splitTextToSize(ado.nome_agente || '-', colWidths.agente - 4);
+            doc.text(nomeAgente[0] || '-', xPos + 2, rowY);
+            xPos += colWidths.agente;
+
+            // Método - Situação
+            let metodoSituacao = '';
+            if (ado.status_gravidez === 'Gestante') {
+                metodoSituacao = 'Gestante';
+            } else if (ado.metodo && ado.metodo.trim() !== '') {
+                metodoSituacao = ado.metodo;
+                if (ado.data_aplicacao) {
+                    const dataApp = new Date(ado.data_aplicacao + 'T00:00:00');
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+
+                    let diasParaVencimento = 0;
+                    const metodoLower = ado.metodo.toLowerCase();
+
+                    if (metodoLower.includes('mensal') || metodoLower.includes('pílula')) {
+                        diasParaVencimento = 30;
+                    } else if (metodoLower.includes('trimestral')) {
+                        diasParaVencimento = 90;
+                    } else if (metodoLower.includes('implante')) {
+                        diasParaVencimento = 1095; // 3 anos
+                    } else if (metodoLower.includes('diu')) {
+                        diasParaVencimento = 3650; // 10 anos
+                    } else if (metodoLower.includes('laqueadura')) {
+                        metodoSituacao += ' - Permanente';
+                    }
+
+                    if (diasParaVencimento > 0) {
+                        const dataVencimento = new Date(dataApp);
+                        dataVencimento.setDate(dataVencimento.getDate() + diasParaVencimento);
+
+                        if (dataVencimento < hoje) {
+                            const diasVencido = Math.floor((hoje - dataVencimento) / (1000 * 60 * 60 * 24));
+                            metodoSituacao += ` - Vencido há ${diasVencido} dias`;
+                        } else if (dataVencimento.getTime() === hoje.getTime()) {
+                            metodoSituacao += ' - Vence hoje';
+                        } else {
+                            metodoSituacao += ' - Em dia';
+                        }
+                    }
+                }
+            } else {
+                metodoSituacao = 'Sem método';
+            }
+
+            const metodoTexto = doc.splitTextToSize(metodoSituacao, colWidths.metodo - 4);
+            doc.text(metodoTexto[0] || '-', xPos + 2, rowY);
+            xPos += colWidths.metodo;
+
+            // Observação (em branco)
+            doc.text('', xPos + 2, rowY);
+
+            // Borda inferior da linha
+            doc.setDrawColor(229, 231, 235); // gray-200
+            doc.line(startX, currentY + 7, pageWidth - margin, currentY + 7);
+
+            currentY += 7;
+        });
+
+        // Adiciona página para os informativos
+        doc.addPage();
+    }
+
     function generateMotherInformativePDF(selectedAdolescents) {
         if (!selectedAdolescents || selectedAdolescents.length === 0) {
             alert("Nenhuma adolescente selecionada para gerar informativos.");
@@ -1155,6 +1372,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('l', 'mm', 'a4'); // Alterado para Landscape (paisagem)
+
+        // PRIMEIRA PÁGINA: RELATÓRIO
+        generateRelatorioPage(doc, selectedAdolescents);
+
+        // DEMAIS PÁGINAS: INFORMATIVOS PARA MÃES
         const informativosPorPagina = 3;
 
         // Dimensões da página A4 em paisagem
