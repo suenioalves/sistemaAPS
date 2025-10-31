@@ -34,7 +34,7 @@ function renderizarHipertensos(cidadaos) {
     if (!cidadaos || cidadaos.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="11" class="px-4 py-8 text-center text-gray-400">
+                <td colspan="12" class="px-4 py-8 text-center text-gray-400">
                     Nenhum hipertenso encontrado
                 </td>
             </tr>
@@ -99,6 +99,14 @@ function renderizarHipertensos(cidadaos) {
                     </span>
                 </td>
                 <td class="px-2 py-1 text-center">
+                    <button onclick="alternarRegistroPec(${c.cod_cidadao}, ${c.registrado_pec})"
+                            class="px-2 py-1 rounded text-[9px] font-semibold ${c.registrado_pec ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+                            id="btn-pec-${c.cod_cidadao}"
+                            title="${c.registrado_pec ? 'Marcar como não registrado' : 'Marcar como registrado'}">
+                        ${c.registrado_pec ? 'Sim' : 'Não'}
+                    </button>
+                </td>
+                <td class="px-2 py-1 text-center">
                     <button onclick="visualizarHistoricoTriagens(${c.cod_individual})"
                             class="text-blue-600 hover:text-blue-800"
                             title="Ver histórico">
@@ -108,6 +116,47 @@ function renderizarHipertensos(cidadaos) {
             </tr>
         `;
     }).join('');
+}
+
+// Função para alternar registro no PEC
+async function alternarRegistroPec(cod_cidadao, registrado_atual) {
+    const novo_status = !registrado_atual;
+
+    try {
+        const response = await fetch(`/api/rastreamento/atualizar-registro-pec/${cod_cidadao}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                registrado_pec: novo_status
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Atualizar o botão
+            const btn = document.getElementById(`btn-pec-${cod_cidadao}`);
+            if (btn) {
+                if (novo_status) {
+                    btn.className = 'px-2 py-1 rounded text-[9px] font-semibold bg-green-100 text-green-700 hover:bg-green-200';
+                    btn.textContent = 'Sim';
+                    btn.title = 'Marcar como não registrado';
+                } else {
+                    btn.className = 'px-2 py-1 rounded text-[9px] font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200';
+                    btn.textContent = 'Não';
+                    btn.title = 'Marcar como registrado';
+                }
+                btn.onclick = () => alternarRegistroPec(cod_cidadao, novo_status);
+            }
+        } else {
+            alert('Erro ao atualizar status: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Erro ao atualizar registro PEC:', error);
+        alert('Erro ao atualizar status de registro no PEC');
+    }
 }
 
 // Função auxiliar para formatar CPF/CNS (reutilizando do arquivo nao_hipertensos)

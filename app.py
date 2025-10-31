@@ -13700,6 +13700,7 @@ def get_hipertensos():
             rc.sexo,
             rc.resultado_rastreamento,
             rc.created_at as data_triagem,
+            rc.registrado_pec,
             -- Média de PA
             rmp.media_pas,
             rmp.media_pad,
@@ -13775,7 +13776,8 @@ def get_hipertensos():
                 'data_triagem': c['data_triagem'].strftime('%d/%m/%Y') if c['data_triagem'] else '---',
                 'data_triagem_iso': c['data_triagem'].isoformat() if c['data_triagem'] else None,
                 'dias_restantes': dias_restantes,
-                'status_validade': 'Válida' if dias_restantes > 0 else 'Expirada'
+                'status_validade': 'Válida' if dias_restantes > 0 else 'Expirada',
+                'registrado_pec': c['registrado_pec'] if c['registrado_pec'] is not None else False
             })
 
         return jsonify({
@@ -13789,6 +13791,51 @@ def get_hipertensos():
 
     except Exception as e:
         print(f"Erro ao buscar hipertensos: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route('/api/rastreamento/atualizar-registro-pec/<int:cod_cidadao>', methods=['POST'])
+def atualizar_registro_pec(cod_cidadao):
+    """
+    Atualiza o status de registro no PEC de um cidadão
+    """
+    conn = None
+    cur = None
+
+    try:
+        data = request.get_json()
+        registrado_pec = data.get('registrado_pec', False)
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Atualizar status de registro no PEC
+        cur.execute("""
+            UPDATE sistemaaps.tb_rastreamento_cidadaos
+            SET registrado_pec = %s
+            WHERE cod_seq_rastreamento_cidadao = %s
+        """, [registrado_pec, cod_cidadao])
+
+        conn.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Status de registro no PEC atualizado com sucesso',
+            'registrado_pec': registrado_pec
+        })
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Erro ao atualizar registro PEC: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500

@@ -45,7 +45,9 @@
       "Bash(taskkill //F //IM python.exe)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT extname FROM pg_extension WHERE extname = ''unaccent'';\")",
       "Bash(del \"c:\\Users\\Pichau\\Desktop\\SISTEMA APS\\sistemaAPS\\install_unaccent.py\")",
-      "Read(//c//**)"
+      "Read(//c//**)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -f \"c:/Users/Pichau/Desktop/SISTEMA APS/sistemaAPS/bd_sistema_aps/Scripts/Rastreamento_Cardiovascular/ALTER_TABLE_ADD_REGISTRADO_PEC.sql\")",
+      "Bash(del add_registrado_pec_column.py)"
     ],
     "deny": [],
     "ask": [],
