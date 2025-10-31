@@ -238,6 +238,12 @@ function renderizarConteudoAba(nomeAba, dashboard) {
                 carregarSuspeitosHAS(1);
             }
             break;
+        case 'hipertensos':
+            // Carregar dados dos Hipertensos via endpoint específico
+            if (typeof carregarHipertensos === 'function') {
+                carregarHipertensos(1);
+            }
+            break;
     }
 }
 

@@ -13632,6 +13632,174 @@ def get_historico_triagens(cod_individual):
             conn.close()
 
 
+@app.route('/api/rastreamento/hipertensos', methods=['GET'])
+def get_hipertensos():
+    """
+    Retorna lista de cidadãos com triagem concluída como HIPERTENSO
+    Triagens válidas: concluídas há menos de 1 ano
+    """
+    conn = None
+    cur = None
+
+    try:
+        # Parâmetros de filtro
+        equipe = request.args.get('equipe', '')
+        microarea = request.args.get('microarea', '')
+        busca = request.args.get('busca', '')
+        pagina = int(request.args.get('pagina', 1))
+        por_pagina = 20
+        offset = (pagina - 1) * por_pagina
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Construir WHERE clauses
+        where_clauses = ["rc.resultado_rastreamento = 'HIPERTENSO'"]
+        where_clauses.append("rf.status_rastreamento = 'CONCLUIDO'")
+
+        # Filtrar por triagens válidas (menos de 1 ano)
+        where_clauses.append("rc.created_at >= CURRENT_DATE - INTERVAL '1 year'")
+
+        params = {}
+
+        if equipe:
+            where_clauses.append("rf.equipe = %(equipe)s")
+            params['equipe'] = equipe
+
+        if microarea:
+            where_clauses.append("rf.microarea = %(microarea)s")
+            params['microarea'] = microarea
+
+        if busca:
+            where_clauses.append("unaccent(LOWER(rc.nome_cidadao)) LIKE unaccent(LOWER(%(busca)s))")
+            params['busca'] = f"%{busca}%"
+
+        where_sql = " AND ".join(where_clauses)
+
+        # Query para contar total
+        query_count = f"""
+        SELECT COUNT(DISTINCT rc.cod_seq_rastreamento_cidadao) as total
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        INNER JOIN sistemaaps.tb_rastreamento_familias rf
+            ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+        WHERE {where_sql}
+        """
+
+        cur.execute(query_count, params)
+        total = cur.fetchone()['total']
+
+        # Query principal
+        query = f"""
+        SELECT DISTINCT ON (rc.cod_seq_rastreamento_cidadao)
+            rc.cod_seq_rastreamento_cidadao,
+            rc.co_seq_cds_cad_individual,
+            rc.nome_cidadao,
+            COALESCE(c.nu_cpf, ci.nu_cpf_cidadao) as cpf_cidadao,
+            COALESCE(c.nu_cns, ci.nu_cns_cidadao) as cns_cidadao,
+            rc.idade_no_rastreamento,
+            rc.sexo,
+            rc.resultado_rastreamento,
+            rc.created_at as data_triagem,
+            -- Média de PA
+            rmp.media_pas,
+            rmp.media_pad,
+            -- Dados da família/domicílio
+            rf.cod_seq_rastreamento_familia,
+            rf.equipe,
+            rf.microarea,
+            -- Dados do domicílio
+            mv.logradouro_completo || ', ' || mv.nu_domicilio as endereco_domicilio,
+            -- Responsável familiar
+            CASE
+                WHEN mv.responsaveis_info IS NOT NULL
+                THEN SPLIT_PART(SPLIT_PART(mv.responsaveis_info, '::', 2), '|', 1)
+                ELSE 'Sem responsável'
+            END as responsavel_familiar,
+            -- Verificar se o cidadão é o próprio responsável
+            CASE
+                WHEN ci.st_responsavel_familiar = 1 THEN true
+                ELSE false
+            END as eh_responsavel
+        FROM sistemaaps.tb_rastreamento_cidadaos rc
+        INNER JOIN sistemaaps.tb_rastreamento_familias rf
+            ON rf.cod_seq_rastreamento_familia = rc.cod_rastreamento_familia
+        LEFT JOIN sistemaaps.tb_rastreamento_resultado_media_pa rmp
+            ON rmp.cod_rastreamento_cidadao = rc.cod_seq_rastreamento_cidadao
+            AND rmp.tipo_medicao = 'TRIAGEM'
+        LEFT JOIN sistemaaps.mv_domicilios_resumo mv
+            ON mv.id_domicilio = rf.co_seq_cds_cad_domiciliar
+        LEFT JOIN tb_cds_cad_individual ci
+            ON ci.co_seq_cds_cad_individual = rc.co_seq_cds_cad_individual
+            AND ci.st_versao_atual = 1
+        LEFT JOIN tb_cidadao c
+            ON c.co_unico_ultima_ficha = ci.co_unico_ficha
+            AND c.st_ativo = 1
+        WHERE {where_sql}
+        ORDER BY rc.cod_seq_rastreamento_cidadao, rc.created_at DESC
+        LIMIT %(limit)s OFFSET %(offset)s
+        """
+
+        params['limit'] = por_pagina
+        params['offset'] = offset
+
+        cur.execute(query, params)
+        cidadaos = cur.fetchall()
+
+        # Formatar dados
+        resultado = []
+        for c in cidadaos:
+            # Calcular dias restantes até expiração (1 ano)
+            data_triagem = c['data_triagem']
+            if data_triagem:
+                from datetime import datetime, timedelta
+                data_expiracao = data_triagem + timedelta(days=365)
+                dias_restantes = (data_expiracao - datetime.now()).days
+            else:
+                dias_restantes = 0
+
+            resultado.append({
+                'cod_cidadao': c['cod_seq_rastreamento_cidadao'],
+                'cod_individual': c['co_seq_cds_cad_individual'],
+                'nome': c['nome_cidadao'],
+                'cpf': c['cpf_cidadao'],
+                'cns': c['cns_cidadao'],
+                'idade': c['idade_no_rastreamento'],
+                'sexo': c['sexo'],
+                'domicilio': c['endereco_domicilio'],
+                'responsavel_familiar': c['responsavel_familiar'] if not c['eh_responsavel'] else 'Ele mesmo',
+                'equipe': c['equipe'],
+                'microarea': c['microarea'],
+                'media_pa': f"{c['media_pas']}/{c['media_pad']}" if c['media_pas'] and c['media_pad'] else '---',
+                'media_pas': c['media_pas'],
+                'media_pad': c['media_pad'],
+                'data_triagem': c['data_triagem'].strftime('%d/%m/%Y') if c['data_triagem'] else '---',
+                'data_triagem_iso': c['data_triagem'].isoformat() if c['data_triagem'] else None,
+                'dias_restantes': dias_restantes,
+                'status_validade': 'Válida' if dias_restantes > 0 else 'Expirada'
+            })
+
+        return jsonify({
+            'success': True,
+            'cidadaos': resultado,
+            'total': total,
+            'pagina_atual': pagina,
+            'por_pagina': por_pagina,
+            'total_paginas': (total + por_pagina - 1) // por_pagina
+        })
+
+    except Exception as e:
+        print(f"Erro ao buscar hipertensos: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
 # ============================================================================
 # MRPA ENDPOINTS
 # ============================================================================

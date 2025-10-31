@@ -44,7 +44,8 @@
       "Bash(del add_paginacao_function.py)",
       "Bash(taskkill //F //IM python.exe)",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT extname FROM pg_extension WHERE extname = ''unaccent'';\")",
-      "Bash(del \"c:\\Users\\Pichau\\Desktop\\SISTEMA APS\\sistemaAPS\\install_unaccent.py\")"
+      "Bash(del \"c:\\Users\\Pichau\\Desktop\\SISTEMA APS\\sistemaAPS\\install_unaccent.py\")",
+      "Read(//c//**)"
     ],
     "deny": [],
     "ask": [],
