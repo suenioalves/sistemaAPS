@@ -2262,7 +2262,8 @@ window.verResultadosFamilia = async function(codRastreamentoFamilia) {
         document.getElementById('resultado-total-integrantes').textContent = data.estatisticas.total_integrantes;
         document.getElementById('resultado-total-triados').textContent = data.estatisticas.total_triados;
         document.getElementById('resultado-total-normais').textContent = data.estatisticas.total_normais;
-        document.getElementById('resultado-total-hipertensos').textContent = data.estatisticas.total_hipertensos;
+        document.getElementById('resultado-total-hipertensos').textContent = data.estatisticas.total_suspeitos_has || 0;
+        document.getElementById('resultado-total-hipertensos-diagnosticados').textContent = data.estatisticas.total_hipertensos_diagnosticados || 0;
 
         // Configurar status e badge
         const statusContainer = document.getElementById('resultado-status-container');
@@ -2311,6 +2312,29 @@ function renderizarIntegrantesResultado(integrantes) {
 
     container.innerHTML = integrantes.map(integrante => {
         const foiTriado = integrante.resultado_rastreamento !== null;
+        const temDiagnosticoHAS = integrante.tem_diagnostico_has === true;
+
+        // Paciente já diagnosticado como hipertenso (não precisa de triagem)
+        if (temDiagnosticoHAS) {
+            return `
+                <div class="border border-purple-300 rounded-lg p-4 bg-purple-50">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-gray-800">${integrante.nome}</h4>
+                            <p class="text-sm text-gray-600">${integrante.idade} anos - ${integrante.sexo === 'M' ? 'Masculino' : 'Feminino'}</p>
+                        </div>
+                        <span class="px-3 py-1 bg-purple-600 text-white rounded-full text-xs font-semibold">
+                            Hipertenso
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <p class="text-xs text-purple-700">
+                            <i class="ri-information-line"></i> Paciente já possui diagnóstico de HAS
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
 
         if (!foiTriado) {
             // Integrante não triado

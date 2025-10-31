@@ -24,8 +24,14 @@ function renderizarStepAfericoesMRPA(container) {
 
     const listaCidadaos = container.querySelector('#lista-cidadaos-mrpa');
 
+    // Ordenar cidadãos por idade (mais velho primeiro)
+    const cidadaosOrdenados = [...estadoApp.cidadaosSelecionados].sort((a, b) => {
+        // Ordenar do mais velho (maior idade) para o mais novo (menor idade)
+        return b.idade - a.idade;
+    });
+
     // Renderizar cada cidadão selecionado
-    estadoApp.cidadaosSelecionados.forEach((cidadao, index) => {
+    cidadaosOrdenados.forEach((cidadao, index) => {
         const cardCidadao = criarCardCidadaoMRPA(cidadao, index);
         listaCidadaos.appendChild(cardCidadao);
     });

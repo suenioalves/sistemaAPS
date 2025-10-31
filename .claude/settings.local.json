@@ -42,7 +42,9 @@
       "Bash(copy \"modelo_mrpa.png\" \"static/modelo_mrpa.png\")",
       "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"\\d sistemaaps.tb_rastreamento_afericoes_mrpa\")",
       "Bash(del add_paginacao_function.py)",
-      "Bash(taskkill //F //IM python.exe)"
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(\"/c/Program Files/PostgreSQL/16/bin/psql\" -h localhost -p 5433 -U postgres -d esus -c \"SELECT extname FROM pg_extension WHERE extname = ''unaccent'';\")",
+      "Bash(del \"c:\\Users\\Pichau\\Desktop\\SISTEMA APS\\sistemaAPS\\install_unaccent.py\")"
     ],
     "deny": [],
     "ask": [],

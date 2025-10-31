@@ -10469,8 +10469,8 @@ def api_rastreamento_dashboard():
 
         if tem_busca_real:
             query_count_base += """ AND (
-                mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
             )"""
             params_count.extend([f"%{busca}%", f"%{busca}%"])
 
@@ -10535,8 +10535,8 @@ def api_rastreamento_dashboard():
                 params_em_triagem.append(f"%{microarea}%")
             if busca and busca.strip():
                 query_count_em_triagem += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
                 params_em_triagem.extend([f"%{busca}%", f"%{busca}%"])
 
@@ -10575,8 +10575,8 @@ def api_rastreamento_dashboard():
                 query_em_triagem += " AND rf.microarea LIKE %s"
             if busca and busca.strip():
                 query_em_triagem += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
 
             query_em_triagem += f"""
@@ -10616,8 +10616,8 @@ def api_rastreamento_dashboard():
                 params_triagem_completa.append(f"%{microarea}%")
             if busca and busca.strip():
                 query_count_triagem_completa += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
                 params_triagem_completa.extend([f"%{busca}%", f"%{busca}%"])
 
@@ -10658,8 +10658,8 @@ def api_rastreamento_dashboard():
                 query_triagem_completa += " AND rf.microarea LIKE %s"
             if busca and busca.strip():
                 query_triagem_completa += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
 
             query_triagem_completa += f"""
@@ -10699,8 +10699,8 @@ def api_rastreamento_dashboard():
                 params_triagem_incompleta.append(f"%{microarea}%")
             if busca and busca.strip():
                 query_count_triagem_incompleta += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
                 params_triagem_incompleta.extend([f"%{busca}%", f"%{busca}%"])
 
@@ -10741,8 +10741,8 @@ def api_rastreamento_dashboard():
                 query_triagem_incompleta += " AND rf.microarea LIKE %s"
             if busca and busca.strip():
                 query_triagem_incompleta += """ AND (
-                    mv.nomes_moradores_lower LIKE LOWER(unaccent(%s))
-                    OR LOWER(unaccent(mv.logradouro_completo)) LIKE LOWER(unaccent(%s))
+                    unaccent(mv.nomes_moradores_lower) LIKE unaccent(LOWER(%s))
+                    OR unaccent(LOWER(mv.logradouro_completo)) LIKE unaccent(LOWER(%s))
                 )"""
 
             query_triagem_incompleta += f"""
@@ -10822,8 +10822,8 @@ def api_rastreamento_dashboard():
             params_em_triagem.append(microarea)
         if busca:
             query_em_triagem += """ AND (
-                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
-                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+                unaccent(LOWER(ci.no_cidadao)) LIKE unaccent(LOWER(%s))
+                OR unaccent(LOWER(d.no_logradouro)) LIKE unaccent(LOWER(%s))
             )"""
             busca_param = f"%{busca}%"
             params_em_triagem.extend([busca_param, busca_param])
@@ -10897,8 +10897,8 @@ def api_rastreamento_dashboard():
             params_triagem_completa.append(microarea)
         if busca:
             query_triagem_completa += """ AND (
-                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
-                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+                unaccent(LOWER(ci.no_cidadao)) LIKE unaccent(LOWER(%s))
+                OR unaccent(LOWER(d.no_logradouro)) LIKE unaccent(LOWER(%s))
             )"""
             busca_param = f"%{busca}%"
             params_triagem_completa.extend([busca_param, busca_param])
@@ -10975,8 +10975,8 @@ def api_rastreamento_dashboard():
             params_triagem_incompleta.append(microarea)
         if busca:
             query_triagem_incompleta += """ AND (
-                LOWER(unaccent(ci.no_cidadao)) LIKE LOWER(unaccent(%s))
-                OR LOWER(unaccent(d.no_logradouro)) LIKE LOWER(unaccent(%s))
+                unaccent(LOWER(ci.no_cidadao)) LIKE unaccent(LOWER(%s))
+                OR unaccent(LOWER(d.no_logradouro)) LIKE unaccent(LOWER(%s))
             )"""
             busca_param = f"%{busca}%"
             params_triagem_incompleta.extend([busca_param, busca_param])
@@ -11027,7 +11027,7 @@ def api_rastreamento_dashboard():
             query_nao_hipertensos += " AND vr.microarea = %s"
             params_nao_hipertensos.append(microarea)
         if busca:
-            query_nao_hipertensos += " AND LOWER(unaccent(rc.nome_cidadao)) LIKE LOWER(unaccent(%s))"
+            query_nao_hipertensos += " AND unaccent(LOWER(rc.nome_cidadao)) LIKE unaccent(LOWER(%s))"
             params_nao_hipertensos.append(f"%{busca}%")
 
         query_nao_hipertensos += """
@@ -11086,7 +11086,7 @@ def api_rastreamento_dashboard():
             query_hipertensos += " AND vr.microarea = %s"
             params_hipertensos.append(microarea)
         if busca:
-            query_hipertensos += " AND LOWER(unaccent(rc.nome_cidadao)) LIKE LOWER(unaccent(%s))"
+            query_hipertensos += " AND unaccent(LOWER(rc.nome_cidadao)) LIKE unaccent(LOWER(%s))"
             params_hipertensos.append(f"%{busca}%")
 
         query_hipertensos += """
@@ -13160,12 +13160,25 @@ def visualizar_triagem_familia(cod_rastreamento_familia):
 
             integrantes.append(integrante_data)
 
-        # Calcular estatísticas (considerando apenas elegíveis - sem diagnóstico de HAS)
+        # Calcular estatísticas
+        # Total de integrantes: TODOS os integrantes (incluindo hipertensos)
+        total_integrantes = len(integrantes)
+
+        # Integrantes elegíveis para triagem (sem diagnóstico prévio de HAS)
         integrantes_elegiveis = [i for i in integrantes if not i['tem_diagnostico_has']]
-        total_integrantes = len(integrantes_elegiveis)
+        total_elegiveis = len(integrantes_elegiveis)
+
+        # Triados: apenas entre os elegíveis
         total_triados = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'])
+
+        # Suspeitos de HAS: resultado da triagem
         total_suspeitos_has = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] == 'SUSPEITO_HAS')
+
+        # Não hipertensos: resultado da triagem
         total_nao_hipertensos = sum(1 for i in integrantes_elegiveis if i['resultado_rastreamento'] == 'NAO_HIPERTENSO')
+
+        # Hipertensos diagnosticados: já tinham diagnóstico antes da triagem
+        total_hipertensos_diagnosticados = sum(1 for i in integrantes if i['tem_diagnostico_has'])
 
         return jsonify({
             'success': True,
@@ -13173,10 +13186,12 @@ def visualizar_triagem_familia(cod_rastreamento_familia):
             'integrantes': integrantes,
             'estatisticas': {
                 'total_integrantes': total_integrantes,
+                'total_elegiveis': total_elegiveis,
                 'total_triados': total_triados,
-                'total_hipertensos': total_suspeitos_has,
+                'total_suspeitos_has': total_suspeitos_has,
                 'total_normais': total_nao_hipertensos,
-                'percentual_completo': round((total_triados / total_integrantes * 100) if total_integrantes > 0 else 0, 1)
+                'total_hipertensos_diagnosticados': total_hipertensos_diagnosticados,
+                'percentual_completo': round((total_triados / total_elegiveis * 100) if total_elegiveis > 0 else 0, 1)
             }
         })
 
@@ -13653,8 +13668,9 @@ def get_mrpa_data(cod_cidadao):
                 dia_medicao,
                 periodo,
                 numero_afericao,
-                pressao_arterial_sistolica as pas,
-                pressao_arterial_diastolica as pad
+                pressao_sistolica as pas,
+                pressao_diastolica as pad,
+                data_afericao
             FROM sistemaaps.tb_rastreamento_afericoes_mrpa
             WHERE cod_rastreamento_cidadao = %s
             ORDER BY dia_medicao, periodo DESC, numero_afericao
@@ -13742,35 +13758,66 @@ def salvar_mrpa():
         total_pad = 0
         total_medicoes = 0
 
-        for dia_str, periodos in medicoes.items():
-            dia = int(dia_str)
+        # Verificar se medicoes é uma lista (novo formato) ou dicionário (formato antigo)
+        if isinstance(medicoes, list):
+            # Novo formato: lista de objetos
+            for medicao in medicoes:
+                try:
+                    dia = medicao.get('dia_medicao')
+                    periodo = medicao.get('periodo')
+                    numero = medicao.get('numero_afericao')
+                    pas = medicao.get('pressao_sistolica')
+                    pad = medicao.get('pressao_diastolica')
+                    data_afericao = medicao.get('data_afericao')
 
-            for periodo, numeros in periodos.items():
-                for numero_str, valor in numeros.items():
-                    numero = int(numero_str)
+                    if all([dia, periodo, numero, pas, pad]):
+                        # Inserir medição
+                        cur.execute("""
+                            INSERT INTO sistemaaps.tb_rastreamento_afericoes_mrpa
+                            (cod_rastreamento_cidadao, dia_medicao, periodo, numero_afericao,
+                             pressao_sistolica, pressao_diastolica, data_afericao)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, [cod_rastreamento_cidadao, dia, periodo, numero, pas, pad, data_afericao])
 
-                    # Parse "PAS/PAD"
-                    if '/' in valor and valor.strip():
-                        try:
-                            pas, pad = valor.split('/')
-                            pas = int(pas.strip())
-                            pad = int(pad.strip())
+                        # Acumular para média
+                        total_pas += pas
+                        total_pad += pad
+                        total_medicoes += 1
 
-                            # Inserir medição
-                            cur.execute("""
-                                INSERT INTO sistemaaps.tb_rastreamento_afericoes_mrpa
-                                (cod_rastreamento_cidadao, dia_medicao, periodo, numero_afericao,
-                                 pressao_arterial_sistolica, pressao_arterial_diastolica)
-                                VALUES (%s, %s, %s, %s, %s, %s)
-                            """, [cod_rastreamento_cidadao, dia, periodo, numero, pas, pad])
+                except (ValueError, AttributeError, KeyError) as e:
+                    print(f"Erro ao processar medição: {e}")
+                    continue
+        else:
+            # Formato antigo: dicionário aninhado
+            for dia_str, periodos in medicoes.items():
+                dia = int(dia_str)
 
-                            # Acumular para média
-                            total_pas += pas
-                            total_pad += pad
-                            total_medicoes += 1
+                for periodo, numeros in periodos.items():
+                    for numero_str, valor in numeros.items():
+                        numero = int(numero_str)
 
-                        except (ValueError, AttributeError):
-                            continue
+                        # Parse "PAS/PAD"
+                        if '/' in valor and valor.strip():
+                            try:
+                                pas, pad = valor.split('/')
+                                pas = int(pas.strip())
+                                pad = int(pad.strip())
+
+                                # Inserir medição
+                                cur.execute("""
+                                    INSERT INTO sistemaaps.tb_rastreamento_afericoes_mrpa
+                                    (cod_rastreamento_cidadao, dia_medicao, periodo, numero_afericao,
+                                     pressao_sistolica, pressao_diastolica)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                """, [cod_rastreamento_cidadao, dia, periodo, numero, pas, pad])
+
+                                # Acumular para média
+                                total_pas += pas
+                                total_pad += pad
+                                total_medicoes += 1
+
+                            except (ValueError, AttributeError):
+                                continue
 
         # Calcular médias
         if total_medicoes > 0:
@@ -13795,24 +13842,26 @@ def salvar_mrpa():
             # Verificar se é hipertenso: PAS >= 130 OU PAD >= 80
             is_hipertenso = media_pas >= 130 or media_pad >= 80
 
-            if is_hipertenso:
-                # Atualizar status do cidadão para HIPERTENSO
-                cur.execute("""
-                    UPDATE sistemaaps.tb_rastreamento_cidadaos
-                    SET resultado_rastreamento = 'HIPERTENSO'
-                    WHERE cod_seq_rastreamento_cidadao = %s
-                """, [cod_rastreamento_cidadao])
-
+            # Classificação detalhada
+            if media_pas < 130 and media_pad < 80:
+                classificacao = 'Normal'
+                novo_status = 'NAO_HIPERTENSO'
+            elif (130 <= media_pas < 140) or (80 <= media_pad < 90):
+                classificacao = 'Pressão Arterial Limítrofe'
+                novo_status = 'HIPERTENSO'
+            elif media_pas >= 140 or media_pad >= 90:
+                classificacao = 'Hipertensão'
                 novo_status = 'HIPERTENSO'
             else:
-                # Manter como NAO_HIPERTENSO
-                cur.execute("""
-                    UPDATE sistemaaps.tb_rastreamento_cidadaos
-                    SET resultado_rastreamento = 'NAO_HIPERTENSO'
-                    WHERE cod_seq_rastreamento_cidadao = %s
-                """, [cod_rastreamento_cidadao])
-
+                classificacao = 'Não Classificado'
                 novo_status = 'NAO_HIPERTENSO'
+
+            # Atualizar status do cidadão
+            cur.execute("""
+                UPDATE sistemaaps.tb_rastreamento_cidadaos
+                SET resultado_rastreamento = %s
+                WHERE cod_seq_rastreamento_cidadao = %s
+            """, [novo_status, cod_rastreamento_cidadao])
 
             conn.commit()
 
@@ -13823,7 +13872,8 @@ def salvar_mrpa():
                 'media_pad': media_pad,
                 'total_medicoes': total_medicoes,
                 'novo_status': novo_status,
-                'is_hipertenso': is_hipertenso
+                'is_hipertenso': is_hipertenso,
+                'classificacao': classificacao
             })
         else:
             return jsonify({'success': False, 'message': 'Nenhuma medição válida encontrada'}), 400

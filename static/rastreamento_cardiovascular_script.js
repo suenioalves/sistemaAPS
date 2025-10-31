@@ -1204,11 +1204,11 @@ function validarAfericoesMRPA() {
         const tipoEntrada = dados.tipo || 'individual';
 
         if (tipoEntrada === 'individual') {
-            // Verificar se tem pelo menos 3 dias de aferições
+            // Verificar se tem pelo menos 3 aferições (em qualquer combinação de dias)
             const afericoes = dados.afericoes || [];
             if (afericoes.length < 3) {
                 mostrarNotificacao(
-                    `${cidadao.nome_cidadao} precisa de pelo menos 3 dias de aferições`,
+                    `${cidadao.nome_cidadao} precisa de pelo menos 3 aferições registradas`,
                     'warning'
                 );
                 return false;
