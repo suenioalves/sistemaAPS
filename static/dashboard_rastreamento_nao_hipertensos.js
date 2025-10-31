@@ -253,13 +253,20 @@ function renderizarHistoricoTriagens(historico) {
     }
 
     tbody.innerHTML = historico.map(t => {
-        const resultadoClass = t.resultado === 'NAO_HIPERTENSO' || t.resultado === 'NORMAL' ?
-                               'bg-green-100 text-green-700' :
-                               'bg-red-100 text-red-700';
+        // Determinar classe e texto do resultado
+        let resultadoClass, resultadoText;
 
-        const resultadoText = t.resultado === 'NAO_HIPERTENSO' || t.resultado === 'NORMAL' ?
-                              'Não Hipertenso' :
-                              'Suspeito de HAS';
+        if (t.resultado === 'NAO_HIPERTENSO' || t.resultado === 'NORMAL') {
+            resultadoClass = 'bg-green-100 text-green-700';
+            resultadoText = 'Não Hipertenso';
+        } else if (t.resultado === 'HIPERTENSO') {
+            resultadoClass = 'bg-purple-100 text-purple-700';
+            resultadoText = 'Hipertenso';
+        } else {
+            // SUSPEITO_HAS
+            resultadoClass = 'bg-orange-100 text-orange-700';
+            resultadoText = 'Suspeito de HAS';
+        }
 
         const statusClass = t.expirada ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
         const statusText = t.expirada ? 'Expirada' : 'Válida';
